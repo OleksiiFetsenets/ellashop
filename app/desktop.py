@@ -24,6 +24,9 @@ if sys.stderr is None or sys.stdout is None:
 
 import server
 
+# Window icon: Windows (WinForms) needs an .ico; passing the PNG there stops the app from starting.
+ICON = ROOT / "windows" / "ellashop.ico" if os.name == "nt" else server.STATIC / "icon.png"
+
 
 # Start one local server, focus an existing window when present, and own shutdown.
 # Restart the process after an installed update requests a new code version.
@@ -49,7 +52,7 @@ def main():
         worker.start()
         try:
             webview.start(private_mode=False, storage_path=str(server.DATA / ".webview"),
-                          icon=str(server.STATIC / "icon.png"))
+                          icon=str(ICON) if ICON.is_file() else None)
         finally:
             httpd.shutdown()
             worker.join()
