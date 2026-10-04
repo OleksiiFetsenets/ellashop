@@ -1,0 +1,14 @@
+photos/
+app/.venv/
+app/.previous/
+**/app/static/fonts/local/**
+app/settings.json
+app/update.json
+app/photoroom_key.txt
+app/models/*.onnx
+dist/
+build/
+__pycache__/
+*.pyc
+.DS_Store
+tests/

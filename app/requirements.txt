@@ -1,0 +1,4 @@
+rembg[cpu]
+pillow
+opencv-python-headless
+pywebview

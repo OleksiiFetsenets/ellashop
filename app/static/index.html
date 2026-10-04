@@ -1,0 +1,290 @@
+<!doctype html>
+<!-- Defines the three photo views, dialogs, and controls for the browser UI. -->
+<!-- Loads the plain scripts in dependency order, ending with app startup. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ellashop</title>
+  <link rel="icon" href="icon.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Ellashop</h1>
+    <nav>
+      <button class="tab active" data-tab="prints">Prints</button>
+      <button class="tab" data-tab="canvas-view">Canvas</button>
+      <button class="tab" data-tab="passport">Passport photos</button>
+      <span class="undo-redo">
+        <button id="undo" class="ghost" title="Undo (⌘Z / Ctrl+Z)" aria-label="Undo" disabled>↶</button>
+        <button id="redo" class="ghost" title="Redo (⇧⌘Z / Ctrl+Shift+Z)" aria-label="Redo" disabled>↷</button>
+      </span>
+    </nav>
+    <label class="order-control prints-order-control"><span class="label-text">Order</span> <select id="order-picker" aria-label="Select order"></select></label>
+    <label class="order-control prints-order-control"><span class="label-text">Name</span> <input id="order-name" type="text" aria-label="Order name" placeholder="Order name"></label>
+    <button id="new-order" class="ghost prints-order-control">New order</button>
+    <button id="delete-order" class="ghost prints-order-control">Delete order</button>
+    <button id="open-folder" class="ghost" title="Open the folder with the finished files">Exported</button>
+    <button id="open-storage" class="ghost icon-btn" title="Settings" aria-label="Settings">⚙</button>
+    <button id="update-btn" class="primary" hidden></button>
+  </header>
+
+  <dialog id="storage-dialog" aria-labelledby="storage-title">
+    <div class="storage-head"><h2 id="storage-title">Settings</h2><button id="storage-close" class="ghost">Close</button></div>
+    <p id="storage-status" class="status" role="status"></p>
+    <h3>Storage and cleanup</h3>
+    <table class="storage-table"><thead><tr><th>Area</th><th>Photos / files</th><th>Size</th></tr></thead><tbody id="storage-totals"></tbody></table>
+    <div class="storage-lists">
+      <section><h3>Orders (Prints)</h3><div class="storage-scroll"><table class="storage-table"><thead><tr><th>Name</th><th>Last change</th><th>Photos</th><th>Size</th></tr></thead><tbody id="storage-orders"></tbody></table></div></section>
+      <section><h3>Finished file folders</h3><div class="storage-scroll"><table class="storage-table"><thead><tr><th>Name</th><th>Files</th><th>Size</th><th>Last saved</th></tr></thead><tbody id="storage-folders"></tbody></table></div></section>
+    </div>
+    <p id="storage-helper" class="small"></p>
+    <h3>Clean up now</h3>
+    <div class="storage-actions">
+      <label>Delete orders not changed for <input id="storage-orders-days" type="number" min="0" max="3650" step="1" value="14"> days <button data-clean="orders">Delete orders</button></label>
+      <button data-clean="incoming">Empty incoming</button>
+      <label>Delete finished files older than <input id="storage-finished-days" type="number" min="1" max="3650" step="1" value="30"> days <button data-clean="print_ready">Delete finished files</button></label>
+    </div>
+    <h3>Auto-clean at start and every hour <small>(0 = off; deleted files are listed in photos/cleanup.log)</small></h3>
+    <div class="storage-settings">
+      <label>Incoming <input id="auto-incoming" type="number" min="0" max="3650" step="1"> days</label>
+      <label>Orders <input id="auto-orders" type="number" min="0" max="3650" step="1"> days</label>
+      <label>Finished files <input id="auto-finished" type="number" min="0" max="87600" step="1"> hours</label>
+      <button id="storage-save" class="primary">Save</button>
+    </div>
+    <h3>Full cleanup</h3>
+    <div class="storage-settings">
+      <span class="small">Deletes every photo the app holds: incoming, all Prints orders, Canvas and Passport work and all finished files. Listed in photos/cleanup.log.</span>
+      <button id="full-clean" class="danger">Delete everything…</button>
+    </div>
+  </dialog>
+
+  <!-- ===================== PRINTS ===================== -->
+  <section id="prints" class="view active">
+    <aside class="left">
+      <label class="drop" id="prints-drop">
+        <input type="file" id="prints-file" accept="image/*,.zip" multiple hidden>
+        <strong>Drop photos here</strong><br><span>or click to choose</span>
+      </label>
+      <button class="ghost wide" data-incoming="prints">Load from incoming folder</button>
+      <ul id="queue" class="queue"></ul>
+    </aside>
+
+    <div class="stage" id="prints-stage">
+      <div class="view-bar" id="prints-view-bar" hidden>
+        <div class="seg"><button data-view="grid">Grid</button><button data-view="single">Single</button></div>
+        <button data-step="-1">◀ Prev</button><span class="view-count"></span><button data-step="1">Next ▶</button>
+      </div>
+      <div class="photo-grid" id="prints-grid" hidden></div>
+      <canvas id="prints-canvas"></canvas>
+      <p class="hint" id="prints-hint">Add photos to start. Drag the photo to move it, scroll to zoom.</p>
+    </div>
+
+    <aside class="right">
+      <h3>Format (cm)</h3>
+      <div class="grid" id="formats"></div>
+
+      <h3>Orientation</h3>
+      <div class="seg" id="orient">
+        <button data-v="auto" class="on">Auto</button>
+        <button data-v="portrait">Portrait</button>
+        <button data-v="landscape">Landscape</button>
+      </div>
+
+      <h3>Fill</h3>
+      <div class="seg" id="mode">
+        <button data-v="fill" class="on">Crop to fill</button>
+        <button data-v="fit">Fit, white border</button>
+        <button data-v="blur">Fit, blurred border</button>
+      </div>
+      <div id="prints-blur-controls" hidden>
+        <h3>Blur type</h3>
+        <div class="seg" id="prints-blur">
+          <button data-v="motion" class="on">Motion ↗</button>
+          <button data-v="gaussian">Gaussian</button>
+        </div>
+        <h3>Strength</h3>
+        <input type="range" id="prints-strength" min="1" max="100" value="50">
+      </div>
+      <label class="check"><input type="checkbox" id="prints-smart" checked> Smart placement for new photos</label>
+      <label class="check"><input type="checkbox" id="prints-faces" checked> Show faces</label>
+      <label class="check"><input type="checkbox" id="prints-measure"> Show measurements (cm)</label>
+      <label class="check composition-row">Composition guides <select id="prints-composition">
+        <option value="">None</option><option value="thirds">Rule of thirds</option><option value="golden">Golden ratio</option>
+        <option value="spiral">Fibonacci spiral</option><option value="diagonals">Diagonals</option>
+        <option value="triangles">Golden triangles</option><option value="perspective">Perspective</option>
+      </select><button type="button" id="prints-composition-turn" title="Turn / flip the guide (key O)">↻</button></label>
+      <button id="prints-auto" class="ghost wide">Auto place</button>
+
+      <h3>Adjust</h3>
+      <div class="row">
+        <button id="rot-l" title="Rotate left">⟲</button>
+        <button id="rot-r" title="Rotate right">⟳</button>
+        <input type="range" id="zoom" min="1" max="6" step="0.01" value="1" title="Zoom">
+        <span class="tilt-label" id="prints-tilt">Tilt 0.0°</span>
+        <button id="reset" title="Reset crop">Reset</button>
+      </div>
+
+      <h3>Density</h3>
+      <div id="prints-density"></div>
+      <section id="prints-overlays"></section>
+      <button id="apply-all" class="ghost wide">Use this format for all photos</button>
+      <div class="actions">
+        <button id="save-one" class="primary">Save this photo</button>
+        <button id="save-all" class="primary">Save all</button>
+      </div>
+      <p class="status" id="prints-status"></p>
+    </aside>
+  </section>
+
+  <!-- ===================== CANVAS ===================== -->
+  <section id="canvas-view" class="view">
+    <aside class="left">
+      <label class="drop" id="canvas-drop">
+        <input type="file" id="canvas-file" accept="image/*,.zip" multiple hidden>
+        <strong>Drop photos here</strong><br><span>or click to choose</span>
+      </label>
+      <button class="ghost wide" data-incoming="canvas">Load from incoming folder</button>
+      <ul id="canvas-queue" class="queue"></ul>
+      <button id="canvas-clear" class="ghost wide clear-all">Clear all</button>
+    </aside>
+    <div class="stage" id="canvas-stage">
+      <div class="view-bar" id="canvas-view-bar" hidden>
+        <div class="seg"><button data-view="grid">Grid</button><button data-view="single">Single</button></div>
+        <button data-step="-1">◀ Prev</button><span class="view-count"></span><button data-step="1">Next ▶</button>
+      </div>
+      <div class="photo-grid" id="canvas-grid" hidden></div>
+      <canvas id="canvas-preview"></canvas>
+      <p class="hint" id="canvas-hint">Add photos to start. Drag the front crop to move it, scroll to zoom.</p>
+    </div>
+    <aside class="right">
+      <h3>Format (cm)</h3>
+      <div class="grid" id="canvas-formats"></div>
+      <h3>Orientation</h3>
+      <div class="seg" id="canvas-orient">
+        <button data-v="auto" class="on">Auto</button>
+        <button data-v="portrait">Portrait</button>
+        <button data-v="landscape">Landscape</button>
+      </div>
+      <h3>Adjust</h3>
+      <div class="row">
+        <button id="canvas-rot-l" title="Rotate left">⟲</button>
+        <button id="canvas-rot-r" title="Rotate right">⟳</button>
+        <input type="range" id="canvas-zoom" min="1" max="6" step="0.01" value="1" title="Zoom">
+        <span class="tilt-label" id="canvas-tilt">Tilt 0.0°</span>
+        <button id="canvas-reset" title="Reset crop">Reset</button>
+      </div>
+      <h3>Wrap (cm)</h3>
+      <input type="number" id="canvas-wrap" min="2" max="15" step="0.5" value="5">
+      <h3>Blur type</h3>
+      <div class="seg" id="canvas-blur">
+        <button data-v="motion" class="on">Motion ↗</button>
+        <button data-v="gaussian">Gaussian</button>
+      </div>
+      <h3>Strength</h3>
+      <input type="range" id="canvas-strength" min="1" max="100" value="50">
+      <label class="check"><input type="checkbox" id="canvas-marks"> Fold marks</label>
+      <label class="check"><input type="checkbox" id="canvas-measure"> Show measurements (cm)</label>
+      <label class="check composition-row">Composition guides <select id="canvas-composition">
+        <option value="">None</option><option value="thirds">Rule of thirds</option><option value="golden">Golden ratio</option>
+        <option value="spiral">Fibonacci spiral</option><option value="diagonals">Diagonals</option>
+        <option value="triangles">Golden triangles</option><option value="perspective">Perspective</option>
+      </select><button type="button" id="canvas-composition-turn" title="Turn / flip the guide (key O)">↻</button></label>
+      <h3>Density</h3>
+      <div id="canvas-density"></div>
+      <section id="canvas-overlays"></section>
+      <button id="canvas-apply-all" class="ghost wide">Use these settings for all photos</button>
+      <p class="small" id="canvas-size"></p>
+      <div class="actions">
+        <button id="canvas-save-one" class="primary">Save this canvas</button>
+        <button id="canvas-save-all" class="primary">Save all</button>
+      </div>
+      <p class="status" id="canvas-status"></p>
+    </aside>
+  </section>
+
+  <!-- ===================== PASSPORT ===================== -->
+  <section id="passport" class="view">
+    <aside class="left">
+      <h3>1. Photo</h3>
+      <label class="drop" id="pp-drop">
+        <input type="file" id="pp-file" accept="image/*,.zip" multiple hidden>
+        <strong>Drop photos here</strong><br><span>or click to choose</span>
+      </label>
+      <button class="ghost wide" data-incoming="passport">Load from incoming folder</button>
+
+      <h3>2. Remove background</h3>
+      <label class="check"><input type="checkbox" id="pp-auto"> Remove background automatically when a photo is added</label>
+      <button id="pp-remove-all" class="ghost wide">Remove background for all</button>
+      <button id="pp-remove-local" class="primary wide" hidden>Remove background (offline)</button>
+      <p id="pp-local-note" class="small" hidden>Offline removal not installed — double-click app/setup_offline_bg.command</p>
+      <p class="small">Or by hand: open the Photoroom site, remove the background there, download the PNG and drop it into the box below.</p>
+      <div class="row">
+        <a class="button ghost" href="https://www.photoroom.com/ru/tools/background-remover" target="_blank" rel="noopener">Open Photoroom site ↗</a>
+      </div>
+      <label class="drop small-drop" id="pp-result-drop">
+        <input type="file" id="pp-result" accept="image/png,image/*" hidden>
+        Drop the Photoroom result (PNG) here
+      </label>
+
+      <h3>Background colour</h3>
+      <div class="swatches" id="pp-bg">
+        <button data-v="#ffffff" class="on" style="background:#ffffff" title="White"></button>
+        <button data-v="#f0f0f0" style="background:#f0f0f0" title="Light grey"></button>
+        <button data-v="#dfe9f5" style="background:#dfe9f5" title="Light blue"></button>
+      </div>
+      <button id="passport-clear" class="ghost wide clear-all">Clear all</button>
+    </aside>
+
+    <div class="stage passport-stage" id="pp-stage">
+      <div class="pp-tabs" id="pp-tabs"></div>
+      <button class="pp-add" id="pp-add" title="Add photos">+</button>
+      <canvas id="pp-canvas"></canvas>
+      <p class="hint" id="pp-hint">Load a photo. Then drag and zoom so the top of the head and the chin sit on the guide lines.</p>
+    </div>
+
+    <aside class="right">
+      <h3>3. Size</h3>
+      <div class="seg vertical" id="pp-size"></div>
+      <div class="row">
+        <input type="range" id="pp-zoom" min="0.3" max="15" step="0.01" value="1" title="Zoom">
+        <span class="tilt-label" id="pp-tilt">Tilt 0.0°</span>
+        <button id="pp-reset">Reset</button>
+      </div>
+      <div class="row">
+        <button id="pp-align" class="wide" title="Zoom and centre from the detected face">Auto align to face</button>
+        <button id="pp-align-all" class="wide" title="Re-align every passport photo to its document's guides">Auto align all photos</button>
+      </div>
+      <label class="check"><input type="checkbox" id="pp-guides" checked> Show head guides</label>
+      <label class="check"><input type="checkbox" id="pp-measure"> Show measurements (cm)</label>
+      <label class="check"><input type="checkbox" id="pp-align-new" checked> Auto align new photos</label>
+
+      <h3>Density</h3>
+      <div id="pp-density"></div>
+
+      <h3>4. Sheet 10 × 15</h3>
+      <canvas id="pp-sheet" class="sheet"></canvas>
+      <div class="actions">
+        <button id="pp-save" class="primary wide">Save sheet</button>
+        <button id="pp-save-all" class="primary wide">Save all sheets</button>
+      </div>
+      <p class="status" id="pp-status"></p>
+    </aside>
+  </section>
+
+  <script src="js/config.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/history.js"></script>
+  <script src="js/orders.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/editor.js"></script>
+  <script src="js/tabs.js"></script>
+  <script src="js/settings.js"></script>
+  <script src="js/prints.js"></script>
+  <script src="js/canvas.js"></script>
+  <script src="js/passport.js"></script>
+  <script src="js/shortcuts.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
