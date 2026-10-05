@@ -102,8 +102,8 @@ for (const [id, preview, key] of [['#prints-measure', prints.preview, 'prints'],
   });
 }
 
-// Composition guides (Prints, Canvas): remembered per tab; ↻ or the O key turns them.
-for (const [tab, preview] of [['prints', prints.preview], ['canvas', canvasPrints.preview]]) {
+// Composition guides: remembered per tab; ↻ or the O key turns them.
+for (const [tab, preview] of [['prints', prints.preview], ['canvas', canvasPrints.preview], ['collage', collage.preview]]) {
   const select = $(`#${tab}-composition`), turn = $(`#${tab}-composition-turn`);
   try {
     select.value = localStorage.getItem('ellashop-composition-' + tab) || '';
@@ -117,7 +117,9 @@ for (const [tab, preview] of [['prints', prints.preview], ['canvas', canvasPrint
 }
 document.addEventListener('keydown', e => {
   if (e.key.toLowerCase() !== 'o' || e.metaKey || e.ctrlKey || e.altKey || e.target.closest?.('input, textarea, select, [contenteditable]')) return;
-  const preview = $('#prints').classList.contains('active') ? prints.preview : $('#canvas-view').classList.contains('active') ? canvasPrints.preview : null;
+  const preview = $('#prints').classList.contains('active') ? prints.preview
+    : $('#canvas-view').classList.contains('active') ? canvasPrints.preview
+      : $('#collage').classList.contains('active') && collage.view === 'single' ? collage.preview : null;
   if (preview?.composition) { e.preventDefault(); preview.turnComposition(); }
 });
 

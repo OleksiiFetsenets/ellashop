@@ -546,6 +546,9 @@ function renderCollageSheetView() {
   const filled = collageFilledLeaves(sheet);
   if (collage.view === 'single' && (!collage.sel?.item || !filled.includes(collage.sel))) collage.view = 'sheet';
   const single = collage.view === 'single';
+  $('#collage-layout-section').hidden = single;
+  $('#collage-layout-note').hidden = !single;
+  $('#collage-composition-row').hidden = !single;
   const viewBar = $('#collage-view-bar'), hint = $('#collage-hint'), emptyPool = !collage.photos.length;
   viewBar.hidden = emptyPool;
   if (emptyPool) {
@@ -757,7 +760,12 @@ wireSeg($('#collage-orient'), orient => {
   refreshCollage(); queueSave('collage');
 });
 
-wireSeg($('#collage-layout'), layout => {
+const collageLayoutControl = $('#collage-layout');
+collageLayoutControl.addEventListener('click', e => {
+  if (collage.view === 'single') { e.preventDefault(); e.stopImmediatePropagation(); }
+}, true);
+wireSeg(collageLayoutControl, layout => {
+  if (collage.view === 'single') return;
   const sheet = collageSheet(); if (!sheet) return;
   if (layout === 'size') {
     const size = sheet.sizeCell || { w: 50, h: 75 }, old = cellRects(sheet), items = old.map(r => r.leaf.item).filter(Boolean);
@@ -816,11 +824,12 @@ $('#collage-shapes-minus').addEventListener('click', () => { $('#collage-shapes-
 $('#collage-shapes-plus').addEventListener('click', () => { $('#collage-shapes-count').value = Math.min(20, Number($('#collage-shapes-count').value) + 1); renderCollageShapes(); });
 $('#collage-shapes-count').addEventListener('change', renderCollageShapes);
 
-$('#collage-split-row').addEventListener('click', () => collageSplitSelected('row'));
-$('#collage-split-col').addEventListener('click', () => collageSplitSelected('col'));
-$('#collage-merge').addEventListener('click', collageMergeSelected);
-$('#collage-start-over').addEventListener('click', () => collageReplaceRoot(collageSheet(), collageLeaf(), 'custom'));
+$('#collage-split-row').addEventListener('click', () => { if (collage.view === 'single') return; collageSplitSelected('row'); });
+$('#collage-split-col').addEventListener('click', () => { if (collage.view === 'single') return; collageSplitSelected('col'); });
+$('#collage-merge').addEventListener('click', () => { if (collage.view === 'single') return; collageMergeSelected(); });
+$('#collage-start-over').addEventListener('click', () => { if (collage.view === 'single') return; collageReplaceRoot(collageSheet(), collageLeaf(), 'custom'); });
 $('#collage-equalize').addEventListener('click', () => {
+  if (collage.view === 'single') return;
   const sheet = collageSheet(); if (!sheet) return;
   const parent = collage.sel ? collageFindParent(sheet.root, collage.sel) : null;
   if (parent) parent.sizes = collageEqual(parent.children.length);
