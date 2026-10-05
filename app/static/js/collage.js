@@ -932,7 +932,8 @@ function collageDpi(sheet) {
   return Math.max(paper.w, paper.h) > 300 ? CANVAS_DPI : DPI;
 }
 
-async function renderCollage(sheet) {
+// Cut lines help trim a printed sheet; a canvas is one print, so Move to Canvas leaves them out.
+async function renderCollage(sheet, { cutLines = sheet.cutLines } = {}) {
   const paper = collageSheetMM(sheet), dpi = collageDpi(sheet);
   const PW = mm2px(paper.w, dpi), PH = mm2px(paper.h, dpi), canvas = document.createElement('canvas');
   canvas.width = PW; canvas.height = PH;
@@ -943,7 +944,7 @@ async function renderCollage(sheet) {
     const item = rect.leaf.item, photo = renderHQ(w, h, shrinks(item, w, h), (c, cw, ch) => renderItem(c, item, cw, ch));
     ctx.drawImage(photo, x, y, w, h);
   }
-  if (sheet.cutLines && Number(sheet.gap) === 0) {
+  if (cutLines && Number(sheet.gap) === 0) {
     ctx.fillStyle = '#000';
     for (const line of collageSharedSegments(cellRects(sheet))) {
       if (line.dir === 'row') ctx.fillRect(mm2px(line.x, dpi) - 1, mm2px(line.y, dpi), 2, mm2px(line.h, dpi));
@@ -973,7 +974,7 @@ $('#collage-to-canvas').addEventListener('click', async () => {
   const epoch = workspaces.canvas.epoch;
   try {
     setStatus($('#collage-status'), 'Moving…');
-    const canvas = await renderCollage(sheet), name = `collage_${collage.active + 1}_${paper.w}x${paper.h}.jpg`;
+    const canvas = await renderCollage(sheet, { cutLines: false }), name = `collage_${collage.active + 1}_${paper.w}x${paper.h}.jpg`;
     const { file, src } = await uploadPhoto(await jpegBlob(canvas, 1, collageDpi(sheet), sheet.density), name, 'canvas');
     const img = await loadImage(src);
     if (epoch !== workspaces.canvas.epoch) return;
