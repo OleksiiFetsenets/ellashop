@@ -1,0 +1,175 @@
+[
+ {
+  "op": "goto",
+  "url": "http://localhost:8799/"
+ },
+ {
+  "op": "sleep",
+  "ms": 1500
+ },
+ {
+  "op": "click",
+  "sel": "[data-incoming=prints]"
+ },
+ {
+  "op": "click",
+  "sel": "dialog input[value='test0.jpg']"
+ },
+ {
+  "op": "click",
+  "sel": "dialog button[value=ok]"
+ },
+ {
+  "op": "sleep",
+  "ms": 1500
+ },
+ {
+  "op": "click",
+  "sel": "#formats .custom-size-button"
+ },
+ {
+  "op": "type",
+  "sel": "#formats + .custom-size-row input[aria-label=\"Width in cm\"]",
+  "value": "12.5"
+ },
+ {
+  "op": "type",
+  "sel": "#formats + .custom-size-row input[aria-label=\"Height in cm\"]",
+  "value": "17.5"
+ },
+ {
+  "op": "click",
+  "sel": "#formats + .custom-size-row button"
+ },
+ {
+  "op": "eval",
+  "expr": "(()=>{if (prints.item.fmt.id !== 'custom-125x175') throw Error('Custom prints size was not applied'); return 'ok'})()"
+ },
+ {
+  "op": "click",
+  "sel": "[data-tab=canvas-view]"
+ },
+ {
+  "op": "click",
+  "sel": "[data-incoming=canvas]"
+ },
+ {
+  "op": "click",
+  "sel": "dialog input[value='test0.jpg']"
+ },
+ {
+  "op": "click",
+  "sel": "dialog button[value=ok]"
+ },
+ {
+  "op": "sleep",
+  "ms": 1500
+ },
+ {
+  "op": "click",
+  "sel": "#canvas-formats .custom-size-button"
+ },
+ {
+  "op": "type",
+  "sel": "#canvas-formats + .custom-size-row input[aria-label=\"Width in cm\"]",
+  "value": "35"
+ },
+ {
+  "op": "type",
+  "sel": "#canvas-formats + .custom-size-row input[aria-label=\"Height in cm\"]",
+  "value": "45"
+ },
+ {
+  "op": "click",
+  "sel": "#canvas-formats + .custom-size-row button"
+ },
+ {
+  "op": "eval",
+  "expr": "(()=>{if (canvasPrints.item.fmt.id !== 'custom-350x450') throw Error('Custom canvas size was not applied'); return 'ok'})()"
+ },
+ {
+  "op": "click",
+  "sel": "[data-tab=passport]"
+ },
+ {
+  "op": "click",
+  "sel": "[data-incoming=passport]"
+ },
+ {
+  "op": "click",
+  "sel": "dialog input[value='test1.jpg']"
+ },
+ {
+  "op": "click",
+  "sel": "dialog button[value=ok]"
+ },
+ {
+  "op": "sleep",
+  "ms": 1500
+ },
+ {
+  "op": "click",
+  "sel": "#pp-size .custom-size-button"
+ },
+ {
+  "op": "type",
+  "sel": "#pp-size + .custom-size-row input[aria-label=\"Width in cm\"]",
+  "value": "4"
+ },
+ {
+  "op": "type",
+  "sel": "#pp-size + .custom-size-row input[aria-label=\"Height in cm\"]",
+  "value": "6"
+ },
+ {
+  "op": "click",
+  "sel": "#pp-size + .custom-size-row button"
+ },
+ {
+  "op": "eval",
+  "expr": "(()=>{if (pp.active.size.id !== 'custom-40x60') throw Error('Custom passport size was not applied'); return 'ok'})()"
+ },
+ {
+  "op": "click",
+  "sel": "#pp-size .custom-size-button"
+ },
+ {
+  "op": "sleep",
+  "ms": 600
+ },
+ {
+  "op": "shot",
+  "name": "custom_passport"
+ },
+ {
+  "op": "click",
+  "sel": "#pp-size .custom-size-button"
+ },
+ {
+  "op": "sleep",
+  "ms": 1800
+ },
+ {
+  "op": "goto",
+  "url": "http://localhost:8799/"
+ },
+ {
+  "op": "waitFor",
+  "sel": "dialog.resume-dialog"
+ },
+ {
+  "op": "click",
+  "sel": "dialog.resume-dialog button[value=continue]"
+ },
+ {
+  "op": "sleep",
+  "ms": 1800
+ },
+ {
+  "op": "eval",
+  "expr": "(()=>{const ids=[prints.item?.fmt.id,canvasPrints.item?.fmt.id,pp.active?.size.id]; if(JSON.stringify(ids)!==JSON.stringify(['custom-125x175','custom-350x450','custom-40x60'])) throw Error('Custom sizes did not restore: '+ids); return ids.join(', ')})()"
+ },
+ {
+  "op": "assertNoErrors"
+ }
+]

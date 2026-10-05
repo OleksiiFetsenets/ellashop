@@ -1,0 +1,15 @@
+[
+ {"op":"goto","url":"http://localhost:8799/"},
+ {"op":"sleep","ms":1500},
+ {"op":"eval","expr":"document.querySelector('.resume-dialog button[value=continue]')?.click(); 'ok'"},
+ {"op":"click","sel":"[data-incoming=prints]"},
+ {"op":"click","sel":"dialog input[value='test1.jpg']"},
+ {"op":"click","sel":"dialog button[value=ok]"},
+ {"op":"sleep","ms":2000},
+ {"op":"click","sel":"#prints-overlays [data-action=text]"},
+ {"op":"sleep","ms":500},
+ {"op":"eval","expr":"(async () => { const local = await (await fetch('/api/local-fonts')).json(); if (!local.length) return 'no fonts installed in fonts/local — skipped'; const s = document.querySelector('#prints-overlays [data-field=font]'); const opts = [...s.options].map(o => o.value); const missing = local.map(f => f.name).filter(n => !opts.includes(n)); if (missing.length) throw Error('not in the font picker: ' + missing); s.value = local[0].name; s.dispatchEvent(new Event('change', {bubbles: true})); s.dispatchEvent(new Event('input', {bubbles: true})); window.localFontList = local; return local.length + ' local fonts in the picker'; })()"},
+ {"op":"sleep","ms":1500},
+ {"op":"eval","expr":"(async () => { const local = window.localFontList || []; if (!local.length) return 'skipped'; const loads = local.flatMap(f => [document.fonts.load(`400 40px \"${f.name}\"`)].concat(f.bold ? [document.fonts.load(`700 40px \"${f.name}\"`)] : [])); const n = (await Promise.all(loads)).map(x => x.length); if (n.some(x => !x)) throw Error('a local font did not load: ' + n); return 'loaded ' + n.length + ' faces | overlay font ' + prints.item.overlays[0].font; })()"},
+ {"op":"assertNoErrors"}
+]

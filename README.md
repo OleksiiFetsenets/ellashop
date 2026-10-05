@@ -141,7 +141,7 @@ Where files live (Mac: `photos/` next to the app; Windows: `Documents\Ellashop`)
 |---|---|
 | `incoming/` | photos and unzipped archives waiting to be loaded |
 | `orders/` | Prints orders: source photos and edits |
-| `workspace/` | Canvas and Passport work in progress |
+| `workspace/` | Canvas, Passport and Collage work in progress |
 | `print_ready/` | finished files ("Exported"), grouped by order, canvas size or passport size |
 
 ## For developers
@@ -151,7 +151,11 @@ Where files live (Mac: `photos/` next to the app; Windows: `Documents\Ellashop`)
   `python3 app/server.py` runs it in the browser instead.
 - The UI scripts in `app/static/js/` load in this order (one shared scope): `config` → `render` →
   `history` → `orders` → `ui` → `editor` → `tabs` → `settings` → `prints` → `canvas` → `passport` →
-  `shortcuts` → `main`. Every file starts with a comment describing its role.
+  `collage` → `shortcuts` → `main`. Every file starts with a comment describing its role.
+- Browser tests: `tests/ui_test.sh` (needs Node 22+ and Google Chrome). It starts a private copy of the
+  server on throw-away data (never your `photos/`), runs every journey in `tests/ui/` with
+  `tests/run_flow.mjs` and checks the exported collage is 10×15 cm at 300 DPI. `UI_TEST_PORT=8797`
+  picks another port; the script refuses to start when the port is already in use.
 - Releases: bump `VERSION`, then `git tag vX.Y.Z && git push --tags`. GitHub Actions builds the
   Windows installer and the code-only update zip and attaches them to the release
   (`.github/workflows/windows-installer.yml`, details in `windows/README.md`).

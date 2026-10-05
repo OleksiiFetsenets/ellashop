@@ -1,0 +1,86 @@
+[
+ {
+  "op": "goto",
+  "url": "http://localhost:8799/"
+ },
+ {
+  "op": "waitFor",
+  "sel": "dialog.resume-dialog"
+ },
+ {
+  "op": "click",
+  "sel": "dialog.resume-dialog button[value=continue]"
+ },
+ {
+  "op": "sleep",
+  "ms": 1500
+ },
+ {
+  "op": "click",
+  "sel": ".photo-card, #prints-grid canvas"
+ },
+ {
+  "op": "press",
+  "key": "="
+ },
+ {
+  "op": "press",
+  "key": "ArrowLeft",
+  "repeat": 2
+ },
+ {
+  "op": "press",
+  "key": "Shift+ArrowRight"
+ },
+ {
+  "op": "sleep",
+  "ms": 600
+ },
+ {
+  "op": "press",
+  "key": "Meta+z"
+ },
+ {
+  "op": "press",
+  "key": "Meta+Shift+z"
+ },
+ {
+  "op": "click",
+  "sel": "#prints-overlays [data-action=text]"
+ },
+ {
+  "op": "sleep",
+  "ms": 500
+ },
+ {
+  "op": "click",
+  "sel": "#open-storage"
+ },
+ {
+  "op": "sleep",
+  "ms": 800
+ },
+ {
+  "op": "click",
+  "sel": "#storage-close"
+ },
+ {
+  "op": "click",
+  "sel": "[data-tab=passport]"
+ },
+ {
+  "op": "click",
+  "sel": "#pp-align"
+ },
+ {
+  "op": "sleep",
+  "ms": 500
+ },
+ {
+  "op": "eval",
+  "expr": "JSON.stringify({undoDisabled: document.querySelector('#undo').disabled, prints: prints.items.length, overlays: (prints.item && prints.item.overlays || []).length, pp: pp.jobs.length})"
+ },
+ {
+  "op": "assertNoErrors"
+ }
+]

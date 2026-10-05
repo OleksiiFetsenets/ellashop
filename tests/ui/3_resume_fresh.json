@@ -1,0 +1,61 @@
+[
+ {
+  "op": "goto",
+  "url": "http://localhost:8799/"
+ },
+ {
+  "op": "waitFor",
+  "sel": "dialog.resume-dialog"
+ },
+ {
+  "op": "click",
+  "sel": "dialog.resume-dialog button[value=continue]"
+ },
+ {
+  "op": "sleep",
+  "ms": 1500
+ },
+ {
+  "op": "click",
+  "sel": "[data-incoming=prints]"
+ },
+ {
+  "op": "click",
+  "sel": "dialog input[value='test0.jpg']"
+ },
+ {
+  "op": "click",
+  "sel": "dialog button[value=ok]"
+ },
+ {
+  "op": "sleep",
+  "ms": 2500
+ },
+ {
+  "op": "goto",
+  "url": "http://localhost:8799/"
+ },
+ {
+  "op": "waitFor",
+  "sel": "dialog.resume-dialog"
+ },
+ {
+  "op": "eval",
+  "expr": "document.querySelector('.resume-dialog ul').textContent.replace(/\\s+/g,' ')"
+ },
+ {
+  "op": "click",
+  "sel": "dialog.resume-dialog button[value=fresh]"
+ },
+ {
+  "op": "sleep",
+  "ms": 1500
+ },
+ {
+  "op": "eval",
+  "expr": "JSON.stringify({prints: prints.items.length, options: [...orderPicker.options].map(o=>o.textContent)})"
+ },
+ {
+  "op": "assertNoErrors"
+ }
+]
