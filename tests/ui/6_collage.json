@@ -5,7 +5,7 @@
   {"op":"assertNoErrors"},
   {"op":"click","sel":".tab[data-tab=collage]"},
   {"op":"eval","expr":"check(document.querySelector('#collage').classList.contains('active'), 'Collage tab opens') && check(collage.photos.length === 0, 'starts empty')"},
-  {"op":"eval","expr":"(() => { const magnet = document.querySelector('#collage-magnet'); return check(!!magnet, 'collage magnet control exists') && check(magnet.checked, 'collage magnet defaults on') && check(document.querySelector('#collage-hint').parentElement === document.querySelector('#collage-stage') && !document.querySelector('#collage-hint').hidden, 'empty-pool hint stays visible in the stage centre'); })()"},
+  {"op":"eval","expr":"(() => { const magnet = document.querySelector('#collage-magnet'); return check(!!magnet, 'collage magnet control exists') && check(magnet.checked, 'collage magnet defaults on') && check(document.querySelector('#collage-hint').parentElement === document.querySelector('#collage-stage') && !document.querySelector('#collage-hint').hidden, 'empty-pool hint stays visible') && check(document.querySelector('#collage-hint').getBoundingClientRect().top >= document.querySelector('#collage-sheet').getBoundingClientRect().bottom, 'empty-pool hint sits under the sheet') && check(document.querySelector('#collage-hint').getBoundingClientRect().bottom <= document.querySelector('#collage-stage').getBoundingClientRect().bottom, 'empty-pool hint stays inside the stage'); })()"},
   {"op":"click","sel":"[data-incoming=collage]"},
   {"op":"click","sel":"dialog input[value='test0.jpg']"},
   {"op":"click","sel":"dialog input[value='test1.jpg']"},

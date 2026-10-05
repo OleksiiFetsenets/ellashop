@@ -175,8 +175,8 @@ code { font-size: 11px; }
 .collage-view-bar .seg { margin-right: auto; flex-shrink: 0; }
 .collage-view-bar.has-hint .seg { margin-right: 0; }
 #collage-hint { flex: 1; min-width: 0; max-width: none; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.3; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.collage-empty-hint { position: absolute; top: 50%; left: 24px; right: 24px; margin: 0 auto; transform: translateY(-50%); }
-.collage-stage #collage-hint.collage-empty-hint { bottom: auto; font-size: 13px; max-width: 320px; }
+.collage-empty-hint { position: absolute; left: 24px; right: 24px; margin: 0 auto; text-align: center; }
+.collage-stage #collage-hint.collage-empty-hint { bottom: auto; font-size: 13px; max-width: none; white-space: normal; text-align: center; }
 .collage-sheet { position: relative; flex: none; overflow: hidden; background: #fff; box-shadow: 0 2px 14px rgba(0,0,0,.18); }
 .collage-cell { position: absolute; overflow: hidden; touch-action: none; }
 .collage-cell canvas { display: block; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; box-shadow: none; cursor: grab; }

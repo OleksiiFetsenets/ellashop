@@ -574,7 +574,7 @@ function renderCollageSheetView() {
     return;
   }
   const stageRect = stage.getBoundingClientRect(), cs = getComputedStyle(stage);
-  const maxW = Math.max(50, stageRect.width - 48), maxH = Math.max(50, stageRect.height - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - 8);
+  const maxW = Math.max(50, stageRect.width - 48), maxH = Math.max(50, stageRect.height - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - 8 - (emptyPool ? 28 : 0));  // room for the hint under the sheet
   const scale = Math.min(maxW / paper.w, maxH / paper.h), cssW = paper.w * scale, cssH = paper.h * scale;
   box.style.width = `${cssW}px`; box.style.height = `${cssH}px`; box.style.background = sheet.gapColor;
   box.replaceChildren();
@@ -585,6 +585,7 @@ function renderCollageSheetView() {
     box.append(cell); collagePopulateCell(cell, rect.leaf, sheet);
   }
   box.append(...collageRenderCutLines(sheet, rects, paper), ...collageRenderDividers(sheet, paper), ...collageRenderMagnetGuide(sheet, paper));
+  hint.style.top = emptyPool ? `${box.offsetTop + box.offsetHeight + 8}px` : '';
   collageShownSheet = sheet; collageShownLeaves = leaves;
 }
 
