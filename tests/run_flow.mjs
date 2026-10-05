@@ -2,7 +2,7 @@
 // Needs only Node 22+ (built-in WebSocket) and Chrome. Prints ✓/✗ per step; exit code 1 on the first failure.
 // Usage: node tests/run_flow.mjs <steps.json> <screenshot dir>
 //
-// Steps: goto {url}, click {sel}, type {sel, value}, press {key}, eval {expr}, sleep {ms}, waitFor {sel},
+// Steps: goto {url}, click {sel}, drag {sel, dx, dy, alt}, type {sel, value}, press {key}, eval {expr}, sleep {ms}, waitFor {sel},
 // assert {assert: "selector :: text~=words"}, assertNoErrors, shot {name}.
 // `eval` awaits promises; throwing an Error fails the step with its message.
 import { spawn } from 'node:child_process';
@@ -95,6 +95,20 @@ const KEYS = { Escape: 27, Enter: 13, Tab: 9, Backspace: 8, Delete: 46, ArrowLef
 const run = {
   async goto({ url }) { const loaded = once('Page.loadEventFired', 30000); await send('Page.navigate', { url }); await loaded; return url; },
   async click({ sel }) { await click(sel); return sel; },
+  // Real mouse drag from the element's centre by (dx, dy) CSS px; alt holds Alt during the move and release.
+  async drag({ sel, dx = 0, dy = 0, alt = false }) {
+    // dx/dy may be a page expression (e.g. a share of an element's width) evaluated just before the drag.
+    if (typeof dx === 'string') dx = await evaluate(dx);
+    if (typeof dy === 'string') dy = await evaluate(dy);
+    const { x, y } = await waitFor(sel), modifiers = alt ? 1 : 0;
+    await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
+    await send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', buttons: 1, clickCount: 1 });
+    for (let i = 1; i <= 10; i++) {
+      await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x + dx * i / 10, y: y + dy * i / 10, button: 'left', buttons: 1, modifiers });
+    }
+    await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: x + dx, y: y + dy, button: 'left', buttons: 0, clickCount: 1, modifiers });
+    return `${sel} by ${dx},${dy}${alt ? ' with Alt' : ''}`;
+  },
   async type({ sel, value }) {
     await click(sel);
     await evaluate(`document.querySelector(${JSON.stringify(sel)}).select?.()`);

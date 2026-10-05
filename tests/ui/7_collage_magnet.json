@@ -1,0 +1,20 @@
+[
+  {"op":"goto","url":"http://localhost:8799/"},
+  {"op":"sleep","ms":1500},
+  {"op":"eval","expr":"document.querySelector('dialog[open] button[value=continue]')?.click(); window.check = (ok, m) => { if (!ok) throw new Error('CHECK FAILED: ' + m); return true; }; true"},
+  {"op":"sleep","ms":1000},
+  {"op":"click","sel":".tab[data-tab=collage]"},
+  {"op":"eval","expr":"(() => { window.setRows = (top, bottom) => { const s = collageSheet(); s.fmt = FORMATS[0]; s.orient = 'portrait'; s.gap = 0; s.margin = 0; s.layout = 'custom'; s.root = { dir: 'col', sizes: [.5, .5], children: [{ dir: 'row', sizes: top, children: [collageLeaf(), collageLeaf()] }, { dir: 'row', sizes: bottom, children: [collageLeaf(), collageLeaf()] }] }; collageSetCellFormats(s); refreshCollage(); document.querySelectorAll('#collage-sheet .collage-divider.row').forEach((d, i) => { d.id = 'divider-' + i; }); return true; }; window.topSizes = () => collageSheet().root.children[0].sizes; window.sheetW = () => document.querySelector('#collage-sheet').getBoundingClientRect().width; return check(document.querySelector('#collage-magnet').checked, 'magnet on') && setRows([.3, .7], [.6, .4]); })()"},
+  {"op":"drag","sel":"#divider-0","dx":"sheetW() * .28"},
+  {"op":"eval","expr":"check(Math.abs(topSizes()[0] - .6) < .001, 'dragging to 58% snaps to the 60% divider below (same width / aligned): ' + topSizes()) && check(!document.querySelector('.collage-magnet-guide'), 'guide line removed after release')"},
+  {"op":"eval","expr":"setRows([.3, .7], [.45, .55])"},
+  {"op":"drag","sel":"#divider-0","dx":"sheetW() * .355"},
+  {"op":"eval","expr":"check(Math.abs(topSizes()[0] - 2 / 3) < .001, 'dragging to 65.5% snaps to two thirds: ' + topSizes())"},
+  {"op":"eval","expr":"setRows([.3, .7], [.45, .55])"},
+  {"op":"drag","sel":"#divider-0","dx":"sheetW() * .355","alt":true},
+  {"op":"eval","expr":"check(Math.abs(topSizes()[0] - 2 / 3) > .003 && Math.abs(topSizes()[0] - .655) < .01, 'Alt drag does not snap: ' + topSizes())"},
+  {"op":"eval","expr":"(() => { document.querySelector('#collage-magnet').click(); setRows([.3, .7], [.45, .55]); return true; })()"},
+  {"op":"drag","sel":"#divider-0","dx":"sheetW() * .355"},
+  {"op":"eval","expr":"(() => { const ok = Math.abs(topSizes()[0] - 2 / 3) > .003; document.querySelector('#collage-magnet').click(); return check(ok, 'magnet off: no snapping: ' + topSizes()); })()"},
+  {"op":"assertNoErrors"}
+]
