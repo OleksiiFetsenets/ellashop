@@ -294,7 +294,8 @@ function renderCollagePool() {
         collage.photos = collage.photos.filter(p => p !== photo);
         if (!collage.sel || !collageTreeLeaves(collageSheet()?.root).includes(collage.sel)) collage.sel = collageTreeLeaves(collageSheet()?.root)[0] || null;
       } else {
-        const target = collage.sel || collageFirstEmpty();
+        // Fill an empty cell first; replace the selected photo only when the sheet is full.
+        const target = collage.sel && !collage.sel.item ? collage.sel : collageFirstEmpty() || collage.sel;
         if (target) collagePlace(photo, target);
       }
       refreshCollage(); queueSave('collage');
@@ -455,6 +456,9 @@ function renderCollageSheetView() {
   $('#collage-add-sheet').hidden = single;
   box.hidden = single; canvas.hidden = !single;
   $('#collage-hint').hidden = single;
+  $('#collage-hint').textContent = collage.photos.length
+    ? 'Drag photos from the left into cells. Drag inside a cell to move it, scroll to zoom, 👁 to edit.'
+    : 'Add photos to start. Drop them into cells or choose a layout.';
   if (single) {
     collage.preview.draw(); canvas.style.filter = densityFilter(sheet.density);
     return;
