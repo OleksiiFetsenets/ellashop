@@ -5,6 +5,8 @@
 
 const collage = { photos: [], sheets: [], active: 0, sel: null, view: 'sheet' };
 let nextCollageSheetId = 1;
+let collageMagnet = true, collageMagnetGuide = null;
+try { collageMagnet = localStorage.getItem('ellashop-collage-magnet') !== 'off'; } catch (_) { /* Storage may be unavailable. */ }
 const COLLAGE_SMALL_SIZES = [
   { id: '5x7.5', w: 50, h: 75 }, { id: '6x9', w: 60, h: 90 }, { id: '7x10', w: 70, h: 100 },
 ];
@@ -235,6 +237,91 @@ function collageApplyDivider(divider, startSizes, startCoord, coord, sheet) {
   divider.node.sizes[i] = left; divider.node.sizes[i + 1] = sum - left;
 }
 
+function collageSnapDivider(divider, startSizes, rawLeft, sheet) {
+  const i = divider.index, pair = startSizes[i] + startSizes[i + 1];
+  const min = pair >= .16 ? .08 : pair * .08;
+  const paper = collageSheetMM(sheet), side = divider.dir === 'row' ? paper.w : paper.h;
+  const threshold = side * .025, prefix = startSizes.slice(0, i).reduce((a, b) => a + b, 0);
+  const lineAt = left => (divider.dir === 'row' ? divider.x : divider.y) + (left - startSizes[i]) * divider.parentLength;
+  const near = candidates => {
+    let best = null;
+    for (const left of candidates) {
+      if (!Number.isFinite(left) || left < min || left > pair - min) continue;
+      const distance = Math.abs(lineAt(left) - lineAt(rawLeft));
+      if (distance <= threshold && (!best || distance < best.distance)) best = { left, distance };
+    }
+    return best?.left ?? null;
+  };
+  const equal = near([pair / 2]);
+  if (equal != null) return equal;
+
+  const inside = new Set([
+    ...collageTreeLeaves(divider.node.children[i]),
+    ...collageTreeLeaves(divider.node.children[i + 1]),
+  ]);
+  const axis = divider.dir === 'row' ? 'w' : 'h';
+  const sameSize = [];
+  for (const rect of cellRects(sheet)) if (!inside.has(rect.leaf)) {
+    const share = rect[axis] / divider.parentLength;
+    sameSize.push(share, pair - share);
+  }
+  const size = near(sameSize);
+  if (size != null) return size;
+
+  const others = collageTreeDividers(sheet).filter(other =>
+    !(other.node === divider.node && other.index === divider.index) && other.dir === divider.dir);
+  const currentLeft = divider.node.sizes[i], currentRight = divider.node.sizes[i + 1];
+  const differenceAt = (left, other) => {
+    divider.node.sizes[i] = left; divider.node.sizes[i + 1] = pair - left;
+    const dividers = collageTreeDividers(sheet);
+    const target = dividers.find(candidate => candidate.node === divider.node && candidate.index === divider.index);
+    const aligned = dividers.find(candidate => candidate.node === other.node && candidate.index === other.index);
+    divider.node.sizes[i] = currentLeft; divider.node.sizes[i + 1] = currentRight;
+    if (!target || !aligned) return null;
+    return (divider.dir === 'row' ? target.x - aligned.x : target.y - aligned.y);
+  };
+  const aligned = [];
+  for (const other of others) {
+    const low = differenceAt(min, other), high = differenceAt(pair - min, other), raw = differenceAt(rawLeft, other);
+    if (raw != null && Math.abs(raw) < .01) aligned.push(rawLeft);
+    else if (low != null && high != null) {
+      if (Math.abs(low) < .01) aligned.push(min);
+      else if (Math.abs(high) < .01) aligned.push(pair - min);
+      else if (low * high < 0) aligned.push(min + (pair - 2 * min) * (-low) / (high - low));
+    }
+  }
+  const alignment = near(aligned);
+  if (alignment != null) return alignment;
+
+  const fractions = [.25, 1 / 3, .5, 2 / 3, .75].map(fraction => fraction - prefix);
+  return near(fractions);
+}
+
+function collageRenderMagnetGuide(sheet, paper) {
+  if (!collageMagnetGuide || collageMagnetGuide.sheet !== sheet) return [];
+  const { dir, at } = collageMagnetGuide, guide = document.createElement('div');
+  guide.className = `collage-magnet-guide ${dir}`;
+  if (dir === 'row') guide.style.left = `${at / paper.w * 100}%`;
+  else guide.style.top = `${at / paper.h * 100}%`;
+  return [guide];
+}
+
+function collageFindParent(node, target) {
+  if (!node || node.leaf) return null;
+  if (node.children.includes(target)) return node;
+  for (const child of node.children) {
+    const parent = collageFindParent(child, target);
+    if (parent) return parent;
+  }
+  return null;
+}
+
+function collageEqualizeTree(node) {
+  if (!node || node.leaf) return;
+  node.sizes = collageEqual(node.children.length);
+  node.children.forEach(collageEqualizeTree);
+}
+
 function collageNewCellItem(photo, rect) {
   return newItem(photo.img, photo.name, {
     file: photo.file, orient: 'portrait', fmt: { id: 'cell', w: rect.w, h: rect.h },
@@ -411,11 +498,24 @@ function collageRenderDividers(sheet, paper, rect) {
     el.addEventListener('pointerdown', e => {
       e.preventDefault(); e.stopPropagation();
       const start = d.dir === 'row' ? e.clientX : e.clientY, sizes = [...d.node.sizes];
+      collageMagnetGuide = null;
       const move = ev => {
         collageApplyDivider(d, sizes, start, d.dir === 'row' ? ev.clientX : ev.clientY, sheet);
+        const i = d.index, rawLeft = d.node.sizes[i];
+        const snapped = collageMagnet && !ev.altKey ? collageSnapDivider(d, sizes, rawLeft, sheet) : null;
+        if (snapped != null) {
+          const pair = sizes[i] + sizes[i + 1];
+          d.node.sizes[i] = snapped; d.node.sizes[i + 1] = pair - snapped;
+          const base = d.dir === 'row' ? d.x : d.y;
+          collageMagnetGuide = { sheet, dir: d.dir, at: base + (snapped - sizes[i]) * d.parentLength };
+        } else collageMagnetGuide = null;
         sheet.layout = 'custom'; collageSetCellFormats(sheet); refreshCollage(false);
       };
-      const done = () => { document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', done); document.removeEventListener('pointercancel', done); queueSave('collage'); };
+      const done = () => {
+        document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', done); document.removeEventListener('pointercancel', done);
+        if (collageMagnetGuide?.sheet === sheet) { collageMagnetGuide = null; refreshCollage(false); }
+        queueSave('collage');
+      };
       document.addEventListener('pointermove', move); document.addEventListener('pointerup', done, { once: true });
       document.addEventListener('pointercancel', done, { once: true });
     });
@@ -446,19 +546,29 @@ function renderCollageSheetView() {
   const filled = collageFilledLeaves(sheet);
   if (collage.view === 'single' && (!collage.sel?.item || !filled.includes(collage.sel))) collage.view = 'sheet';
   const single = collage.view === 'single';
-  $('#collage-view-bar').hidden = !filled.length;
-  $('#collage-view-bar').querySelectorAll('[data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === collage.view));
-  $('#collage-view-bar').querySelectorAll('[data-step]').forEach(b => { b.hidden = !single; });
+  const viewBar = $('#collage-view-bar'), hint = $('#collage-hint'), emptyPool = !collage.photos.length;
+  viewBar.hidden = emptyPool;
+  if (emptyPool) {
+    if (hint.parentElement !== stage) stage.append(hint);
+    hint.classList.add('collage-empty-hint');
+  } else {
+    const seg = viewBar.querySelector('.seg');
+    if (hint.parentElement !== viewBar || hint.previousElementSibling !== seg) seg.after(hint);
+    hint.classList.remove('collage-empty-hint');
+  }
+  hint.hidden = single;
+  hint.textContent = emptyPool
+    ? 'Add photos to start. Drop them into cells or choose a layout.'
+    : 'Drag photos from the left into cells. Drag inside a cell to move it, scroll to zoom, 👁 to edit.';
+  viewBar.classList.toggle('has-hint', !single && !emptyPool);
+  viewBar.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === collage.view));
+  viewBar.querySelectorAll('[data-step]').forEach(b => { b.hidden = !single; });
   const current = filled.indexOf(collage.sel), count = filled.length;
-  const countEl = $('#collage-view-bar .view-count'); countEl.hidden = !single; countEl.textContent = `${Math.max(0, current + 1)} / ${count}`;
-  $('#collage-view-bar [data-step="-1"]').disabled = !single || current <= 0;
-  $('#collage-view-bar [data-step="1"]').disabled = !single || current < 0 || current >= count - 1;
+  const countEl = viewBar.querySelector('.view-count'); countEl.hidden = !single; countEl.textContent = `${Math.max(0, current + 1)} / ${count}`;
+  viewBar.querySelector('[data-step="-1"]').disabled = !single || current <= 0;
+  viewBar.querySelector('[data-step="1"]').disabled = !single || current < 0 || current >= count - 1;
   $('#collage-add-sheet').hidden = single;
   box.hidden = single; canvas.hidden = !single;
-  $('#collage-hint').hidden = single;
-  $('#collage-hint').textContent = collage.photos.length
-    ? 'Drag photos from the left into cells. Drag inside a cell to move it, scroll to zoom, 👁 to edit.'
-    : 'Add photos to start. Drop them into cells or choose a layout.';
   if (single) {
     collage.preview.draw(); canvas.style.filter = densityFilter(sheet.density);
     return;
@@ -474,7 +584,7 @@ function renderCollageSheetView() {
       width: `${rect.w / paper.w * 100}%`, height: `${rect.h / paper.h * 100}%` });
     box.append(cell); collagePopulateCell(cell, rect.leaf, sheet);
   }
-  box.append(...collageRenderCutLines(sheet, rects, paper), ...collageRenderDividers(sheet, paper));
+  box.append(...collageRenderCutLines(sheet, rects, paper), ...collageRenderDividers(sheet, paper), ...collageRenderMagnetGuide(sheet, paper));
   collageShownSheet = sheet; collageShownLeaves = leaves;
 }
 
@@ -544,6 +654,7 @@ function syncCollageControls() {
   $('#collage-layout-template').hidden = sheet.layout !== 'template';
   $('#collage-layout-custom').hidden = sheet.layout !== 'custom';
   $('#collage-gap').value = sheet.gap; $('#collage-margin').value = sheet.margin;
+  $('#collage-magnet').checked = collageMagnet;
   setSeg($('#collage-gap-color'), sheet.gapColor); $('#collage-cutlines').checked = !!sheet.cutLines;
   $('#collage-density').classList.toggle('changed', !!sheet.density);
   syncCollageDensity();
@@ -707,6 +818,18 @@ $('#collage-split-row').addEventListener('click', () => collageSplitSelected('ro
 $('#collage-split-col').addEventListener('click', () => collageSplitSelected('col'));
 $('#collage-merge').addEventListener('click', collageMergeSelected);
 $('#collage-start-over').addEventListener('click', () => collageReplaceRoot(collageSheet(), collageLeaf(), 'custom'));
+$('#collage-equalize').addEventListener('click', () => {
+  const sheet = collageSheet(); if (!sheet) return;
+  const parent = collage.sel ? collageFindParent(sheet.root, collage.sel) : null;
+  if (parent) parent.sizes = collageEqual(parent.children.length);
+  else collageEqualizeTree(sheet.root);
+  sheet.layout = 'custom'; collageSetCellFormats(sheet); refreshCollage(); queueSave('collage');
+});
+$('#collage-magnet').addEventListener('change', e => {
+  collageMagnet = e.currentTarget.checked; collageMagnetGuide = null;
+  try { localStorage.setItem('ellashop-collage-magnet', collageMagnet ? 'on' : 'off'); } catch (_) { /* Storage may be unavailable. */ }
+  refreshCollage();
+});
 
 function collageSplitSelected(dir) {
   const sheet = collageSheet(), target = collage.sel; if (!sheet || !target) return;

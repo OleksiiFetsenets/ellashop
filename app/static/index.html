@@ -156,11 +156,11 @@
       <button class="pp-add" id="collage-add-sheet" title="Add sheet">+</button>
       <div class="view-bar collage-view-bar" id="collage-view-bar" hidden>
         <div class="seg"><button data-view="sheet">Sheet</button><button data-view="single">Single</button></div>
+        <p class="hint" id="collage-hint">Drag photos from the left into cells. Drag inside a cell to move it, scroll to zoom, 👁 to edit.</p>
         <button data-step="-1">◀ Prev</button><span class="view-count"></span><button data-step="1">Next ▶</button>
       </div>
       <div class="collage-sheet" id="collage-sheet"></div>
       <canvas id="collage-canvas"></canvas>
-      <p class="hint" id="collage-hint">Add photos to start. Drop them into cells or choose a layout.</p>
     </div>
 
     <aside class="right collage-controls">
@@ -200,6 +200,8 @@
       <div id="collage-layout-custom" class="collage-layout-panel" hidden>
         <div class="row"><button id="collage-split-row" title="Split side by side">Split ↔</button><button id="collage-split-col" title="Split top and bottom">Split ↕</button></div>
         <div class="row"><button id="collage-merge" class="wide">Merge</button><button id="collage-start-over" class="wide">Start over</button></div>
+        <button id="collage-equalize" class="ghost wide">Make equal</button>
+        <label class="check"><input id="collage-magnet" type="checkbox" checked> Magnet</label>
       </div>
 
       <h3>Spacing</h3>
