@@ -14,7 +14,7 @@ It runs locally on a Mac or a Windows PC, works offline, and keeps every order o
 | **Prints** | Regular photo prints: 10×15, 9×13, 13×18, 10×10, 15×20, 15×15, 20×20, 20×30 cm or any custom size | 300 DPI JPEG per photo |
 | **Canvas** | Gallery-wrap canvases: 20×30 … 50×120 cm or custom, with a blurred wrap around the frame | 150 DPI JPEG, front + wrap |
 | **Passport photos** | Passport / visa / ID photos: 3.5×4.5, VISA 5×5, Canada 5×7, China 3.3×4.8 or custom | 10×15 sheet, packed for a guillotine cutter |
-| **Collage** | Place different photos in equal, fixed-size, shaped, or custom cells on a printed sheet | 300 DPI JPEG per sheet |
+| **Collage** | Place different photos in equal, fixed-size, shaped, or custom cells on a printed sheet | 300 DPI up to 30 cm; 150 DPI for larger sheets |
 
 Prints, Canvas and Passport also include face recognition and smart crop placement, offline
 background removal, a text & sticker editor, rulers and composition guides. All workspaces
@@ -96,6 +96,10 @@ sides are filled with a blurred enlargement of it — diagonal motion blur or Ga
 continues around the frame. Optional fold marks; measurements show the whole sheet including the wrap.
 
 ![Canvas with blurred wrap](docs/screenshots/canvas.png)
+
+## Collage
+
+Collage offers canvas paper sizes alongside print sizes. **Move to Canvas** opens a copy of the sheet in the Canvas tab, ready for wrap settings and printing.
 
 ## Passport photos
 

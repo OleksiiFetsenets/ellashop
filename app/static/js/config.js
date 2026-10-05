@@ -19,6 +19,7 @@ const FORMATS = [
 ];
 const CANVAS_FORMATS = ['20x30', '30x40', '30x30', '40x50', '40x60', '50x70', '50x90', '50x100', '50x120']
   .map(id => { const [w, h] = id.split('x').map(x => +x * 10); return { id, w, h }; });
+const COLLAGE_PAPERS = [...FORMATS, ...CANVAS_FORMATS.filter(f => !FORMATS.some(print => print.id === f.id))];
 const CANVAS_DPI = 150;
 const fmtLabel = f => `${f.w / 10}×${f.h / 10}`;
 
@@ -47,7 +48,7 @@ function formatById(list, id) {
   const [w, h] = match.slice(1).map(Number);
   const passport = list === PASSPORT;
   const min = passport ? [20, 20] : list === CANVAS_FORMATS ? [100, 100] : [20, 20];
-  const max = passport ? [100, 150] : list === CANVAS_FORMATS ? [2000, 2000] : [1000, 1000];
+  const max = passport ? [100, 150] : list === CANVAS_FORMATS || list === COLLAGE_PAPERS ? [2000, 2000] : [1000, 1000];
   if (!Number.isFinite(w) || !Number.isFinite(h) || w > h || w < min[0] || h < min[1] || w > max[0] || h > max[1]) return list[0];
   if (!passport) return { id, w, h, custom: true };
   const roundHalf = n => Math.round(n * 2) / 2;

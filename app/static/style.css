@@ -99,6 +99,7 @@ button:disabled { opacity: .45; cursor: default; }
 
 .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 .grid button { padding: 8px 2px; font-variant-numeric: tabular-nums; }
+.collage-paper-label { grid-column: 1 / -1; padding-top: 4px; }
 .grid button.on, .seg button.on, .swatches button.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; font-weight: 600; }
 .custom-size-row { display: flex; align-items: center; gap: 5px; margin-top: 8px; font-size: 13px; white-space: nowrap; }
 .custom-size-row[hidden] { display: none; }

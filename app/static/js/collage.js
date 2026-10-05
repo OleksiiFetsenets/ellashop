@@ -622,12 +622,13 @@ function renderCollageShapes() {
     `<button class="collage-shape" type="button" data-shape="${i}">${collageSvg(t.root)}${t.name}</button>`).join('');
 }
 
-$('#collage-paper').innerHTML = FORMATS.map(f => `<button type="button" data-id="${f.id}">${fmtLabel(f)}</button>`).join('');
-const collageCustomPaper = customSizeControl('#collage-paper', FORMATS, [2, 100, 2, 100],
+$('#collage-paper').innerHTML = COLLAGE_PAPERS.map((f, i) =>
+  `${i === FORMATS.length ? '<span class="small collage-paper-label">Canvas</span>' : ''}<button type="button" data-id="${f.id}">${fmtLabel(f)}</button>`).join('');
+const collageCustomPaper = customSizeControl('#collage-paper', COLLAGE_PAPERS, [2, 200, 2, 200],
   () => collageSheet()?.fmt, fmt => setCollagePaper(fmt), '#collage-status');
 $('#collage-counts').innerHTML = [2, 4, 6, 8, 9, 12].map(n => `<button type="button" data-count="${n}">${n}</button>`).join('');
 $('#collage-paper').addEventListener('click', e => {
-  const button = e.target.closest('button[data-id]'); if (button) setCollagePaper(formatById(FORMATS, button.dataset.id));
+  const button = e.target.closest('button[data-id]'); if (button) setCollagePaper(formatById(COLLAGE_PAPERS, button.dataset.id));
 });
 
 const syncCollageDensity = densityControl($('#collage-density'), {
@@ -921,12 +922,23 @@ $('#collage-empty').addEventListener('click', () => {
   if (collage.sel) { collage.sel.item = null; collage.view = 'sheet'; refreshCollage(); queueSave('collage'); }
 });
 
+function confirmCollageEmpty(sheet, action = 'Save anyway?') {
+  const empty = cellRects(sheet).filter(r => !r.leaf.item).length;
+  return !empty || confirm(`${empty} empty cell${empty === 1 ? '' : 's'} will print white. ${action}`);
+}
+
+function collageDpi(sheet) {
+  const paper = collageSheetMM(sheet);
+  return Math.max(paper.w, paper.h) > 300 ? CANVAS_DPI : DPI;
+}
+
 async function renderCollage(sheet) {
-  const paper = collageSheetMM(sheet), PW = mm2px(paper.w), PH = mm2px(paper.h), canvas = document.createElement('canvas');
+  const paper = collageSheetMM(sheet), dpi = collageDpi(sheet);
+  const PW = mm2px(paper.w, dpi), PH = mm2px(paper.h, dpi), canvas = document.createElement('canvas');
   canvas.width = PW; canvas.height = PH;
   const ctx = canvas.getContext('2d'); ctx.fillStyle = sheet.gapColor; ctx.fillRect(0, 0, PW, PH);
   for (const rect of cellRects(sheet)) {
-    const x = mm2px(rect.x), y = mm2px(rect.y), w = mm2px(rect.w), h = mm2px(rect.h);
+    const x = mm2px(rect.x, dpi), y = mm2px(rect.y, dpi), w = mm2px(rect.w, dpi), h = mm2px(rect.h, dpi);
     if (!rect.leaf.item) { ctx.fillStyle = '#ffffff'; ctx.fillRect(x, y, w, h); continue; }
     const item = rect.leaf.item, photo = renderHQ(w, h, shrinks(item, w, h), (c, cw, ch) => renderItem(c, item, cw, ch));
     ctx.drawImage(photo, x, y, w, h);
@@ -934,20 +946,45 @@ async function renderCollage(sheet) {
   if (sheet.cutLines && Number(sheet.gap) === 0) {
     ctx.fillStyle = '#000';
     for (const line of collageSharedSegments(cellRects(sheet))) {
-      if (line.dir === 'row') ctx.fillRect(mm2px(line.x) - 1, mm2px(line.y), 2, mm2px(line.h));
-      else ctx.fillRect(mm2px(line.x), mm2px(line.y) - 1, mm2px(line.w), 2);
+      if (line.dir === 'row') ctx.fillRect(mm2px(line.x, dpi) - 1, mm2px(line.y, dpi), 2, mm2px(line.h, dpi));
+      else ctx.fillRect(mm2px(line.x, dpi), mm2px(line.y, dpi) - 1, mm2px(line.w, dpi), 2);
     }
   }
   return canvas;
 }
 
 async function saveCollageSheet(sheet, index) {
-  const empty = cellRects(sheet).filter(r => !r.leaf.item).length;
-  if (empty && !confirm(`${empty} empty cell${empty === 1 ? '' : 's'} will print white. Save anyway?`)) return null;
-  const paper = collageSheetMM(sheet), canvas = await renderCollage(sheet);
+  if (!confirmCollageEmpty(sheet)) return null;
+  const paper = collageSheetMM(sheet), dpi = collageDpi(sheet), canvas = await renderCollage(sheet);
   const name = `collage_${index + 1}_${paper.w}x${paper.h}.jpg`;
-  return saveFile(await jpegBlob(canvas, 1, DPI, sheet.density), name, 'Collage');
+  return saveFile(await jpegBlob(canvas, 1, dpi, sheet.density), name, 'Collage');
 }
+
+$('#collage-to-canvas').addEventListener('click', async () => {
+  const sheet = collageSheet(); if (!sheet) return;
+  if (!confirmCollageEmpty(sheet, 'Move anyway?')) return;
+  const paper = collageSheetMM(sheet), short = Math.min(paper.w, paper.h), long = Math.max(paper.w, paper.h);
+  const customId = customFormatId(short / 10, long / 10, CANVAS_FORMATS);
+  const fmt = CANVAS_FORMATS.find(f => f.w === short && f.h === long) ||
+    (customId ? formatById(CANVAS_FORMATS, customId) : null);
+  if (!fmt) {
+    setStatus($('#collage-status'), 'Canvas sizes start at 10 × 10 cm — choose a bigger paper.', true); return;
+  }
+  const epoch = workspaces.canvas.epoch;
+  try {
+    setStatus($('#collage-status'), 'Moving…');
+    const canvas = await renderCollage(sheet), name = `collage_${collage.active + 1}_${paper.w}x${paper.h}.jpg`;
+    const { file, src } = await uploadPhoto(await jpegBlob(canvas, 1, collageDpi(sheet), sheet.density), name, 'canvas');
+    const img = await loadImage(src);
+    if (epoch !== workspaces.canvas.epoch) return;
+    canvasPrints.last.fmt = fmt; canvasPrints.last.orient = sheet.orient;
+    const item = newItem(img, name, { ...canvasPrints.last, file, fmt, orient: sheet.orient, density: 0 });
+    canvasPrints.items.push(item); canvasPrints.sel = item; canvasPrints.view = 'single';
+    refreshCanvas(); queueSave('canvas');
+    $('.tab[data-tab=canvas-view]').click();
+    setStatus($('#collage-status'), 'Moved to Canvas');
+  } catch (e) { setStatus($('#collage-status'), e.message, true); }
+});
 
 $('#collage-save-one').addEventListener('click', async () => {
   const sheet = collageSheet(); if (!sheet) return;
@@ -987,7 +1024,7 @@ async function collageTreeFromState(saved, owner, imageFor) {
     const leaf = collageLeaf();
     if (saved?.item?.file) {
       const img = await imageFor(saved.item.file);
-      leaf.item = newItem(img, saved.item.name || saved.item.file, { ...saved.item, file: saved.item.file, fmt: formatById(FORMATS, saved.item.fmt) });
+      leaf.item = newItem(img, saved.item.name || saved.item.file, { ...saved.item, file: saved.item.file, fmt: formatById(COLLAGE_PAPERS, saved.item.fmt) });
     }
     return leaf;
   }
@@ -1008,7 +1045,7 @@ async function restoreCollageWorkspace(state) {
   for (const saved of state.sheets || []) {
     try {
       const sheet = {
-        id: collageSavedId(saved.id), fmt: formatById(FORMATS, saved.fmt),
+        id: collageSavedId(saved.id), fmt: formatById(COLLAGE_PAPERS, saved.fmt),
         orient: saved.orient === 'landscape' ? 'landscape' : 'portrait', gap: Number(saved.gap) || 0,
         margin: Number(saved.margin) || 0, gapColor: saved.gapColor === '#000000' ? '#000000' : '#ffffff',
         cutLines: saved.cutLines !== false, density: Math.max(-5, Math.min(5, Number(saved.density) || 0)),
@@ -1017,7 +1054,7 @@ async function restoreCollageWorkspace(state) {
           ? { w: Number(saved.sizeCell.w), h: Number(saved.sizeCell.h) } : { w: 50, h: 75 },
         root: collageNormalizeTree(saved.root),
       };
-      sheet.root = await collageTreeFromState(saved.root, 'collage', file => restoreItem({ file }, 'collage', FORMATS).then(item => item.img));
+      sheet.root = await collageTreeFromState(saved.root, 'collage', file => restoreItem({ file }, 'collage', COLLAGE_PAPERS).then(item => item.img));
       collage.sheets.push(sheet);
     } catch (e) { showWorkspaceError('collage', e); }
   }
@@ -1040,7 +1077,7 @@ async function restoreCollageSnapshot(state) {
   const imageFor = file => historyImage('collage', file);
   for (const saved of state.sheets || []) {
     const sheet = {
-      id: collageSavedId(saved.id), fmt: formatById(FORMATS, saved.fmt),
+      id: collageSavedId(saved.id), fmt: formatById(COLLAGE_PAPERS, saved.fmt),
       orient: saved.orient === 'landscape' ? 'landscape' : 'portrait', gap: Number(saved.gap) || 0,
       margin: Number(saved.margin) || 0, gapColor: saved.gapColor === '#000000' ? '#000000' : '#ffffff',
       cutLines: saved.cutLines !== false, density: Math.max(-5, Math.min(5, Number(saved.density) || 0)),
