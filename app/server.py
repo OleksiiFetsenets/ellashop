@@ -338,7 +338,7 @@ def storage_data():
             orders.append(order_summary(data) | file_stats(path))
     orders.sort(key=lambda item: (datetime.fromisoformat(item["updated"]).timestamp(), item["id"]), reverse=True)
     workspace = {}
-    for tab in ("canvas", "passport"):
+    for tab in ("canvas", "passport", "collage"):
         try:
             workspace[tab] = file_stats(workspace_path(tab))
         except ValueError:  # A linked workspace is never traversed.
@@ -450,10 +450,10 @@ def remove_empty_folders(root):
                     pass
 
 
-# Clear every working and finished photo, including both persistent workspaces.
+# Clear every working and finished photo, including all persistent workspaces.
 # Keep the deletion log and return totals for the confirmation flow.
 def full_clean():
-    """Delete everything the shop produced: incoming, every Prints order, Canvas/Passport work, finished files."""
+    """Delete everything the shop produced: incoming, every Prints order, workspaces, and finished files."""
     removed = {"deleted_files": 0, "freed_bytes": 0}
     def add(result):
         for field in removed:
@@ -466,7 +466,7 @@ def full_clean():
         add({"deleted_files": 1, "freed_bytes": size})
     remove_empty_folders(PRINT_READY)
     with ORDER_LOCK:
-        for tab in ("canvas", "passport"):
+        for tab in ("canvas", "passport", "collage"):
             path = workspace_path(tab)
             if not path.exists():
                 continue
@@ -569,9 +569,9 @@ def write_order(path, data):
     write_state(path, "order.json", data)
 
 
-# Keep Canvas and Passport work outside the selected Prints order.
+# Keep Canvas, Passport, and Collage work outside the selected Prints order.
 def workspace_path(tab):
-    if tab not in ("canvas", "passport"):
+    if tab not in ("canvas", "passport", "collage"):
         raise ValueError("Invalid workspace tab")
     if WORKSPACE.is_symlink():
         raise ValueError("Invalid workspace path")
@@ -633,7 +633,11 @@ def workspace_data(tab, path):
         raise ValueError("Invalid workspace state")
     if state_file.is_file():
         return json.loads(state_file.read_text(encoding="utf-8"))
-    return {"items": [], "sel": 0} if tab == "canvas" else {"jobs": [], "active": 0}
+    if tab == "canvas":
+        return {"items": [], "sel": 0}
+    if tab == "collage":
+        return {"photos": [], "sheets": [], "active": 0}
+    return {"jobs": [], "active": 0}
 
 
 # Routes the local HTTP API while serving index.html and other static assets.

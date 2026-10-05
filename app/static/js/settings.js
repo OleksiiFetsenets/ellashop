@@ -35,6 +35,7 @@ async function refreshStorage(updateSettings = true) {
     ['Orders (Prints)', `${orders.photos} photos`, orders.bytes],
     ['Canvas workspace', `${workspace.canvas.photos} photos`, workspace.canvas.bytes],
     ['Passport workspace', `${workspace.passport.photos} photos`, workspace.passport.bytes],
+    ['Collage workspace', `${workspace.collage.photos} photos`, workspace.collage.bytes],
     ['Incoming', `${incoming.files} files`, incoming.bytes],
     ['Exported files', `${finished.files} files`, finished.bytes],
   ]) storageCellRow(totals, [label, count, storageSize(bytes)]);
@@ -110,9 +111,9 @@ $('#storage-save').addEventListener('click', async () => {
   finally { button.disabled = false; }
 });
 
-for (const tab of ['canvas', 'passport']) {
+for (const tab of ['canvas', 'passport', 'collage']) {
   $(`#${tab}-clear`).addEventListener('click', async () => {
-    const label = tab === 'canvas' ? 'Canvas' : 'Passport';
+    const label = tab === 'canvas' ? 'Canvas' : tab === 'collage' ? 'Collage' : 'Passport';
     if (!confirm(`Remove all photos from ${label}? Files already exported stay.`)) return;
     const ws = workspaces[tab];
     clearTimeout(ws.timer); ws.timer = 0;
@@ -137,10 +138,10 @@ $('#full-clean').addEventListener('click', async () => {
     const workFiles = Object.values(ws).reduce((sum, w) => sum + (w.files || 0), 0);
     const total = d.incoming.bytes + d.orders.bytes + d.print_ready.bytes + Object.values(ws).reduce((sum, w) => sum + (w.bytes || 0), 0);
     if (!confirm(`Delete EVERYTHING?\n\n• Incoming: ${d.incoming.files} files\n• Prints orders: ${d.orders.items.length} (${d.orders.photos} photos)\n` +
-      `• Canvas and Passport work: ${workFiles} files\n• Finished files: ${d.print_ready.files}\n\n${storageSize(total)} in total. This cannot be undone.`)) return;
+      `• Canvas, Passport, and Collage work: ${workFiles} files\n• Finished files: ${d.print_ready.files}\n\n${storageSize(total)} in total. This cannot be undone.`)) return;
     button.disabled = true;
     clearTimeout(saveTimer); saveTimer = 0; ++orderEpoch; loadingOrder = true; currentOrder = null;
-    for (const tab of ['canvas', 'passport']) {
+    for (const tab of ['canvas', 'passport', 'collage']) {
       const w = workspaces[tab];
       clearTimeout(w.timer); w.timer = 0;
       await w.chain.catch(() => {});
@@ -149,7 +150,7 @@ $('#full-clean').addEventListener('click', async () => {
     const result = await orderRequest('/api/storage/full-clean', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirm: 'everything' }),
     });
-    for (const tab of ['canvas', 'passport']) { clearTab(tab); workspaces[tab].loading = false; resetHistory(tab); }
+    for (const tab of ['canvas', 'passport', 'collage']) { clearTab(tab); workspaces[tab].loading = false; resetHistory(tab); }
     const order = await orderRequest('/api/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
     await listOrders(); await switchOrder(order.id, false);
     await refreshStorage(false);

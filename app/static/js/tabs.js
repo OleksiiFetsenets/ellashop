@@ -1,5 +1,5 @@
 'use strict';
-// Handles incoming photos and navigation between the three photo tabs.
+// Handles incoming photos and navigation between the photo tabs.
 // Loads before settings.js and the tab scripts that add and edit photos.
 
 const clampTilt = tilt => Math.min(20, Math.max(-20, tilt));
@@ -51,8 +51,8 @@ $$('.tab').forEach(t => t.addEventListener('click', () => {
   $$('.prints-order-control').forEach(x => { x.hidden = t.dataset.tab !== 'prints'; });
   prints.preview.draw(); canvasPrints.preview.draw(); pp.preview.draw(); pp.drawSheet();
   printsGrid.update(); canvasGrid.update();
+  if (t.dataset.tab === 'collage') refreshCollage();
   updateUndoButtons();
 }));
 $('#open-folder').addEventListener('click', () => fetch('/api/open-folder?folder=' + encodeURIComponent(
   document.querySelector('.tab.active')?.dataset.tab === 'prints' ? orderName() : ''), { method: 'POST' }));
-

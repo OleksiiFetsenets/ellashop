@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- Defines the three photo views, dialogs, and controls for the browser UI. -->
+<!-- Defines the photo views, dialogs, and controls for the browser UI. -->
 <!-- Loads the plain scripts in dependency order, ending with app startup. -->
 <html lang="en">
 <head>
@@ -16,6 +16,7 @@
       <button class="tab active" data-tab="prints">Prints</button>
       <button class="tab" data-tab="canvas-view">Canvas</button>
       <button class="tab" data-tab="passport">Passport photos</button>
+      <button class="tab" data-tab="collage">Collage</button>
       <span class="undo-redo">
         <button id="undo" class="ghost" title="Undo (⌘Z / Ctrl+Z)" aria-label="Undo" disabled>↶</button>
         <button id="redo" class="ghost" title="Redo (⇧⌘Z / Ctrl+Shift+Z)" aria-label="Redo" disabled>↷</button>
@@ -135,6 +136,103 @@
         <button id="save-all" class="primary">Save all</button>
       </div>
       <p class="status" id="prints-status"></p>
+    </aside>
+  </section>
+
+  <!-- ===================== COLLAGE ===================== -->
+  <section id="collage" class="view">
+    <aside class="left">
+      <label class="drop" id="collage-drop">
+        <input type="file" id="collage-file" accept="image/*,.zip" multiple hidden>
+        <strong>Drop photos here</strong><br><span>or click to choose</span>
+      </label>
+      <button class="ghost wide" data-incoming="collage">Load from incoming folder</button>
+      <ul id="collage-pool" class="queue"></ul>
+      <button id="collage-clear" class="ghost wide clear-all">Clear all</button>
+    </aside>
+
+    <div class="stage collage-stage" id="collage-stage">
+      <div class="collage-tabs" id="collage-tabs"></div>
+      <button class="pp-add" id="collage-add-sheet" title="Add sheet">+</button>
+      <div class="view-bar collage-view-bar" id="collage-view-bar" hidden>
+        <div class="seg"><button data-view="sheet">Sheet</button><button data-view="single">Single</button></div>
+        <button data-step="-1">◀ Prev</button><span class="view-count"></span><button data-step="1">Next ▶</button>
+      </div>
+      <div class="collage-sheet" id="collage-sheet"></div>
+      <canvas id="collage-canvas"></canvas>
+      <p class="hint" id="collage-hint">Add photos to start. Drop them into cells or choose a layout.</p>
+    </div>
+
+    <aside class="right collage-controls">
+      <h3>Paper (cm)</h3>
+      <div class="grid" id="collage-paper"></div>
+
+      <h3>Orientation</h3>
+      <div class="seg" id="collage-orient">
+        <button data-v="portrait" class="on">Portrait</button>
+        <button data-v="landscape">Landscape</button>
+      </div>
+
+      <h3>Layout</h3>
+      <div class="seg collage-layout-tabs" id="collage-layout">
+        <button data-v="grid" class="on">Equal grid</button>
+        <button data-v="size">Photo size</button>
+        <button data-v="template">Shapes</button>
+        <button data-v="custom">Custom</button>
+      </div>
+      <div id="collage-layout-grid" class="collage-layout-panel">
+        <div class="grid collage-counts" id="collage-counts"></div>
+        <label class="collage-dimensions">Cols <input id="collage-cols" type="number" min="1" max="10" value="2"> × Rows <input id="collage-rows" type="number" min="1" max="10" value="2"></label>
+        <button id="collage-apply-grid" class="ghost wide">Apply columns × rows</button>
+      </div>
+      <div id="collage-layout-size" class="collage-layout-panel" hidden>
+        <div class="grid collage-sizes" id="collage-sizes"></div>
+        <div class="custom-size-row collage-cell-custom" id="collage-cell-custom">
+          W <input id="collage-cell-w" type="number" min="0.5" max="100" step="0.1" aria-label="Cell width in cm">
+          × H <input id="collage-cell-h" type="number" min="0.5" max="100" step="0.1" aria-label="Cell height in cm">
+          cm <button id="collage-apply-cell-size" type="button">Apply</button>
+        </div>
+      </div>
+      <div id="collage-layout-template" class="collage-layout-panel" hidden>
+        <div class="row collage-template-count"><button id="collage-shapes-minus">−</button><label>N <input id="collage-shapes-count" type="number" min="2" max="20" value="5"></label><button id="collage-shapes-plus">+</button></div>
+        <div id="collage-shapes" class="collage-shapes"></div>
+      </div>
+      <div id="collage-layout-custom" class="collage-layout-panel" hidden>
+        <div class="row"><button id="collage-split-row" title="Split side by side">Split ↔</button><button id="collage-split-col" title="Split top and bottom">Split ↕</button></div>
+        <div class="row"><button id="collage-merge" class="wide">Merge</button><button id="collage-start-over" class="wide">Start over</button></div>
+      </div>
+
+      <h3>Spacing</h3>
+      <label class="collage-number">Gap <input id="collage-gap" type="number" min="0" max="20" step="0.5" value="0"> mm</label>
+      <label class="collage-number">Margin <input id="collage-margin" type="number" min="0" max="20" step="0.5" value="0"> mm</label>
+      <div class="seg" id="collage-gap-color">
+        <button data-v="#ffffff" class="on">White gaps</button>
+        <button data-v="#000000">Black gaps</button>
+      </div>
+      <label class="check"><input id="collage-cutlines" type="checkbox" checked> Cut lines when gap is 0</label>
+
+      <h3>Density</h3>
+      <div id="collage-density"></div>
+
+      <h3>Selected cell</h3>
+      <div class="seg" id="collage-mode">
+        <button data-v="fill" class="on">Crop</button>
+        <button data-v="fit">Fit white</button>
+        <button data-v="blur">Fit blurred</button>
+      </div>
+      <div class="row">
+        <button id="collage-rot-l" title="Rotate left">⟲</button>
+        <button id="collage-rot-r" title="Rotate right">⟳</button>
+        <input type="range" id="collage-zoom" min="1" max="6" step="0.01" value="1" title="Zoom">
+        <button id="collage-reset" title="Reset crop">Reset</button>
+      </div>
+      <button id="collage-empty" class="ghost wide">Empty cell</button>
+
+      <div class="actions">
+        <button id="collage-save-one" class="primary">Save sheet</button>
+        <button id="collage-save-all" class="primary">Save all sheets</button>
+      </div>
+      <p class="status" id="collage-status" role="status"></p>
     </aside>
   </section>
 
@@ -284,6 +382,7 @@
   <script src="js/prints.js"></script>
   <script src="js/canvas.js"></script>
   <script src="js/passport.js"></script>
+  <script src="js/collage.js"></script>
   <script src="js/shortcuts.js"></script>
   <script src="js/main.js"></script>
 </body>

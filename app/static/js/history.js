@@ -7,13 +7,15 @@
 // tab from a step, reusing images already loaded (cached by file), so it is instant — and photos
 // removed from the tab come back.
 const HISTORY_LIMIT = 60;
-const historyStore = Object.fromEntries(['prints', 'canvas', 'passport'].map(t => [t, { past: [], future: [], current: null, timer: 0 }]));
+const historyStore = Object.fromEntries(['prints', 'canvas', 'passport', 'collage'].map(t => [t, { past: [], future: [], current: null, timer: 0 }]));
 const historyImages = new Map();  // `${tab}|${file}` → loaded Image
-const activeTabName = () => ({ 'canvas-view': 'canvas', passport: 'passport' })[document.querySelector('.tab.active')?.dataset.tab] || 'prints';
+const activeTabName = () => ({ 'canvas-view': 'canvas', passport: 'passport', collage: 'collage' })[document.querySelector('.tab.active')?.dataset.tab] || 'prints';
 const tabBusy = tab => (tab === 'prints' ? loadingOrder || !currentOrder : workspaces[tab].loading) || historyStore[tab].restoring;
 
 function rememberImages(tab) {
-  const items = tab === 'passport' ? pp.jobs.map(j => [j.cutFile || j.file, j.item]) : (tab === 'canvas' ? canvasPrints : prints).items.map(i => [i.file, i]);
+  const items = tab === 'passport' ? pp.jobs.map(j => [j.cutFile || j.file, j.item])
+    : tab === 'collage' ? collage.photos.map(p => [p.file, p])
+      : (tab === 'canvas' ? canvasPrints : prints).items.map(i => [i.file, i]);
   for (const [file, item] of items) if (file && item?.img) historyImages.set(`${tab}|${file}`, item.img);
 }
 function snapshot(tab) { rememberImages(tab); return JSON.stringify(tabState(tab)); }
@@ -66,6 +68,8 @@ async function applySnapshot(tab, json) {
       }
       pp.jobs = jobs; pp.active = jobs[state.active] || jobs[0] || null;
       ppSyncItem();
+    } else if (tab === 'collage') {
+      await restoreCollageSnapshot(state);
     } else {
       const target = tab === 'canvas' ? canvasPrints : prints, items = [];
       for (const saved of state.items || []) items.push(await build(saved, tab === 'canvas' ? CANVAS_FORMATS : FORMATS));
@@ -101,4 +105,3 @@ function updateUndoButtons() {
   $('#undo').disabled = !h.past.length && !h.timer;
   $('#redo').disabled = !h.future.length;
 }
-

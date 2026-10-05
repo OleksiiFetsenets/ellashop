@@ -33,13 +33,14 @@ pp.drawSheet();
 syncPrintControls();
 
 // Start-up: when the last session left photos behind, ask whether to continue or start fresh.
-// Start fresh empties the Canvas and Passport working copies and opens an empty Prints order;
+// Start fresh empties the independent workspaces and opens an empty Prints order;
 // earlier Prints orders stay in the Order list (delete them there or in ⚙ Settings).
 async function askResume() {
-  const [canvas, passport, orders] = await Promise.all(['/api/workspace/canvas', '/api/workspace/passport', '/api/orders'].map(url => orderRequest(url)));
+  const [canvas, passport, collageState, orders] = await Promise.all(['/api/workspace/canvas', '/api/workspace/passport', '/api/workspace/collage', '/api/orders'].map(url => orderRequest(url)));
   const last = orders.find(x => x.id === lastOrder()) || orders[0];
   const counts = [['Prints', last?.counts.prints || 0, last ? ` (order “${last.name || last.folder}”)` : ''],
-    ['Canvas', (canvas.items || []).length, ''], ['Passport', (passport.jobs || []).length, '']].filter(([, n]) => n);
+    ['Canvas', (canvas.items || []).length, ''], ['Passport', (passport.jobs || []).length, ''],
+    ['Collage', (collageState.photos || []).length, '']].filter(([, n]) => n);
   if (!counts.length) return;
   const dlg = document.createElement('dialog');
   dlg.className = 'resume-dialog';
@@ -55,7 +56,7 @@ async function askResume() {
   });
   dlg.close(); dlg.remove();
   if (choice !== 'fresh') return;
-  await Promise.all(['canvas', 'passport'].map(tab => orderRequest(`/api/workspace/${tab}/clear`, { method: 'POST' })));
+  await Promise.all(['canvas', 'passport', 'collage'].map(tab => orderRequest(`/api/workspace/${tab}/clear`, { method: 'POST' })));
   if (last?.counts.prints) {
     const order = await orderRequest('/api/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
     rememberOrder(order.id);
@@ -65,9 +66,10 @@ async function askResume() {
 (async () => {
   try {
     try { await askResume(); } catch (e) { showOrderError(e); }
-    const restored = await Promise.allSettled([restoreWorkspace('canvas'), restoreWorkspace('passport')]);
+    const workspaceTabs = ['canvas', 'passport', 'collage'];
+    const restored = await Promise.allSettled(workspaceTabs.map(restoreWorkspace));
     restored.forEach((result, index) => {
-      if (result.status === 'rejected') showWorkspaceError(['canvas', 'passport'][index], result.reason);
+      if (result.status === 'rejected') showWorkspaceError(workspaceTabs[index], result.reason);
     });
     const orders = await listOrders();
     const id = orders.some(x => x.id === lastOrder()) ? lastOrder() : orders[0]?.id;

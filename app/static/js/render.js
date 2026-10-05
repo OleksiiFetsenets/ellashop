@@ -352,6 +352,7 @@ let currentOrder = null, orderEpoch = 0, saveTimer = 0, saveChain = Promise.reso
 const workspaces = {
   canvas: { epoch: 0, timer: 0, chain: Promise.resolve(), loading: false },
   passport: { epoch: 0, timer: 0, chain: Promise.resolve(), loading: false },
+  collage: { epoch: 0, timer: 0, chain: Promise.resolve(), loading: false },
 };
 const dateFolder = id => `${id.slice(0, 4)}-${id.slice(4, 6)}-${id.slice(6, 8)}_${id.slice(9, 11)}-${id.slice(11, 13)}`;
 const orderName = () => orderInput.value || (currentOrder ? dateFolder(currentOrder.id) : '');
@@ -369,7 +370,7 @@ async function orderRequest(url, options) {
 
 async function uploadPhoto(blob, name, owner = currentOrder?.id) {
   if (!owner) throw new Error('Storage is not ready');
-  const workspace = owner === 'canvas' || owner === 'passport';
+  const workspace = owner === 'canvas' || owner === 'passport' || owner === 'collage';
   const url = workspace ? `/api/workspace/${owner}/files` : `/api/orders/${owner}/files`;
   const { file } = await orderRequest(`${url}?name=${encodeURIComponent(name)}`, { method: 'POST', body: blob });
   return { file, src: workspace ? workspaceUrl(owner, file) : orderUrl(owner, file), name };
@@ -389,8 +390,8 @@ function itemState(item) {
 function tabState(tab) {
   if (tab === 'prints') return { items: prints.items.map(itemState), sel: prints.items.indexOf(prints.sel), view: prints.view || null };
   if (tab === 'canvas') return { items: canvasPrints.items.map(itemState), sel: canvasPrints.items.indexOf(canvasPrints.sel), view: canvasPrints.view || null };
+  if (tab === 'collage') return collageState();
   return { jobs: pp.jobs.map(job => ({ file: job.file, cutFile: job.cutFile || null,
       name: job.name, size: job.size.id, status: job.status === 'done' ? 'done' : 'new',
       face: job.face, item: itemState(job.item) })), active: pp.jobs.indexOf(pp.active) };
 }
-

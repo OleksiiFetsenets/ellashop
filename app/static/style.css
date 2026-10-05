@@ -162,6 +162,50 @@ code { font-size: 11px; }
 .pp-close { padding: 5px; color: var(--muted); }
 .pp-add { position: absolute; top: 12px; right: 16px; font-size: 20px; padding: 1px 9px; }
 
+.collage-stage { padding-top: 104px; }
+.collage-tabs { position: absolute; top: 12px; left: 16px; right: 60px; display: flex; gap: 5px; overflow-x: auto; min-width: 0; }
+.collage-tab { display: flex; align-items: center; min-width: 0; max-width: 180px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+.collage-tab.active { border-color: var(--accent); }
+.collage-tab button { border: 0; background: transparent; }
+.collage-pick { display: flex; align-items: center; min-width: 0; padding: 6px 8px; }
+.collage-tab-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.collage-close { padding: 5px; color: var(--muted); }
+.collage-view-bar { top: 54px; }
+.collage-sheet { position: relative; flex: none; overflow: hidden; background: #fff; box-shadow: 0 2px 14px rgba(0,0,0,.18); }
+.collage-cell { position: absolute; overflow: hidden; touch-action: none; }
+.collage-cell canvas { display: block; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; box-shadow: none; cursor: grab; }
+.collage-cell.empty { display: flex; align-items: center; justify-content: center; padding: 5px; background: #f1f1f1; border: 1px dashed #aaa; color: #777; font-size: 12px; text-align: center; }
+.collage-cell.selected { outline: 2px solid var(--accent); outline-offset: -2px; z-index: 1; }
+.collage-cell .eye, .collage-cell .collage-handle { position: absolute; top: 4px; z-index: 2; padding: 1px 5px; font-size: 13px; background: rgba(255,255,255,.9); }
+.collage-cell .eye { right: 4px; }
+.collage-cell .collage-handle { left: 4px; cursor: grab; touch-action: none; }
+.collage-divider { position: absolute; z-index: 4; touch-action: none; }
+.collage-divider.row { cursor: col-resize; width: 12px; margin-left: -6px; }
+.collage-divider.col { cursor: row-resize; height: 12px; margin-top: -6px; }
+.collage-divider::after { content: ''; position: absolute; background: rgba(47,111,223,.55); }
+.collage-cut-line { position: absolute; z-index: 3; background: #000; pointer-events: none; }
+.collage-cell.over { outline: 2px solid var(--accent); outline-offset: -2px; }
+.collage-divider.row::after { left: 5px; top: 0; bottom: 0; width: 2px; }
+.collage-divider.col::after { top: 5px; left: 0; right: 0; height: 2px; }
+.collage-layout-tabs { flex-wrap: wrap; }
+.collage-layout-tabs button { min-width: 44%; }
+.collage-layout-panel { margin-top: 8px; }
+.collage-counts { grid-template-columns: repeat(3, 1fr); }
+.collage-dimensions, .collage-number { display: flex; align-items: center; gap: 5px; margin-top: 8px; font-size: 13px; }
+.collage-dimensions input, .collage-number input, .collage-template-count input { width: 54px; min-width: 0; padding: 5px; border: 1px solid var(--line); border-radius: 6px; font: inherit; }
+.collage-sizes { grid-template-columns: repeat(2, 1fr); }
+.collage-sizes button { font-size: 12px; padding: 7px 3px; }
+.collage-cell-custom { flex-wrap: wrap; }
+.collage-cell-custom input { width: 54px; padding: 5px; border: 1px solid var(--line); border-radius: 6px; font: inherit; }
+.collage-template-count { justify-content: center; }
+.collage-template-count label { display: flex; gap: 5px; align-items: center; }
+.collage-shapes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-top: 8px; }
+.collage-shape { min-width: 0; padding: 5px; font-size: 11px; }
+.collage-shape svg { display: block; width: 100%; height: 54px; margin-bottom: 4px; }
+.collage-shape rect { fill: #eef3fd; stroke: #53657e; stroke-width: 1.5; }
+.queue li.used img { filter: grayscale(1); }
+.collage-controls #collage-gap-color { margin-top: 8px; }
+
 #storage-dialog { border: 0; border-radius: 12px; padding: 20px; width: min(900px, 94vw); max-height: 90vh; overflow: auto; box-shadow: 0 12px 40px rgba(0,0,0,.2); }
 #storage-dialog::backdrop { background: rgba(0,0,0,.35); }
 .storage-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }

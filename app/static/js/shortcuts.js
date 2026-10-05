@@ -1,6 +1,6 @@
 'use strict';
 // Routes keyboard editing and tab shortcuts to the active photo view.
-// Loads after the three tab scripts so their controls are available.
+// Loads after the tab scripts so their controls are available.
 // Overlay shortcuts take precedence in Single view; the photo shortcuts below stay intact otherwise.
 document.addEventListener('keydown', e => {
   if (e.metaKey || e.ctrlKey || e.target.closest?.('input, textarea, select, [contenteditable]')) return;
@@ -30,17 +30,23 @@ document.addEventListener('keydown', e => {
       e.target.matches?.('textarea, input:not([type=range]):not([type=checkbox])')) return;
   const passport = $('#passport').classList.contains('active');
   const canvas = $('#canvas-view').classList.contains('active');
-  const item = passport ? pp.active?.item : canvas ? canvasPrints.item : prints.item;
+  const isCollage = $('#collage').classList.contains('active');
+  const item = isCollage ? collage.sel?.item : passport ? pp.active?.item : canvas ? canvasPrints.item : prints.item;
   if (!item || item.mode === 'fit' || item.mode === 'blur') return;
   e.preventDefault();
   item.zoom = clampZoom(item, item.zoom * (e.altKey ? 1.02 : 1.1) ** dir);
   item.auto = ''; item.smartPending = false;
-  if (passport) ppSyncItem(); else if (canvas) refreshCanvas(); else refreshPrints();
+  if (isCollage) { refreshCollage(); queueSave('collage'); }
+  else if (passport) ppSyncItem(); else if (canvas) refreshCanvas(); else refreshPrints();
 });
 
 // Arrows move the photo (0.5 mm, Alt: 0.1 mm); Shift+←/→ tilt it (0.5°, Alt: 0.1°).
 const ARROWS = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
 document.addEventListener('keydown', e => {
+  if ($('#collage').classList.contains('active') && e.key === 'Escape') {
+    if (collage.view === 'single') { collage.view = 'sheet'; refreshCollage(); queueSave('collage'); e.preventDefault(); }
+    return;
+  }
   if (e.metaKey || e.ctrlKey || e.altKey || e.target.matches?.('input[type=text], input[type=number], textarea, [contenteditable]')) return;
   const grid = $('#prints').classList.contains('active') ? printsGrid
     : $('#canvas-view').classList.contains('active') ? canvasGrid : null;
@@ -57,10 +63,22 @@ document.addEventListener('keydown', e => {
       e.target.matches?.('textarea, input:not([type=range]):not([type=checkbox])')) return;
   const passport = $('#passport').classList.contains('active');
   const canvas = $('#canvas-view').classList.contains('active');
-  const item = passport ? pp.active?.item : canvas ? canvasPrints.item : prints.item;
-  const preview = passport ? pp.preview : canvas ? canvasPrints.preview : prints.preview;
+  const isCollage = $('#collage').classList.contains('active');
+  const item = isCollage ? collage.sel?.item : passport ? pp.active?.item : canvas ? canvasPrints.item : prints.item;
+  const preview = isCollage ? collage.preview : passport ? pp.preview : canvas ? canvasPrints.preview : prints.preview;
   if (!item) return;
   const step = e.altKey ? .1 : .5;
+  if (isCollage) {
+    if (e.shiftKey) {
+      if (!dir[0]) return;
+      item.tilt = clampTilt(item.tilt + dir[0] * step);
+    } else {
+      const target = collageSelectedCanvas() || preview.canvas;
+      const cssPerMM = target.getBoundingClientRect().width / preview.sizeMM(item).w;
+      panOnCanvas(item, target, preview.frontRect, dir[0] * step * cssPerMM, dir[1] * step * cssPerMM);
+    }
+    e.preventDefault(); refreshCollage(); queueSave('collage'); return;
+  }
   if (e.shiftKey) {
     if (!dir[0]) return;
     item.tilt = clampTilt(item.tilt + dir[0] * step);
@@ -115,4 +133,3 @@ document.addEventListener('keydown', e => {
 }, true);
 
 const configReady = refreshConfig();
-

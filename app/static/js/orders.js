@@ -1,8 +1,8 @@
 'use strict';
-// Persists Prints orders and the independent Canvas and Passport workspaces.
+// Persists Prints orders and the independent Canvas, Passport, and Collage workspaces.
 // Loads after history.js; later tab scripts call its save and restore helpers.
 // Capture the edit before scheduling the matching order or workspace write.
-function queueSave(tab = document.querySelector('.tab.active')?.dataset.tab === 'canvas-view' ? 'canvas' : document.querySelector('.tab.active')?.dataset.tab === 'passport' ? 'passport' : 'prints') {
+function queueSave(tab = ({ 'canvas-view': 'canvas', passport: 'passport', collage: 'collage' })[document.querySelector('.tab.active')?.dataset.tab] || 'prints') {
   recordHistory(tab);
   if (tab !== 'prints') {
     const ws = workspaces[tab];
@@ -45,9 +45,11 @@ async function flushOrder() {
 }
 
 function showOrderError(error) { setStatus($('#prints-status'), error.message, true); }
-function showWorkspaceError(tab, error) { setStatus($(tab === 'canvas' ? '#canvas-status' : '#pp-status'), error.message, true); }
+function showWorkspaceError(tab, error) {
+  setStatus($(tab === 'canvas' ? '#canvas-status' : tab === 'collage' ? '#collage-status' : '#pp-status'), error.message, true);
+}
 
-// Persist Canvas and Passport independently of the selected Prints order.
+// Persist Canvas, Passport, and Collage independently of the selected Prints order.
 function saveWorkspace(tab) {
   const ws = workspaces[tab];
   if (ws.loading) return ws.chain;
@@ -91,10 +93,11 @@ function clearPrints() {
 
 function clearTab(tab) {
   if (tab === 'canvas') {
-  canvasPrints.items = []; canvasPrints.sel = null; canvasPrints.view = null;
+    canvasPrints.items = []; canvasPrints.sel = null; canvasPrints.view = null;
     setStatus($('#canvas-status'), ''); $('#canvas-grid').replaceChildren(); refreshCanvas();
     return;
   }
+  if (tab === 'collage') { clearCollage(); return; }
   pp.jobs = []; pp.active = null; pp.queue = [];
   clearTimeout(sheetTimer);
   setStatus($('#pp-status'), ''); $('#pp-tabs').replaceChildren(); ppSyncItem();
@@ -103,7 +106,7 @@ function clearTab(tab) {
 // Rehydrate saved photo metadata with its stored image and format.
 async function restoreItem(saved, owner, formats, file = saved.file) {
   if (!file) return null;
-  const img = await loadImage(owner === 'canvas' || owner === 'passport' ? workspaceUrl(owner, file) : orderUrl(owner, file));
+  const img = await loadImage(owner === 'canvas' || owner === 'passport' || owner === 'collage' ? workspaceUrl(owner, file) : orderUrl(owner, file));
   const fmt = formatById(formats, saved.fmt);
   return newItem(img, saved.name || file, { ...saved, file: saved.file, fmt });
 }
@@ -137,7 +140,7 @@ async function switchOrder(id, flush = true) {
   }
 }
 
-// Recreate Canvas or Passport from its separately persisted state.
+// Recreate a workspace from its separately persisted state.
 async function restoreWorkspace(tab) {
   const ws = workspaces[tab], epoch = ++ws.epoch;
   ws.loading = true;
@@ -153,7 +156,7 @@ async function restoreWorkspace(tab) {
       canvasPrints.sel = canvasPrints.items[state.sel] || canvasPrints.items[0] || null;
       canvasPrints.view = state.view;
       refreshCanvas();
-    } else {
+    } else if (tab === 'passport') {
       for (const saved of state.jobs || []) {
         try {
           const size = formatById(PASSPORT, saved.size);
@@ -166,6 +169,8 @@ async function restoreWorkspace(tab) {
       pp.active = pp.jobs[state.active] || pp.jobs[0] || null;
       ppSyncItem();
       if (pp.config.faces) pp.jobs.filter(job => job.face === null).forEach(ppDetectFace);
+    } else {
+      await restoreCollageWorkspace(state);
     }
   } finally { if (epoch === ws.epoch) { ws.loading = false; resetHistory(tab); } }
 }
@@ -200,11 +205,10 @@ window.addEventListener('pagehide', () => {
     if (!navigator.sendBeacon?.(`/api/orders/${currentOrder.id}/state`, new Blob([body], { type: 'application/json' })))
       fetch(`/api/orders/${currentOrder.id}/state`, { method: 'POST', body, keepalive: true });
   }
-  for (const tab of ['canvas', 'passport']) {
+  for (const tab of ['canvas', 'passport', 'collage']) {
     clearTimeout(workspaces[tab].timer);
     const body = JSON.stringify(tabState(tab));
     if (!navigator.sendBeacon?.(`/api/workspace/${tab}`, new Blob([body], { type: 'application/json' })))
       fetch(`/api/workspace/${tab}`, { method: 'POST', body, keepalive: true });
   }
 });
-
