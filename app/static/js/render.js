@@ -393,5 +393,5 @@ function tabState(tab) {
   if (tab === 'collage') return collageState();
   return { jobs: pp.jobs.map(job => ({ file: job.file, cutFile: job.cutFile || null,
       name: job.name, size: job.size.id, status: job.status === 'done' ? 'done' : 'new',
-      face: job.face, item: itemState(job.item) })), active: pp.jobs.indexOf(pp.active) };
+      face: job.face, item: itemState(job.item) })), active: pp.jobs.indexOf(pp.active), margin: pp.margin };
 }

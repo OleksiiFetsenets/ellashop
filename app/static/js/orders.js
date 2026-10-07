@@ -98,7 +98,7 @@ function clearTab(tab) {
     return;
   }
   if (tab === 'collage') { clearCollage(); return; }
-  pp.jobs = []; pp.active = null; pp.queue = [];
+  pp.jobs = []; pp.active = null; pp.queue = []; pp.margin = 5;
   clearTimeout(sheetTimer);
   setStatus($('#pp-status'), ''); $('#pp-tabs').replaceChildren(); ppSyncItem();
 }
@@ -157,6 +157,7 @@ async function restoreWorkspace(tab) {
       canvasPrints.view = state.view;
       refreshCanvas();
     } else if (tab === 'passport') {
+      pp.margin = state.margin ?? 5;
       for (const saved of state.jobs || []) {
         try {
           const size = formatById(PASSPORT, saved.size);

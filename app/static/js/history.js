@@ -66,7 +66,7 @@ async function applySnapshot(tab, json) {
           size: formatById(PASSPORT, saved.size), status: saved.status, face: saved.face,
           item: await build(saved.item || {}, PASSPORT, saved.cutFile || saved.file) });
       }
-      pp.jobs = jobs; pp.active = jobs[state.active] || jobs[0] || null;
+      pp.jobs = jobs; pp.active = jobs[state.active] || jobs[0] || null; pp.margin = state.margin ?? 5;
       ppSyncItem();
     } else if (tab === 'collage') {
       await restoreCollageSnapshot(state);
