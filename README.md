@@ -109,10 +109,44 @@ Collage offers canvas paper sizes alongside print sizes. **Move to Canvas** open
 3. Choose the document. The head is **aligned automatically**: the chin and the top of the head are
    placed inside the blue bands required for that document (e.g. 32–36 mm for 3.5×4.5).
    Drag, zoom or straighten to fine-tune.
-4. **Save sheet** — the photos are packed from the top-left corner of a 10×15 sheet with thin black
-   cut lines and no gaps, ready for a guillotine cutter (8 × 3.5×4.5, 6 × VISA, 4 × 5×7, 9 × 3.3×4.8).
+4. **Save sheet** — the photos are packed on a 10×15 sheet with thin black cut lines and no gaps,
+   ready for a guillotine cutter: 8 × 3.5×4.5, 6 × VISA, 4 × Canada 5×7, 8 × China 3.3×4.8.
+   A sheet never holds more than 8 photos, custom sizes included.
 
 ![Passport photos with automatic alignment and the sheet](docs/screenshots/passport.png)
+
+### Sheet margins (Right / Down)
+
+Even printers sold as "borderless" have a **mechanical margin**: the paper is gripped and fed by
+rollers, and a few millimetres at the edge can come out unprinted, smeared or shifted. A photo
+that touches the paper edge risks losing part of the face or the cut line, and differently on
+every printer.
+
+So the block of photos can be moved away from the edge. Under **4. Sheet 10 × 15** there are two
+boxes:
+
+- **Right** — mm of white space at the left edge; the whole block moves right.
+- **Down** — mm of white space at the top edge; the whole block moves down.
+
+The block of photos itself never changes: same size, same count, no gaps, and the cut lines run
+edge to edge so the guillotine trims the white strip off with the first cut. Nothing else is
+added — the leftover space simply stays on the opposite side.
+
+Each document size starts with its own **standard** margin, chosen so the full set of photos still
+fits:
+
+| Size | Photos | Standard Right / Down | Most you can set |
+|---|---|---|---|
+| 3.5 × 4.5 | 8 | 5 / 5 mm | 10 / 10 mm |
+| China visa 3.3 × 4.8 | 8 | 9 / 4 mm (spare split evenly across) | 18 / 4 mm |
+| Canada 5 × 7 | 4 | 0 / 5 mm | 0 / 10 mm |
+| VISA 5 × 5 | 6 | 0 / 0 mm — the photos fill the sheet | 0 / 0 mm |
+| Custom | up to 8 | 5 / 5 mm, less if it does not fit | whatever space is left |
+
+**Full control:** change Right or Down for any photo to match your printer — values from 0 to
+20 mm in 0.5 mm steps. A value that would push a photo off the sheet is refused with a message
+saying how much space there is. Each photo keeps its own margins (saved with the work, with
+undo/redo); picking another size resets them to that size's standard.
 
 ## More
 
