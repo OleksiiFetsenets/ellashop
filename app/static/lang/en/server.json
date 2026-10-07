@@ -2,6 +2,7 @@
   "server_decode_image": "Could not decode image",
   "server_background_stopped": "Background removal stopped unexpectedly — try again",
   "server_invalid_settings_path": "Invalid settings path",
+  "server_invalid_language": "Invalid language",
   "server_invalid_auto_clean_settings": "Invalid auto-clean settings",
   "server_invalid_cleanup_target": "Invalid cleanup target",
   "server_invalid_kept_order": "Invalid kept order",

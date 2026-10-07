@@ -12,6 +12,7 @@ Every piece of text the user sees lives here, Android `res/values` style.
 ## Adding a language
 
 1. Copy `en/` to a new folder named by language code, e.g. `ru/` or `uk/`, and translate the values (never the ids). Missing ids fall back to English.
+   Every language folder must define `language_name` as that language's own name (endonym).
 2. Set `"language": "ru"` in `app/settings.json` and restart Ellashop.
 
 Folder and file names on disk (Exported, Passport 3.5x4.5, …) stay English on purpose.

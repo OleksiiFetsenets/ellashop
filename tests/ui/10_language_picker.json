@@ -1,0 +1,11 @@
+[
+  {"op": "goto", "url": "http://localhost:8799/"},
+  {"op": "sleep", "ms": 1500},
+  {"op": "eval", "expr": "document.querySelector('dialog[open] button[value=continue]')?.click(); true"},
+  {"op": "click", "sel": "#open-storage"},
+  {"op": "sleep", "ms": 800},
+  {"op": "eval", "expr": "(()=>{const picker=document.querySelector('#settings-language'); const en=[...picker.options].find(option=>option.value==='en'); if(!en||en.textContent!=='English'||picker.value!=='en') throw Error('English language option missing or unselected'); return true})()"},
+  {"op": "eval", "expr": "fetch('/api/languages').then(r=>r.json()).then(d=>{if(d.current!=='en'||!d.languages.some(item=>item.code==='en'&&item.name==='English')) throw Error('English missing from API'); return true})"},
+  {"op": "eval", "expr": "fetch('/api/language',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({language:'zz'})}).then(r=>{if(r.status!==400) throw Error('Unknown language accepted'); return true})"},
+  {"op": "assertNoErrors"}
+]

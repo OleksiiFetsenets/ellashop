@@ -56,10 +56,26 @@ async function refreshStorage(updateSettings = true) {
 $('#open-storage').addEventListener('click', async () => {
   storageDialog.showModal();
   setStatus($('#storage-status'), t('settings_loading'));
-  try { await flushOrder(); await refreshStorage(); setStatus($('#storage-status'), ''); }
+  try {
+    const { current, languages } = await orderRequest('/api/languages');
+    const picker = $('#settings-language');
+    picker.replaceChildren(...languages.map(({ code, name }) => new Option(name, code)));
+    picker.value = current;
+    await flushOrder(); await refreshStorage(); setStatus($('#storage-status'), '');
+  }
   catch (e) { setStatus($('#storage-status'), e.message, true); }
 });
 $('#storage-close').addEventListener('click', () => storageDialog.close());
+$('#settings-language').addEventListener('change', async (event) => {
+  const picker = event.target;
+  picker.disabled = true;
+  try {
+    await orderRequest('/api/language', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ language: picker.value }),
+    });
+    location.reload();
+  } catch (e) { setStatus($('#storage-status'), e.message, true); picker.disabled = false; }
+});
 
 $$('[data-clean]').forEach(button => button.addEventListener('click', async () => {
   try {

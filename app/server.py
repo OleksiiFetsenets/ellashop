@@ -280,6 +280,7 @@ def read_settings():
 
 
 LANG_DIR = STATIC / "lang"
+LANG_CODE = re.compile(r"[a-z]{2}(-[A-Za-z]{2,4})?")
 
 
 def ui_language():
@@ -288,7 +289,19 @@ def ui_language():
         lang = str(read_settings().get("language") or "en")
     except (ValueError, json.JSONDecodeError):
         return "en"
-    return lang if re.fullmatch(r"[a-z]{2}(-[A-Za-z]{2,4})?", lang) and (LANG_DIR / lang).is_dir() else "en"
+    return lang if LANG_CODE.fullmatch(lang) and (LANG_DIR / lang).is_dir() else "en"
+
+
+def ui_languages():
+    languages = []
+    for folder in LANG_DIR.iterdir():
+        if not folder.is_dir() or not LANG_CODE.fullmatch(folder.name) or not any(folder.glob("*.json")):
+            continue
+        name = None
+        for file in sorted(folder.glob("*.json")):
+            name = json.loads(file.read_text(encoding="utf-8")).get("language_name", name)
+        languages.append({"code": folder.name, "name": name if isinstance(name, str) and name else folder.name})
+    return sorted(languages, key=lambda item: (item["code"] != "en", item["name"]))
 
 
 def ui_strings(lang):
@@ -725,6 +738,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         url = urllib.parse.urlparse(self.path)
         if url.path == "/api/version":
             return self.send_json({"version": update.current_version(), "update": update_status()})
+        if url.path == "/api/languages":
+            return self.send_json({"current": ui_language(), "languages": ui_languages()})
         if url.path == "/api/storage":
             try:
                 return self.send_json(storage_data())
@@ -809,6 +824,16 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             if hook:
                 threading.Thread(target=hook, daemon=True).start()
             return self.send_json({"ok": True})
+
+        if url.path == "/api/language":
+            try:
+                code = self.read_json().get("language")
+                if not isinstance(code, str) or code not in {item["code"] for item in ui_languages()}:
+                    raise ValueError(tr('server_invalid_language'))
+                write_settings(language=code)
+                return self.send_json({"language": code})
+            except (ValueError, json.JSONDecodeError) as e:
+                return self.order_error(e)
 
         if url.path in ("/api/update", "/api/update/rollback"):
             try:
