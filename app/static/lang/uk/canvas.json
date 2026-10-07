@@ -1,0 +1,11 @@
+{
+  "canvas_label": "%1$s · загин %2$s см",
+  "canvas_print_size": "Розмір друку %1$s × %2$s см (лицьова частина %3$s × %4$s + загин %5$s см з кожного боку)",
+  "canvas_hint_selected": "%1$s — перетягуйте для переміщення, прокручуйте для масштабу.",
+  "canvas_hint_empty": "Додайте фото. Перетягуйте лицьову область для переміщення, прокручуйте для масштабу.",
+  "canvas_source_error": "%1$s: %2$s",
+  "canvas_saving": "Збереження…",
+  "canvas_saved_file": "Збережено: %1$s",
+  "canvas_saving_count": "Збереження %1$d / %2$d…",
+  "canvas_saved_canvases": "Збережено %1$d полотен у Exported (теки Canvas за розміром)"
+}
