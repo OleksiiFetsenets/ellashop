@@ -1,0 +1,22 @@
+{
+  "prints_face_detection_failed": "זיהוי הפנים נכשל",
+  "prints_hint_selected": "%1$s → %2$s ס״מ. גררו להזזה, גללו לשינוי גודל.",
+  "prints_hint_empty": "הוסיפו תמונות כדי להתחיל. גררו את התמונה להזזה, גללו לשינוי גודל.",
+  "prints_remove": "הסר",
+  "prints_label": "%1$s · %2$s",
+  "prints_blur": "טשטוש",
+  "prints_fit": "התאמה",
+  "prints_crop": "חיתוך",
+  "prints_faces_pending": " · פנים: …",
+  "prints_faces_count": " · פנים: %1$d",
+  "prints_auto_detail": " · %1$s",
+  "prints_auto_blur": "טשטוש: הפנים אינן נכנסות",
+  "prints_auto_faces": "פנים",
+  "prints_auto_centre": "מרכז",
+  "prints_open_single_view": "פתח בתצוגת יחיד",
+  "prints_source_error": "%1$s: %2$s",
+  "prints_saving": "שומר…",
+  "prints_saved_file": "נשמר: %1$s",
+  "prints_saving_count": "שומר %1$d / %2$d…",
+  "prints_saved_photos": "נשמרו %1$d תמונות בתיקיית Exported/%2$s"
+}

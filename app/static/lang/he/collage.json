@@ -1,0 +1,44 @@
+{
+  "collage_rows": "שורות",
+  "collage_big_first": "גדול בהתחלה",
+  "collage_big_last": "גדול בסוף",
+  "collage_remove": "הסר",
+  "collage_used": "בשימוש ×%1$d",
+  "collage_unused": "לא בשימוש",
+  "collage_drop_photo": "שחררו תמונה",
+  "collage_open_single_view": "פתח בתצוגת יחיד",
+  "collage_drag_swap": "גררו להחלפת תאים",
+  "collage_add_photos_hint": "הוסיפו תמונות כדי להתחיל. שחררו אותן בתאים או בחרו פריסה.",
+  "collage_drag_photos_hint": "גררו תמונות משמאל לתאים. גררו בתוך תא להזזה, גללו לשינוי גודל, 👁 לעריכה.",
+  "collage_sheet": "גיליון %1$d",
+  "collage_close_sheet": "סגור גיליון",
+  "collage_close_filled_sheet": "לסגור את גיליון %1$d עם %2$d תאים מלאים? התמונות יישארו במאגר.",
+  "collage_canvas": "קנבס",
+  "collage_no_preset_fits": "אין גודל תא מוגדר מראש שמתאים לגיליון זה.",
+  "collage_grid_range_error": "מספר העמודות והשורות חייב להיות בין 1 ל־10.",
+  "collage_cell_does_not_fit": "גודל התא הזה אינו מתאים לגיליון.",
+  "collage_cell_size_range_error": "הזינו רוחב וגובה תא בין 0.1 ל־100 ס״מ.",
+  "collage_gap_margin_range_error": "המרווח והשוליים חייבים להיות בין 0 ל־20 מ״מ.",
+  "collage_spacing_no_room": "המרווח הזה לא משאיר מקום לתאים.",
+  "collage_empty_cells_save": {
+    "one": "%1$d תא ריק יודפס בלבן. לשמור בכל זאת?",
+    "two": "%1$d תאים ריקים יודפסו בלבן. לשמור בכל זאת?",
+    "other": "%1$d תאים ריקים יודפסו בלבן. לשמור בכל זאת?"
+  },
+  "collage_empty_cells_move": {
+    "one": "%1$d תא ריק יודפס בלבן. להעביר בכל זאת?",
+    "two": "%1$d תאים ריקים יודפסו בלבן. להעביר בכל זאת?",
+    "other": "%1$d תאים ריקים יודפסו בלבן. להעביר בכל זאת?"
+  },
+  "collage_canvas_size_error": "גודלי קנבס מתחילים ב־10 × 10 ס״מ — בחרו נייר גדול יותר.",
+  "collage_moving": "מעביר…",
+  "collage_moved_to_canvas": "הועבר לקנבס",
+  "collage_saving": "שומר…",
+  "collage_saved_file": "נשמר: %1$s",
+  "collage_saving_sheet": "שומר גיליון %1$d / %2$d…",
+  "collage_saved_sheets": {
+    "one": "נשמר %1$d גיליון.",
+    "two": "נשמרו %1$d גיליונות.",
+    "other": "נשמרו %1$d גיליונות."
+  }
+}

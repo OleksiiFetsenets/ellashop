@@ -1,0 +1,42 @@
+{
+  "settings_bytes": "%1$s B",
+  "settings_kilobytes": "%1$s KB",
+  "settings_megabytes": "%1$s MB",
+  "settings_gigabytes": "%1$s GB",
+  "settings_days": "ימים",
+  "settings_hours": "שעות",
+  "settings_number_error": "הזינו מספר שלם של %1$s בין %2$s ל־%3$s",
+  "settings_orders_prints": "הזמנות (הדפסות)",
+  "settings_canvas_workspace": "סביבת העבודה של קנבס",
+  "settings_passport_workspace": "סביבת העבודה של פספורט",
+  "settings_collage_workspace": "סביבת העבודה של קולאז׳",
+  "settings_incoming": "תיקיית הקבלה",
+  "settings_exported_files": "קבצים שיוצאו",
+  "settings_photos": {
+    "one": "%1$d תמונה",
+    "two": "%1$d תמונות",
+    "other": "%1$d תמונות"
+  },
+  "settings_files": {
+    "one": "%1$d קובץ",
+    "two": "%1$d קבצים",
+    "other": "%1$d קבצים"
+  },
+  "settings_loading": "טוען…",
+  "settings_orders_files": {
+    "one": "%1$d הזמנה (%2$d קבצים)",
+    "two": "%1$d הזמנות (%2$d קבצים)",
+    "other": "%1$d הזמנות (%2$d קבצים)"
+  },
+  "settings_delete_confirm": "למחוק %1$s, %2$s?",
+  "settings_removed": "הוסרו %1$d קבצים (%2$s).",
+  "settings_saved": "הגדרות הניקוי האוטומטי נשמרו.",
+  "settings_clear_tab": "להסיר את כל התמונות מ־%1$s? קבצים שכבר יוצאו יישארו.",
+  "settings_canvas": "קנבס",
+  "settings_passport": "פספורט",
+  "settings_collage": "קולאז׳",
+  "settings_full_clean_confirm": "למחוק הכול?\n\n• תיקיית הקבלה: %1$d קבצים\n• הזמנות הדפסה: %2$d (%3$d תמונות)\n• עבודות קנבס, פספורט וקולאז׳: %4$d קבצים\n• קבצים גמורים: %5$d\n\n%6$s בסך הכול. אי אפשר לבטל פעולה זו.",
+  "settings_full_clean_result": "ניקוי מלא: הוסרו %1$d קבצים (%2$s).",
+  "settings_helper_running": "כלי הסרת הרקע: פועל (מפנה את הזיכרון 2 דקות אחרי השימוש האחרון)",
+  "settings_helper_stopped": "כלי הסרת הרקע: כבוי (מפנה את הזיכרון 2 דקות אחרי השימוש האחרון)"
+}
