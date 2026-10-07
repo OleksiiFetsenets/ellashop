@@ -68,7 +68,7 @@ function updateOrderPicker() {
   let option = orderPicker.querySelector(`option[value="${currentOrder.id}"]`);
   if (!option) { option = document.createElement('option'); option.value = currentOrder.id; orderPicker.append(option); }
   const count = prints.items.length;
-  option.textContent = `${currentOrder.name || currentOrder.folder} (${count} photos)`;
+  option.textContent = t('order_picker_count', count, currentOrder.name || currentOrder.folder);
   orderPicker.value = currentOrder.id;
 }
 
@@ -78,7 +78,7 @@ async function listOrders() {
   for (const order of orders) {
     const option = document.createElement('option'); option.value = order.id;
     const n = order.counts.prints;
-    option.textContent = `${order.name || order.folder} (${n} photos)`;
+    option.textContent = t('order_picker_count', n, order.name || order.folder);
     orderPicker.append(option);
   }
   return orders;
@@ -190,7 +190,7 @@ $('#new-order').addEventListener('click', async () => {
   } catch (e) { showOrderError(e); }
 });
 $('#delete-order').addEventListener('click', async () => {
-  if (!currentOrder || !confirm(`Delete order “${currentOrder.name || currentOrder.folder}”? Its working photos are removed. Files already exported stay.`)) return;
+  if (!currentOrder || !confirm(t('order_delete_confirm', currentOrder.name || currentOrder.folder))) return;
   try {
     clearTimeout(saveTimer); await saveChain;
     await orderRequest(`/api/orders/${currentOrder.id}/delete`, { method: 'POST' });

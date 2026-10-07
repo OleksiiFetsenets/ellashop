@@ -7,26 +7,26 @@ async function checkUpdate() {
   try {
     const { version, update } = await (await fetch('/api/version')).json();
     const btn = $('#update-btn');
-    btn.title = `Ellashop ${version}`;
+    btn.title = t('common_version_title', version);
     btn.hidden = !update?.available;
-    if (update?.available) btn.textContent = `Update to v${update.latest}`;
+    if (update?.available) btn.textContent = t('common_update_to', update.latest);
     btn.dataset.notes = update?.notes || '';
   } catch { /* offline: no update button */ }
 }
 $('#update-btn').addEventListener('click', async () => {
   const btn = $('#update-btn');
-  if (!confirm(`${btn.textContent}?\n\n${btn.dataset.notes}\n\nEllashop restarts; photos and orders are kept.`)) return;
-  btn.disabled = true; btn.textContent = 'Updating…';
+  if (!confirm(t('common_update_confirm', btn.textContent, btn.dataset.notes))) return;
+  btn.disabled = true; btn.textContent = t('common_updating');
   try {
     const res = await fetch('/api/update', { method: 'POST' }), data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Update failed');
-    btn.textContent = 'Restarting…';
+    if (!res.ok) throw new Error(data.error || t('common_update_failed'));
+    btn.textContent = t('common_restarting');
     await flushOrder?.();
     for (let i = 0; i < 60; i++) {  // wait for the restarted server, then reload the page
       await new Promise(r => setTimeout(r, 1000));
       try { if ((await fetch('/api/version')).ok) { location.reload(); return; } } catch { /* still restarting */ }
     }
-  } catch (e) { btn.disabled = false; btn.textContent = 'Update failed — ' + e.message; }
+  } catch (e) { btn.disabled = false; btn.textContent = t('common_update_failed_detail', e.message); }
 });
 checkUpdate();
 pp.drawSheet();
@@ -38,16 +38,16 @@ syncPrintControls();
 async function askResume() {
   const [canvas, passport, collageState, orders] = await Promise.all(['/api/workspace/canvas', '/api/workspace/passport', '/api/workspace/collage', '/api/orders'].map(url => orderRequest(url)));
   const last = orders.find(x => x.id === lastOrder()) || orders[0];
-  const counts = [['Prints', last?.counts.prints || 0, last ? ` (order “${last.name || last.folder}”)` : ''],
-    ['Canvas', (canvas.items || []).length, ''], ['Passport', (passport.jobs || []).length, ''],
-    ['Collage', (collageState.photos || []).length, '']].filter(([, n]) => n);
+  const counts = [[t('common_prints'), last?.counts.prints || 0, last ? t('common_resume_order', last.name || last.folder) : ''],
+    [t('common_canvas'), (canvas.items || []).length, ''], [t('common_passport'), (passport.jobs || []).length, ''],
+    [t('common_collage'), (collageState.photos || []).length, '']].filter(([, n]) => n);
   if (!counts.length) return;
   const dlg = document.createElement('dialog');
   dlg.className = 'resume-dialog';
-  dlg.innerHTML = `<h3>Continue where you left off?</h3>
-    <p>The last session still has photos:</p>
-    <ul>${counts.map(([tab, n, extra]) => `<li><b>${tab}</b>: ${n} photo${n === 1 ? '' : 's'}${extra.replace(/</g, '&lt;')}</li>`).join('')}</ul>
-    <div class="row"><button value="fresh">Start fresh</button><button value="continue" class="primary" autofocus>Continue</button></div>`;
+  dlg.innerHTML = `<h3>${t('common_resume_title')}</h3>
+    <p>${t('common_resume_intro')}</p>
+    <ul>${counts.map(([tab, n, extra]) => `<li><b>${tab}</b>: ${t('common_photo_count', n)}${extra.replace(/</g, '&lt;')}</li>`).join('')}</ul>
+    <div class="row"><button value="fresh">${t('common_start_fresh')}</button><button value="continue" class="primary" autofocus>${t('common_continue')}</button></div>`;
   document.body.append(dlg);
   const choice = await new Promise(resolve => {
     dlg.addEventListener('click', e => { const b = e.target.closest('button'); if (b) resolve(b.value); });

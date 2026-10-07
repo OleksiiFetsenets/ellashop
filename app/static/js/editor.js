@@ -5,27 +5,27 @@ let nextOverlayId = 1;
 // Create overlay controls and drag handles for the selected print frame.
 // Keep overlays anchored to the frame while the underlying photo crop moves.
 function textAndStickers(root, state, refresh, preview) {
-  root.innerHTML = `<h3>Text & stickers</h3>
-    <div class="row"><button data-action="text">Add text</button><button data-action="palette">Add sticker</button></div>
-    <div class="sticker-palette" hidden></div><p class="small palette-credit" hidden>Stickers: Twemoji (CC-BY 4.0)</p>
+  root.innerHTML = `<h3>${t('editor_heading')}</h3>
+    <div class="row"><button data-action="text">${t('editor_add_text')}</button><button data-action="palette">${t('editor_add_sticker')}</button></div>
+    <div class="sticker-palette" hidden></div><p class="small palette-credit" hidden>${t('editor_credit')}</p>
     <div class="overlay-controls" hidden>
-      <label class="overlay-text">Text<textarea data-field="text" rows="3"></textarea></label>
-      <label class="overlay-text">Font<select data-field="font"></select></label>
-      <label class="check overlay-text"><input type="checkbox" data-field="bold"> Bold</label>
-      <label>Size (mm)<span class="overlay-value"><input type="range" data-field="size" min="3" max="80" step="0.1"><input type="number" data-number="size" min="3" max="80" step="0.1"></span></label>
-      <div class="overlay-text"><span>Colour</span><div class="overlay-colors"></div><input type="color" data-field="color" title="Custom colour"></div>
-      <label>Outline<span class="overlay-value"><select data-field="outline"><option value="none">None</option><option value="white">White</option><option value="black">Black</option><option value="custom">Custom</option></select><input type="color" data-field="outlineColor" title="Outline colour"></span></label>
-      <label>Stroke width (mm)<span class="overlay-value"><input type="range" data-field="strokeWidth" min="0" max="5" step="0.1"><input type="number" data-number="strokeWidth" min="0" max="5" step="0.1"></span></label>
-      <label class="overlay-text">Letter spacing (%)<span class="overlay-value"><input type="range" data-field="letterSpacing" min="-10" max="50" step="0.1"><input type="number" data-number="letterSpacing" min="-10" max="50" step="0.1"></span></label>
-      <label>Rotation (°)<span class="overlay-value"><input type="range" data-field="rot" min="-180" max="180" step="1"><input type="number" data-number="rot" min="-180" max="180" step="1"></span></label>
-      <label class="check"><input type="checkbox" data-magnet> Magnet</label>
-      <div class="overlay-align" aria-label="Align within safe margin">${[['↖','top-left'],['↑','top-centre'],['↗','top-right'],['←','middle-left'],['•','centre'],['→','middle-right'],['↙','bottom-left'],['↓','bottom-centre'],['↘','bottom-right']].map(([icon, name]) => `<button type="button" data-align="${name}" title="${name.replace('-', ' ')}" aria-label="${name.replace('-', ' ')}">${icon}</button>`).join('')}</div>
-      <div class="row"><button data-axis="x">Centre horizontally</button><button data-axis="y">Centre vertically</button></div>
-      <div class="row"><button data-action="duplicate">Duplicate</button><button data-action="delete">Delete</button><button data-action="front">To front</button></div>
+      <label class="overlay-text">${t('editor_text')}<textarea data-field="text" rows="3"></textarea></label>
+      <label class="overlay-text">${t('editor_font')}<select data-field="font"></select></label>
+      <label class="check overlay-text"><input type="checkbox" data-field="bold"> ${t('editor_bold')}</label>
+      <label>${t('editor_size')}<span class="overlay-value"><input type="range" data-field="size" min="3" max="80" step="0.1"><input type="number" data-number="size" min="3" max="80" step="0.1"></span></label>
+      <div class="overlay-text"><span>${t('editor_colour')}</span><div class="overlay-colors"></div><input type="color" data-field="color" title="${t('editor_custom_colour')}"></div>
+      <label>${t('editor_outline')}<span class="overlay-value"><select data-field="outline"><option value="none">${t('editor_none')}</option><option value="white">${t('editor_white')}</option><option value="black">${t('editor_black')}</option><option value="custom">${t('editor_custom')}</option></select><input type="color" data-field="outlineColor" title="${t('editor_outline_colour')}"></span></label>
+      <label>${t('editor_stroke_width')}<span class="overlay-value"><input type="range" data-field="strokeWidth" min="0" max="5" step="0.1"><input type="number" data-number="strokeWidth" min="0" max="5" step="0.1"></span></label>
+      <label class="overlay-text">${t('editor_letter_spacing')}<span class="overlay-value"><input type="range" data-field="letterSpacing" min="-10" max="50" step="0.1"><input type="number" data-number="letterSpacing" min="-10" max="50" step="0.1"></span></label>
+      <label>${t('editor_rotation')}<span class="overlay-value"><input type="range" data-field="rot" min="-180" max="180" step="1"><input type="number" data-number="rot" min="-180" max="180" step="1"></span></label>
+      <label class="check"><input type="checkbox" data-magnet> ${t('editor_magnet')}</label>
+      <div class="overlay-align" aria-label="${t('editor_align_margin')}">${[['↖','top-left'],['↑','top-centre'],['↗','top-right'],['←','middle-left'],['•','centre'],['→','middle-right'],['↙','bottom-left'],['↓','bottom-centre'],['↘','bottom-right']].map(([icon, name]) => `<button type="button" data-align="${name}" title="${t('editor_align_' + name.replace('-', '_'))}" aria-label="${t('editor_align_' + name.replace('-', '_'))}">${icon}</button>`).join('')}</div>
+      <div class="row"><button data-axis="x">${t('editor_centre_horizontally')}</button><button data-axis="y">${t('editor_centre_vertically')}</button></div>
+      <div class="row"><button data-action="duplicate">${t('editor_duplicate')}</button><button data-action="delete">${t('editor_delete')}</button><button data-action="front">${t('editor_to_front')}</button></div>
     </div>`;
   const palette = root.querySelector('.sticker-palette');
   for (const file of STICKERS) {
-    const button = document.createElement('button'); button.type = 'button'; button.dataset.sticker = file; button.title = file.replace(/\.svg$/, '').replace(/-/g, ' ');
+    const button = document.createElement('button'); button.type = 'button'; button.dataset.sticker = file; button.title = t('editor_sticker_' + file.replace(/\.svg$/, '').replace(/-/g, '_'));
     button.setAttribute('aria-label', button.title);
     stickerImage(file);
     button.style.backgroundImage = `url("stickers/${file}")`; palette.append(button);
@@ -69,7 +69,7 @@ function textAndStickers(root, state, refresh, preview) {
   function select(id) { selectedItem = state.item; selectedId = id; guides = null; sync(); preview.redraw(); }
   function add(type, sticker = '') {
     const it = state.item; if (!it) return;
-    const o = { id: `o${Date.now()}-${nextOverlayId++}`, type, text: type === 'text' ? 'Congratulations!' : '',
+    const o = { id: `o${Date.now()}-${nextOverlayId++}`, type, text: type === 'text' ? t('editor_congratulations') : '',
       font: 'Ella', bold: true, size: type === 'text' ? 12 : 25, color: '#ffffff', outline: type === 'text' ? 'black' : 'none',
       outlineColor: '#000000', strokeWidth: type === 'text' ? 1.44 : 0, letterSpacing: 0,
       x: .5, y: .5, rot: 0, sticker };

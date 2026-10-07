@@ -6,9 +6,9 @@
 const storageDialog = $('#storage-dialog');
 let storageData = null;
 const storageSize = bytes => {
-  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024) return t('settings_bytes', bytes);
   const unit = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), 3);
-  return `${(bytes / 1024 ** unit).toFixed(1)} ${['B', 'KB', 'MB', 'GB'][unit]}`;
+  return t(['settings_bytes', 'settings_kilobytes', 'settings_megabytes', 'settings_gigabytes'][unit], (bytes / 1024 ** unit).toFixed(1));
 };
 const storageDate = value => value ? new Date(typeof value === 'number' ? value * 1000 : value).toLocaleString() : '—';
 const storageCellRow = (body, cells) => {
@@ -20,9 +20,9 @@ const storageCellRow = (body, cells) => {
 };
 const storageNumber = (selector, minimum = 0) => {
   const input = $(selector), value = Number(input.value);
-  const maximum = Number(input.max) || 3650, unit = input.parentElement.textContent.includes('hours') ? 'hours' : 'days';
+  const maximum = Number(input.max) || 3650, unit = selector === '#auto-finished' || selector === '#storage-finished-days' ? t('settings_hours') : t('settings_days');
   if (!input.checkValidity() || input.value === '' || !Number.isInteger(value) || value < minimum || value > maximum)
-    throw new Error(`Enter a whole number of ${unit} from ${minimum} to ${maximum}`);
+    throw new Error(t('settings_number_error', unit, minimum, maximum));
   return value;
 };
 
@@ -32,12 +32,12 @@ async function refreshStorage(updateSettings = true) {
   const { orders, workspace, incoming, print_ready: finished, helper, settings } = storageData;
   const totals = $('#storage-totals'); totals.replaceChildren();
   for (const [label, count, bytes] of [
-    ['Orders (Prints)', `${orders.photos} photos`, orders.bytes],
-    ['Canvas workspace', `${workspace.canvas.photos} photos`, workspace.canvas.bytes],
-    ['Passport workspace', `${workspace.passport.photos} photos`, workspace.passport.bytes],
-    ['Collage workspace', `${workspace.collage.photos} photos`, workspace.collage.bytes],
-    ['Incoming', `${incoming.files} files`, incoming.bytes],
-    ['Exported files', `${finished.files} files`, finished.bytes],
+    [t('settings_orders_prints'), t('settings_photos', orders.photos), orders.bytes],
+    [t('settings_canvas_workspace'), t('settings_photos', workspace.canvas.photos), workspace.canvas.bytes],
+    [t('settings_passport_workspace'), t('settings_photos', workspace.passport.photos), workspace.passport.bytes],
+    [t('settings_collage_workspace'), t('settings_photos', workspace.collage.photos), workspace.collage.bytes],
+    [t('settings_incoming'), t('settings_files', incoming.files), incoming.bytes],
+    [t('settings_exported_files'), t('settings_files', finished.files), finished.bytes],
   ]) storageCellRow(totals, [label, count, storageSize(bytes)]);
   const orderBody = $('#storage-orders'); orderBody.replaceChildren();
   for (const order of orders.items) storageCellRow(orderBody,
@@ -45,7 +45,7 @@ async function refreshStorage(updateSettings = true) {
   const folderBody = $('#storage-folders'); folderBody.replaceChildren();
   for (const folder of finished.folders) storageCellRow(folderBody,
     [folder.name, String(folder.files), storageSize(folder.bytes), storageDate(folder.newest)]);
-  $('#storage-helper').textContent = `Background removal helper: ${helper.running ? 'running' : 'stopped'} (frees its memory 2 minutes after the last use)`;
+  $('#storage-helper').textContent = t(helper.running ? 'settings_helper_running' : 'settings_helper_stopped');
   if (updateSettings) {
     $('#auto-incoming').value = settings.auto_clean.incoming_days;
     $('#auto-orders').value = settings.auto_clean.orders_days;
@@ -55,7 +55,7 @@ async function refreshStorage(updateSettings = true) {
 
 $('#open-storage').addEventListener('click', async () => {
   storageDialog.showModal();
-  setStatus($('#storage-status'), 'Loading…');
+  setStatus($('#storage-status'), t('settings_loading'));
   try { await flushOrder(); await refreshStorage(); setStatus($('#storage-status'), ''); }
   catch (e) { setStatus($('#storage-status'), e.message, true); }
 });
@@ -78,8 +78,8 @@ $$('[data-clean]').forEach(button => button.addEventListener('click', async () =
     }
     const files = target === 'orders' ? items.reduce((sum, item) => sum + item.files, 0) : items.length;
     const bytes = items.reduce((sum, item) => sum + item.bytes, 0);
-    const label = target === 'orders' ? `${items.length} orders (${files} files)` : `${files} files`;
-    if (!confirm(`Delete ${label}, ${storageSize(bytes)}?`)) return;
+    const label = target === 'orders' ? t('settings_orders_files', items.length, files) : t('settings_files', files);
+    if (!confirm(t('settings_delete_confirm', label, storageSize(bytes)))) return;
     button.disabled = true;
     const body = { target, days };
     if (target === 'orders' && keep) body.keep = keep;
@@ -88,7 +88,7 @@ $$('[data-clean]').forEach(button => button.addEventListener('click', async () =
     });
     await refreshStorage(false);
     await listOrders(); updateOrderPicker();
-    setStatus($('#storage-status'), `Removed ${result.deleted_files} files (${storageSize(result.freed_bytes)}).`);
+    setStatus($('#storage-status'), t('settings_removed', result.deleted_files, storageSize(result.freed_bytes)));
   } catch (e) { setStatus($('#storage-status'), e.message, true); }
   finally { button.disabled = false; }
 }));
@@ -106,15 +106,15 @@ $('#storage-save').addEventListener('click', async () => {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ auto_clean }),
     });
     await refreshStorage();
-    setStatus($('#storage-status'), 'Auto-clean settings saved.');
+    setStatus($('#storage-status'), t('settings_saved'));
   } catch (e) { setStatus($('#storage-status'), e.message, true); }
   finally { button.disabled = false; }
 });
 
 for (const tab of ['canvas', 'passport', 'collage']) {
   $(`#${tab}-clear`).addEventListener('click', async () => {
-    const label = tab === 'canvas' ? 'Canvas' : tab === 'collage' ? 'Collage' : 'Passport';
-    if (!confirm(`Remove all photos from ${label}? Files already exported stay.`)) return;
+    const label = tab === 'canvas' ? t('settings_canvas') : tab === 'collage' ? t('settings_collage') : t('settings_passport');
+    if (!confirm(t('settings_clear_tab', label))) return;
     const ws = workspaces[tab];
     clearTimeout(ws.timer); ws.timer = 0;
     try {
@@ -137,8 +137,7 @@ $('#full-clean').addEventListener('click', async () => {
     const d = storageData, ws = d.workspace || {};
     const workFiles = Object.values(ws).reduce((sum, w) => sum + (w.files || 0), 0);
     const total = d.incoming.bytes + d.orders.bytes + d.print_ready.bytes + Object.values(ws).reduce((sum, w) => sum + (w.bytes || 0), 0);
-    if (!confirm(`Delete EVERYTHING?\n\n• Incoming: ${d.incoming.files} files\n• Prints orders: ${d.orders.items.length} (${d.orders.photos} photos)\n` +
-      `• Canvas, Passport, and Collage work: ${workFiles} files\n• Finished files: ${d.print_ready.files}\n\n${storageSize(total)} in total. This cannot be undone.`)) return;
+    if (!confirm(t('settings_full_clean_confirm', d.incoming.files, d.orders.items.length, d.orders.photos, workFiles, d.print_ready.files, storageSize(total)))) return;
     button.disabled = true;
     clearTimeout(saveTimer); saveTimer = 0; ++orderEpoch; loadingOrder = true; currentOrder = null;
     for (const tab of ['canvas', 'passport', 'collage']) {
@@ -154,7 +153,7 @@ $('#full-clean').addEventListener('click', async () => {
     const order = await orderRequest('/api/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
     await listOrders(); await switchOrder(order.id, false);
     await refreshStorage(false);
-    setStatus($('#storage-status'), `Full cleanup: removed ${result.deleted_files} files (${storageSize(result.freed_bytes)}).`);
+    setStatus($('#storage-status'), t('settings_full_clean_result', result.deleted_files, storageSize(result.freed_bytes)));
   } catch (e) { setStatus($('#storage-status'), e.message, true); }
   finally { button.disabled = false; }
 });
