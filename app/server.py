@@ -315,7 +315,8 @@ def ui_strings(lang):
 
 def tr(id, *args):
     """Server-side t(): the same ids and %1$s placeholders as the browser."""
-    text = ui_strings(ui_language()).get(id, id)
+    strings = ui_strings(ui_language())
+    text = strings.get(id, id)
     if isinstance(text, dict):
         text = text.get("one" if args and args[0] == 1 else "other", id)
 
@@ -328,7 +329,10 @@ def tr(id, *args):
         if m[3] == "d":
             return str(round(float(args[i])))
         return f"{float(args[i]):.{int(m[2])}f}" if m[3] == "f" and m[2] else str(args[i])
-    return re.sub(r"%(?:(\d+)\$)?(?:\.(\d+))?([sdf%])", fill, text)
+    text = re.sub(r"%(?:(\d+)\$)?(?:\.(\d+))?([sdf%])", fill, text)
+    if strings.get("language_direction") == "rtl":  # same left-to-right isolation of sizes/ranges as i18n.js
+        text = re.sub(r"\d+(?:\.\d+)?%?(?:\s*[×–:/-]\s*\d+(?:\.\d+)?%?)+", lambda m: "\u2066" + m[0] + "\u2069", text)
+    return text
 
 
 def write_settings(**changes):

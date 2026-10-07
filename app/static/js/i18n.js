@@ -16,12 +16,16 @@ function formatString(text, args) {
 }
 
 const pluralRules = new Intl.PluralRules(LANG);
+// In right-to-left languages sizes, ranges and ratios (10 × 15, 32–36, 70–80%) must still read left to right:
+// wrap each such run in Unicode left-to-right isolates (LRI … PDI), which are invisible.
+const MATH_RUN = /\d+(?:\.\d+)?%?(?:\s*[×–:\/-]\s*\d+(?:\.\d+)?%?)+/g;
+const isolateMath = text => STRINGS.language_direction === 'rtl' ? text.replace(MATH_RUN, m => `\u2066${m}\u2069`) : text;
 // t('id', ...args). A plural string ({one, other, ...}) picks its form from the first argument.
 function t(id, ...args) {
   let s = STRINGS[id];
   if (s === undefined) { console.error(`Missing string: ${id}`); return id; }
   if (typeof s === 'object') s = s[pluralRules.select(Number(args[0]))] ?? s.other;
-  return formatString(s, args);
+  return isolateMath(formatString(s, args));
 }
 
 // Fill elements marked data-i18n (text), data-i18n-html, data-i18n-title, data-i18n-placeholder, data-i18n-aria-label.
