@@ -7,8 +7,8 @@ const pp = { jobs: [], active: null, guides: true, queue: [], running: false, co
 let nextJobId = 1;
 
 $('#pp-size').innerHTML = PASSPORT.map(p => {
-  const L = sheetLayout({ size: p }), face = `face ${p.face[0]}–${p.face[1]} mm chin–${p.measure === 'hairline' ? 'hairline' : 'crown'}`;
-  return `<button data-v="${p.id}">${p.label}<small>${p.w / 10} × ${p.h / 10} cm · ${face} · ${L.count} per sheet · background ${p.bgNote}</small></button>`;
+  const L = sheetLayout({ size: p });
+  return `<button data-v="${p.id}">${p.label}<small>${t('passport_size_detail', p.w / 10, p.h / 10, p.face[0], p.face[1], t(p.measure === 'hairline' ? 'passport_hairline' : 'passport_crown'), L.count, p.bgNote)}</small></button>`;
 }).join('');
 
 const syncPpCustom = customSizeControl('#pp-size', PASSPORT, [2, 10, 2, 15], () => pp.active?.size, setPassportSize, '#pp-status');
@@ -36,8 +36,8 @@ pp.preview = new Preview($('#pp-canvas'), $('#pp-stage'), {
     ctx.save();
     ctx.lineWidth = devicePixelRatio;
     ctx.font = `${11 * devicePixelRatio}px -apple-system, sans-serif`;
-    band(s.crown, s.measure === 'hairline' ? 'hairline' : 'top of head');
-    band(s.chin, 'chin');
+    band(s.crown, t(s.measure === 'hairline' ? 'passport_hairline' : 'passport_top_of_head'));
+    band(s.chin, t('passport_chin'));
     ctx.setLineDash([6 * devicePixelRatio, 6 * devicePixelRatio]);
     ctx.strokeStyle = 'rgba(47,111,223,.7)';
     ctx.beginPath(); ctx.moveTo(W / 2, 0); ctx.lineTo(W / 2, ctx.canvas.height); ctx.stroke();
@@ -100,14 +100,14 @@ pp.drawSheet = () => {
     if (!job?.item) {
       view.width = 400; view.height = 600; view.style.filter = '';
       ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, 400, 600);
-      $('#pp-save').textContent = 'Save sheet';
+      $('#pp-save').textContent = t('passport_save_sheet');
       return;
     }
     const { sheet, count } = renderSheet(job);
     view.style.filter = densityFilter(job.item.density);
     view.width = Math.round(sheet.width / 2); view.height = Math.round(sheet.height / 2);
     ctx.drawImage(sheet, 0, 0, view.width, view.height);
-    $('#pp-save').textContent = `Save sheet (${count} photos)`;
+    $('#pp-save').textContent = t('passport_save_sheet_count', count);
   }, 120);
 };
 
@@ -123,12 +123,12 @@ function ppTabs() {
     name.className = 'pp-name'; name.textContent = job.name;
     const status = document.createElement('span');
     status.className = 'pp-state';
-    status.textContent = { new: '', queued: 'queued', removing: '…', done: '✓', error: '!' }[job.status];
-    status.title = job.error || job.status;
+    status.textContent = { new: '', queued: t('passport_queued'), removing: '…', done: '✓', error: '!' }[job.status];
+    status.title = job.error || t(({ new: 'passport_new', queued: 'passport_queued', removing: 'passport_removing', done: 'passport_done', error: 'passport_error' })[job.status]);
     pick.append(name, status);
     pick.addEventListener('click', () => { pp.active = job; ppSyncItem(); });
     const close = document.createElement('button');
-    close.className = 'pp-close'; close.textContent = '✕'; close.title = 'Close photo';
+    close.className = 'pp-close'; close.textContent = '✕'; close.title = t('passport_close_photo');
     close.addEventListener('click', () => {
       pp.jobs = pp.jobs.filter(x => x !== job);
       pp.queue = pp.queue.filter(x => x.job !== job);
@@ -152,8 +152,8 @@ function ppSyncItem() {
   $('#pp-zoom').value = item?.zoom || 1;
   $('#pp-tilt').textContent = tiltLabel(item);
   $('#pp-hint').textContent = item
-    ? 'Drag and zoom so the top of the head and the chin sit inside the blue bands, face centred.'
-    : 'Load a photo. Then drag and zoom so the top of the head and the chin sit on the guide lines.';
+    ? t('passport_hint_selected')
+    : t('passport_hint_empty');
   setStatus($('#pp-status'), job?.error || '', !!job?.error);
   ppTabs(); pp.preview.draw(); pp.drawSheet();
   queueSave('passport');
@@ -172,7 +172,7 @@ async function ppAdd(files) {
       ppSyncItem();
       if ($('#pp-auto').checked && pp.config.localBg) ppEnqueue(job, '/api/remove-bg-local');
       if (pp.config.faces) ppDetectFace(job);
-    } catch (e) { setStatus($('#pp-status'), `${name}: ${e.message}`, true); }
+    } catch (e) { setStatus($('#pp-status'), t('passport_source_error', name, e.message), true); }
   }
 }
 
@@ -189,7 +189,7 @@ async function ppDetectFace(job) {
   try {
     const res = await fetch('/api/faces', { method: 'POST', body: await jobOriginal(job) });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Face detection failed');
+    if (!res.ok) throw new Error(data.error || t('passport_face_detection_failed'));
     const kx = job.item.img.naturalWidth / data.width, ky = job.item.img.naturalHeight / data.height;
     const f = data.faces.sort((a, b) => b.w * b.h - a.w * a.h)[0];
     job.face = f ? { x: f.x * kx, y: f.y * ky, w: f.w * kx, h: f.h * ky, eyes: f.eyes.map(([x, y]) => [x * kx, y * ky]) } : false;
@@ -251,9 +251,9 @@ $('[data-incoming=passport]').addEventListener('click', async () => {
   for (const name of names) {
     try {
       const res = await fetch('/incoming/' + encodeURIComponent(name));
-      if (!res.ok) throw new Error('Could not load photo');
+      if (!res.ok) throw new Error(t('passport_could_not_load_photo'));
       await ppAdd([{ original: await res.blob(), name }]);
-    } catch (e) { setStatus($('#pp-status'), `${name}: ${e.message}`, true); }
+    } catch (e) { setStatus($('#pp-status'), t('passport_source_error', name, e.message), true); }
   }
 });
 wireDrop($('#pp-result-drop'), $('#pp-result'), async files => {
@@ -289,7 +289,7 @@ async function ppRunQueue() {
       const res = await fetch(url, {
         method: 'POST', body: await jobOriginal(job), headers: { 'Content-Type': job.original.type || 'image/jpeg' },
       });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Failed: ' + res.status);
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || t('passport_failed_status', res.status));
       if (epoch !== workspaces.passport.epoch || !pp.jobs.includes(job)) continue;
       const { file, src } = await uploadPhoto(await res.blob(), `${baseName(job.name)}_cut.png`, 'passport');
       const img = await loadImage(src);
@@ -313,7 +313,7 @@ async function ppRunQueue() {
 
 $('#pp-remove-local').addEventListener('click', () => ppEnqueue(pp.active, '/api/remove-bg-local'));
 $('#pp-remove-all').addEventListener('click', () => {
-  if (!pp.config.localBg) { setStatus($('#pp-status'), 'Offline removal not installed — double-click app/setup_offline_bg.command', true); return; }
+  if (!pp.config.localBg) { setStatus($('#pp-status'), t('passport_offline_not_installed'), true); return; }
   pp.jobs.filter(j => j.status === 'new' || j.status === 'error').forEach(j => ppEnqueue(j, '/api/remove-bg-local'));
 });
 
@@ -333,14 +333,14 @@ function setPassportSize(size) {
   job.size = size; Object.assign(job, passportOffsets(size)); if (job.item.auto) ppAutoAlign(job); ppSyncItem();
 }
 wireSeg($('#pp-size'), v => setPassportSize(formatById(PASSPORT, v)));
-for (const [key, label, axis] of [['right', 'Right', 'across'], ['down', 'Down', 'down']]) {
+for (const [key, label, axis] of [['right', 'passport_right', 'passport_across'], ['down', 'passport_down', 'passport_down_axis']]) {
   $(`#pp-${key}`).addEventListener('change', e => {
     const job = pp.active, input = e.currentTarget; if (!job) return;
     const raw = input.value, next = Number(raw), old = job[key], L = sheetLayout(job);
-    const spare = axis === 'across' ? L.W - L.cols * job.size.w : L.H - L.rows * job.size.h;
+    const spare = key === 'right' ? L.W - L.cols * job.size.w : L.H - L.rows * job.size.h;
     if (!input.validity.valid || input.value === '' || !Number.isFinite(next) || next < 0 || next > 20 || Math.round(next * 2) !== next * 2 || next > spare + 1e-9) {
       input.value = old;
-      setStatus($('#pp-status'), `${label} ${raw} mm doesn't fit: ${job.size.label} has ${+spare.toFixed(1)} mm spare ${axis}.`, true);
+      setStatus($('#pp-status'), t('passport_offset_doesnt_fit', t(label), raw, job.size.label, +spare.toFixed(1), t(axis)), true);
       return;
     }
     job[key] = next; pp.drawSheet(); queueSave('passport'); setStatus($('#pp-status'), '');
@@ -351,14 +351,14 @@ $('#pp-reset').addEventListener('click', () => { const job = pp.active; if (job)
 $('#pp-align-all').addEventListener('click', () => {
   const done = pp.jobs.filter(job => ppAutoAlign(job)).length, missing = pp.jobs.length - done;
   ppSyncItem();
-  setStatus($('#pp-status'), `Aligned ${done} photo${done === 1 ? '' : 's'}${missing ? ` — ${missing} without a detected face (align by hand)` : ''}.`, !!missing);
+  setStatus($('#pp-status'), missing ? t('passport_aligned_missing', done, missing) : t('passport_aligned', done), !!missing);
 });
 $('#pp-align').addEventListener('click', () => {
   const job = pp.active; if (!job) return;
   const st = $('#pp-status');
-  if (job.face === null) setStatus(st, 'Still looking for the face…');
-  else if (!ppAutoAlign(job)) setStatus(st, pp.config.faces ? 'No face found in this photo.' : 'Face detection is not installed.', true);
-  else { ppSyncItem(); setStatus(st, 'Aligned to the face — check the guides and adjust if needed.'); }
+  if (job.face === null) setStatus(st, t('passport_looking_for_face'));
+  else if (!ppAutoAlign(job)) setStatus(st, t(pp.config.faces ? 'passport_no_face' : 'passport_face_detection_not_installed'), true);
+  else { ppSyncItem(); setStatus(st, t('passport_aligned_to_face')); }
 });
 $('#pp-guides').addEventListener('change', e => { pp.guides = e.target.checked; pp.preview.draw(); });
 
@@ -371,7 +371,7 @@ async function savePassport(job) {
 $('#pp-save').addEventListener('click', async () => {
   const job = pp.active, st = $('#pp-status');
   if (!job) return;
-  try { setStatus(st, 'Saving…'); setStatus(st, 'Saved: ' + await savePassport(job)); }
+  try { setStatus(st, t('passport_saving')); setStatus(st, t('passport_saved_file', await savePassport(job))); }
   catch (e) { setStatus(st, e.message, true); }
 });
 $('#pp-save-all').addEventListener('click', async () => {
@@ -380,9 +380,9 @@ $('#pp-save-all').addEventListener('click', async () => {
   let saved = 0;
   try {
     for (const job of jobs) {
-      setStatus(st, `Saving ${saved + 1} / ${jobs.length}…`);
+      setStatus(st, t('passport_saving_count', saved + 1, jobs.length));
       await savePassport(job); saved++;
     }
-    setStatus(st, `Saved ${saved} sheets to Exported (Passport folders by size)`);
-  } catch (e) { setStatus(st, `Saved ${saved} sheets. ${e.message}`, true); }
+    setStatus(st, t('passport_saved_sheets', saved));
+  } catch (e) { setStatus(st, t('passport_saved_sheets_error', saved, e.message), true); }
 });

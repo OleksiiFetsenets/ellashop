@@ -73,7 +73,7 @@ function runFaceQueue() {
         const image = await (await fetch(item.img.src)).blob();
         const res = await fetch('/api/faces', { method: 'POST', body: image });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Face detection failed');
+        if (!res.ok) throw new Error(data.error || t('prints_face_detection_failed'));
         if (epoch !== orderEpoch || !prints.items.includes(item)) return;
         item.faces = data.faces.map(f => ({ ...f, x: f.x * item.img.naturalWidth / data.width,
           y: f.y * item.img.naturalHeight / data.height, w: f.w * item.img.naturalWidth / data.width,
@@ -115,8 +115,8 @@ function syncPrintControls() {
   $('#zoom').disabled = !it || it.mode === 'fit' || it.mode === 'blur';
   $('#prints-tilt').textContent = tiltLabel(it);
   $('#prints-hint').textContent = it
-    ? `${it.name} → ${fmtLabel(it.fmt)} cm. Drag to move, scroll to zoom.`
-    : 'Add photos to start. Drag the photo to move it, scroll to zoom.';
+    ? t('prints_hint_selected', it.name, fmtLabel(it.fmt))
+    : t('prints_hint_empty');
 }
 
 function renderQueue(state, q, refresh, label) {
@@ -124,7 +124,7 @@ function renderQueue(state, q, refresh, label) {
   state.items.forEach(it => {
     const li = document.createElement('li');
     li.className = it === state.sel ? 'sel' : '';
-    li.innerHTML = `<img src="${it.img.src}"><div class="meta"><div class="name"></div><div class="fmt"></div></div><button class="del" title="Remove">✕</button>`;
+    li.innerHTML = `<img src="${it.img.src}"><div class="meta"><div class="name"></div><div class="fmt"></div></div><button class="del" title="${t('prints_remove')}">✕</button>`;
     li.querySelector('.name').textContent = it.name;
     li.querySelector('.fmt').textContent = label(it);
     li.addEventListener('click', e => {
@@ -139,10 +139,10 @@ function renderQueue(state, q, refresh, label) {
 }
 
 function printLabel(it) {
-  return `${fmtLabel(it.fmt)} · ${it.mode === 'blur' ? 'blur' : it.mode === 'fit' ? 'fit' : 'crop'}${it.faces === null ? ' · faces: …' : it.faces ? ` · faces: ${it.faces.length}` : ''}${it.auto ? ` · ${it.auto}` : ''}${densityLabel(it)}`;
+  return t('prints_label', fmtLabel(it.fmt), t(it.mode === 'blur' ? 'prints_blur' : it.mode === 'fit' ? 'prints_fit' : 'prints_crop')) + (it.faces === null ? t('prints_faces_pending') : it.faces ? t('prints_faces_count', it.faces.length) : '') + (it.auto ? t('prints_auto_detail', ({ 'blur: faces don\'t fit': t('prints_auto_blur'), faces: t('prints_auto_faces'), centre: t('prints_auto_centre') })[it.auto] || it.auto) : '') + densityLabel(it);
 }
 
-function canvasLabel(it) { return `${fmtLabel(it.fmt)} · wrap ${it.wrap} cm${densityLabel(it)}`; }
+function canvasLabel(it) { return t('canvas_label', fmtLabel(it.fmt), it.wrap) + densityLabel(it); }
 
 function gridKey(it, mm, kind) {
   return [kind, it.img.src, mm.w, mm.h, it.rot, it.tilt, it.zoom, it.cx, it.cy,
@@ -177,7 +177,7 @@ function photoGrid(state, stage, grid, bar, hint, label, sizeMM, render, refresh
   function makeCard(it) {
     const card = document.createElement('div');
     card.className = 'photo-card';
-    card.innerHTML = '<button class="eye" title="Open in single view">👁</button><canvas></canvas><div class="name"></div><div class="fmt"></div>';
+    card.innerHTML = `<button class="eye" title="${t('prints_open_single_view')}">👁</button><canvas></canvas><div class="name"></div><div class="fmt"></div>`;
     card.addEventListener('click', () => { if (state.sel !== it) { state.sel = it; refresh(); } });
     card.querySelector('.eye').addEventListener('click', e => { e.stopPropagation(); state.sel = it; state.view = 'single'; refresh(); });
     const c = card.querySelector('canvas');
@@ -252,7 +252,7 @@ async function addPrints(sources) {
       if (!prints.sel) prints.sel = it;
       if (prints.facesAvailable) { prints.faceQueue.push(it); runFaceQueue(); }
       else if (it.smartPending) { autoPlace(it); it.smartPending = false; }
-    } catch (e) { setStatus($('#prints-status'), `${source.name}: ${e.message}`, true); }
+    } catch (e) { setStatus($('#prints-status'), t('prints_source_error', source.name, e.message), true); }
   }
   refreshPrints();
 }
@@ -300,17 +300,16 @@ async function savePrint(it) {
 $('#save-one').addEventListener('click', async () => {
   const it = prints.item; if (!it) return;
   const st = $('#prints-status');
-  try { setStatus(st, 'Saving…'); setStatus(st, 'Saved: ' + await savePrint(it)); }
+  try { setStatus(st, t('prints_saving')); setStatus(st, t('prints_saved_file', await savePrint(it))); }
   catch (e) { setStatus(st, e.message, true); }
 });
 $('#save-all').addEventListener('click', async () => {
   const st = $('#prints-status'), saved = [];
   try {
     for (const [i, it] of prints.items.entries()) {
-      setStatus(st, `Saving ${i + 1} / ${prints.items.length}…`);
+      setStatus(st, t('prints_saving_count', i + 1, prints.items.length));
       saved.push(await savePrint(it));
     }
-    setStatus(st, `Saved ${saved.length} photos to Exported/${orderName()}`);
+    setStatus(st, t('prints_saved_photos', saved.length, orderName()));
   } catch (e) { setStatus(st, e.message, true); }
 });
-
