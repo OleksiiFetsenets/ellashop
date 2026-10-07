@@ -82,7 +82,7 @@ def detect_faces(image_bytes):
     import numpy as np
     image = cv2.imdecode(np.frombuffer(image_bytes, dtype=np.uint8), cv2.IMREAD_COLOR)
     if image is None:
-        raise ValueError("Could not decode image")
+        raise ValueError(tr('server_decode_image'))
     height, width = image.shape[:2]
     found = _yunet(image, 1280, 0)
     # YuNet misses faces that fill most of the frame (close-up passport selfies):
@@ -157,7 +157,7 @@ class BackgroundRemover:
                 status, result = self.conn.recv()
             except (EOFError, OSError):  # helper died (e.g. out of memory): start fresh next time
                 self._stop()
-                raise RuntimeError("Background removal stopped unexpectedly — try again")
+                raise RuntimeError(tr('server_background_stopped'))
             generation = self.generation
             self.timer = threading.Timer(BG_IDLE_SECONDS, self._stop_if_idle, args=(generation,))
             self.timer.daemon = True
@@ -249,33 +249,33 @@ AUTO_CLEAN_EVERY = 3600  # seconds between automatic clean-ups while the app is 
 CLEAN_LOG = DATA / "cleanup.log"
 
 
-def clean_days(value, minimum=0, maximum=3650, unit="Days"):
+def clean_days(value, minimum=0, maximum=3650, unit="days"):
     if type(value) is not int or not minimum <= value <= maximum:
-        raise ValueError(f"{unit} must be an integer from {minimum} to {maximum}")
+        raise ValueError(tr('server_hours_integer_range' if unit == 'hours' else 'server_days_integer_range', minimum, maximum))
     return value
 
 
 def auto_clean_value(key, value):
-    return clean_days(value, 0, AUTO_CLEAN_LIMITS[key], "Hours" if key.endswith("_hours") else "Days")
+    return clean_days(value, 0, AUTO_CLEAN_LIMITS[key], "hours" if key.endswith("_hours") else "days")
 
 
 def auto_clean_settings():
     path = APP / "settings.json"
     if path.is_symlink():
-        raise ValueError("Invalid settings path")
+        raise ValueError(tr('server_invalid_settings_path'))
     if not path.exists():
         return AUTO_CLEAN_DEFAULTS.copy()
     data = json.loads(path.read_text(encoding="utf-8"))
     settings = data.get("auto_clean", {})
     if not isinstance(settings, dict):
-        raise ValueError("Invalid auto-clean settings")
+        raise ValueError(tr('server_invalid_auto_clean_settings'))
     return {key: auto_clean_value(key, settings.get(key, default)) for key, default in AUTO_CLEAN_DEFAULTS.items()}
 
 
 def read_settings():
     path = APP / "settings.json"
     if path.is_symlink():
-        raise ValueError("Invalid settings path")
+        raise ValueError(tr('server_invalid_settings_path'))
     return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
 
 
@@ -330,10 +330,10 @@ def write_settings(**changes):
 
 def save_auto_clean_settings(settings):
     if not isinstance(settings, dict) or set(settings) != set(AUTO_CLEAN_DEFAULTS):
-        raise ValueError("Expected " + ", ".join(AUTO_CLEAN_DEFAULTS))
+        raise ValueError(tr('server_expected_settings', ', '.join(AUTO_CLEAN_DEFAULTS)))
     settings = {key: auto_clean_value(key, settings[key]) for key in AUTO_CLEAN_DEFAULTS}
     if (APP / "settings.json").is_symlink():
-        raise ValueError("Invalid settings path")
+        raise ValueError(tr('server_invalid_settings_path'))
     write_settings(auto_clean=settings)
     return settings
 
@@ -445,9 +445,9 @@ def log_cleanup(reason, target, path, size, mtime):
 # Log each deletion and remove only empty finished-output folders.
 def clean_storage(target, days=None, keep=None, hours=None, reason="manual"):
     if target not in ("orders", "incoming", "print_ready"):
-        raise ValueError("Invalid cleanup target")
+        raise ValueError(tr('server_invalid_cleanup_target'))
     if hours is not None:
-        clean_days(hours, 1, AUTO_CLEAN_LIMITS["print_ready_hours"], "Hours")
+        clean_days(hours, 1, AUTO_CLEAN_LIMITS["print_ready_hours"], "hours")
         cutoff = time.time() - hours * 3600
     else:
         if days is None:
@@ -455,7 +455,7 @@ def clean_storage(target, days=None, keep=None, hours=None, reason="manual"):
         clean_days(days, 1 if target == "print_ready" else 0)
         cutoff = time.time() - days * 86400
     if keep is not None and (target != "orders" or not isinstance(keep, str) or not ORDER_ID.fullmatch(keep)):
-        raise ValueError("Invalid kept order")
+        raise ValueError(tr('server_invalid_kept_order'))
     removed = {"deleted_files": 0, "freed_bytes": 0}
     if target == "orders":
         for item in storage_data()["orders"]["items"]:
@@ -510,7 +510,7 @@ def full_clean():
             if not path.exists():
                 continue
             if (path / "files").is_symlink() or (path / "state.json").is_symlink():
-                raise ValueError("Invalid workspace path")
+                raise ValueError(tr('server_invalid_workspace_path'))
             files = scanned_files(path / "files") if (path / "files").is_dir() else []
             for file, size, mtime in files:
                 log_cleanup("full", f"{tab} workspace", file.name, size, mtime)
@@ -560,10 +560,10 @@ def order_folder(name):
 # Resolve only validated order identifiers inside the working-order directory.
 def order_path(ident):
     if not ORDER_ID.fullmatch(ident):
-        raise ValueError("Invalid order id")
+        raise ValueError(tr('server_invalid_order_id'))
     path = ORDERS / ident
     if path.is_symlink():
-        raise ValueError("Invalid order path")
+        raise ValueError(tr('server_invalid_order_path'))
     return path
 
 
@@ -571,7 +571,7 @@ def order_path(ident):
 def order_data(ident):
     path = order_path(ident) / "order.json"
     if path.is_symlink():
-        raise ValueError("Invalid order path")
+        raise ValueError(tr('server_invalid_order_path'))
     if not path.is_file():
         raise FileNotFoundError(ident)
     return json.loads(path.read_text(encoding="utf-8"))
@@ -611,23 +611,23 @@ def write_order(path, data):
 # Keep Canvas, Passport, and Collage work outside the selected Prints order.
 def workspace_path(tab):
     if tab not in ("canvas", "passport", "collage"):
-        raise ValueError("Invalid workspace tab")
+        raise ValueError(tr('server_invalid_workspace_tab'))
     if WORKSPACE.is_symlink():
-        raise ValueError("Invalid workspace path")
+        raise ValueError(tr('server_invalid_workspace_path'))
     path = WORKSPACE / tab
     if path.is_symlink():
-        raise ValueError("Invalid workspace path")
+        raise ValueError(tr('server_invalid_workspace_path'))
     return path
 
 
 def stored_file(path, name):
     name = urllib.parse.unquote(name)
     if name != safe_name(name) or name in (".", ".."):
-        raise ValueError("Invalid file name")
+        raise ValueError(tr('server_invalid_file_name'))
     folder = path / "files"
     file = folder / name
     if folder.is_symlink() or file.is_symlink():
-        raise ValueError("Invalid file path")
+        raise ValueError(tr('server_invalid_file_path'))
     if not file.is_file():
         raise FileNotFoundError(name)
     return file
@@ -636,10 +636,10 @@ def stored_file(path, name):
 # Store an uploaded source image under a safe, unique filename.
 def upload_file(path, raw, body):
     if raw != Path(raw).name or raw in (".", "..") or "/" in raw or "\\" in raw:
-        raise ValueError("Invalid file name")
+        raise ValueError(tr('server_invalid_file_name'))
     folder = path / "files"
     if folder.is_symlink():
-        raise ValueError("Invalid file path")
+        raise ValueError(tr('server_invalid_file_path'))
     folder.mkdir(exist_ok=True)
     with ORDER_LOCK:
         file = unique_path(folder, safe_name(raw))
@@ -669,7 +669,7 @@ def local_fonts():
 def workspace_data(tab, path):
     state_file = path / "state.json"
     if state_file.is_symlink():
-        raise ValueError("Invalid workspace state")
+        raise ValueError(tr('server_invalid_workspace_state'))
     if state_file.is_file():
         return json.loads(state_file.read_text(encoding="utf-8"))
     if tab == "canvas":
@@ -706,7 +706,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def read_json(self):
         data = json.loads(self.read_body())
         if not isinstance(data, dict):
-            raise ValueError("Expected a JSON object")
+            raise ValueError(tr('server_expected_json_object'))
         return data
 
     def order_error(self, error):
@@ -796,7 +796,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(data)
             return
         if url.path.startswith(("/api/orders/", "/orders/", "/api/workspace/", "/workspace/")):
-            return self.send_json({"error": "Invalid order path"}, 400)
+            return self.send_json({"error": tr('server_invalid_order_path')}, 400)
         return super().do_GET()
 
     # Handle uploads, edits, exports, cleanup, and update requests from the UI.
@@ -817,10 +817,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 else:
                     repo = update_repo()
                     if not repo:
-                        return self.send_json({"error": "Updates are disabled"}, 400)
+                        return self.send_json({"error": tr('server_updates_disabled')}, 400)
                     latest = update.check(repo)
                     if not latest["available"] or not latest["asset_url"]:
-                        return self.send_json({"error": "No update available"}, 400)
+                        return self.send_json({"error": tr('server_no_update_available')}, 400)
                     update.apply(latest["asset_url"])
                 self.send_json({"ok": True, "restart": True})
                 schedule_restart(self.server)
@@ -831,7 +831,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if url.path == "/api/storage/full-clean":
             try:
                 if self.read_json() != {"confirm": "everything"}:
-                    raise ValueError("Full cleanup needs confirmation")
+                    raise ValueError(tr('server_full_cleanup_confirmation'))
                 return self.send_json(full_clean())
             except (ValueError, json.JSONDecodeError) as e:
                 return self.order_error(e)
@@ -842,7 +842,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 if url.path.endswith("/settings"):
                     return self.send_json({"auto_clean": save_auto_clean_settings(body.get("auto_clean"))})
                 if set(body) - {"target", "days", "keep"}:
-                    raise ValueError("Invalid cleanup options")
+                    raise ValueError(tr('server_invalid_cleanup_options'))
                 if "days" in body:
                     clean_days(body["days"], 1 if body.get("target") == "print_ready" else 0)
                 return self.send_json(clean_storage(body.get("target"), body.get("days"), body.get("keep")))
@@ -859,7 +859,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                         WORKSPACE.mkdir(parents=True, exist_ok=True)
                         if path.exists():
                             if (path / "files").is_symlink() or (path / "state.json").is_symlink():
-                                raise ValueError("Invalid workspace path")
+                                raise ValueError(tr('server_invalid_workspace_path'))
                             shutil.rmtree(path)
                     return self.send_json({"ok": True})
                 path.mkdir(parents=True, exist_ok=True)
@@ -868,20 +868,20 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     return self.send_json({"file": file}, 201)
                 state = self.read_json()
                 if (path / "state.json").is_symlink():
-                    raise ValueError("Invalid workspace state")
+                    raise ValueError(tr('server_invalid_workspace_state'))
                 write_state(path, "state.json", state)
                 return self.send_json(state)
             except (ValueError, json.JSONDecodeError) as e:
                 return self.order_error(e)
         if url.path.startswith("/api/workspace/"):
-            return self.send_json({"error": "Invalid workspace path"}, 400)
+            return self.send_json({"error": tr('server_invalid_workspace_path')}, 400)
 
         if url.path == "/api/orders":
             try:
                 body = self.read_json()
                 name = body.get("name", "")
                 if not isinstance(name, str):
-                    raise ValueError("Invalid order name")
+                    raise ValueError(tr('server_invalid_order_name'))
                 with ORDER_LOCK:
                     ORDERS.mkdir(parents=True, exist_ok=True)
                     base = datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -906,7 +906,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 if action == "state":
                     body = self.read_json()
                     if not isinstance(body.get("name"), str) or not isinstance(body.get("state"), dict):
-                        raise ValueError("Expected name and state")
+                        raise ValueError(tr('server_expected_name_state'))
                     data["name"] = body["name"]
                     data["state"] = body["state"]
                     data["updated"] = datetime.now().astimezone().isoformat()
@@ -920,7 +920,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except (ValueError, FileNotFoundError, json.JSONDecodeError) as e:
                 return self.order_error(e)
         if url.path.startswith("/api/orders/"):
-            return self.send_json({"error": "Invalid order path"}, 400)
+            return self.send_json({"error": tr('server_invalid_order_path')}, 400)
 
         if url.path == "/api/faces":
             try:
@@ -942,7 +942,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                         total += info.file_size
                         images.append(info)
                         if total > 2 * 1024 ** 3 or len(images) > 2000:
-                            return self.send_json({"error": "Zip exceeds 2 GB or 2000 images"}, 400)
+                            return self.send_json({"error": tr('server_zip_too_large')}, 400)
                     INCOMING.mkdir(parents=True, exist_ok=True)
                     names = []
                     for info in images:
@@ -954,7 +954,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                         names.append(path.name)
                 return self.send_json({"files": names})
             except (zipfile.BadZipFile, EOFError, ValueError):
-                return self.send_json({"error": "Not a valid zip file"}, 400)
+                return self.send_json({"error": tr('server_invalid_zip')}, 400)
 
         if url.path == "/api/save":
             folder = query.get("folder", [""])[0]

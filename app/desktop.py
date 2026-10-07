@@ -39,7 +39,7 @@ def main():
     with httpd:
         server.prepare()
         url = f"http://127.0.0.1:{httpd.server_port}"
-        window = webview.create_window("Ellashop", url, width=1400, height=900,
+        window = webview.create_window(server.tr("server_window_title"), url, width=1400, height=900,
                                        min_size=(1100, 700))
 
         def focus():
