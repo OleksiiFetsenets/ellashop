@@ -1,0 +1,45 @@
+{
+  "settings_bytes": "%1$s B",
+  "settings_kilobytes": "%1$s KB",
+  "settings_megabytes": "%1$s MB",
+  "settings_gigabytes": "%1$s GB",
+  "settings_days": "днів",
+  "settings_hours": "годин",
+  "settings_number_error": "Вкажіть ціле число %1$s від %2$s до %3$s",
+  "settings_orders_prints": "Замовлення (Друк)",
+  "settings_canvas_workspace": "Робоча область «Полотно»",
+  "settings_passport_workspace": "Робоча область «Фото на документи»",
+  "settings_collage_workspace": "Робоча область «Колаж»",
+  "settings_incoming": "Вхідні файли",
+  "settings_exported_files": "Експортовані файли",
+  "settings_photos": {
+    "one": "%1$d фото",
+    "few": "%1$d фото",
+    "many": "%1$d фото",
+    "other": "%1$d фото"
+  },
+  "settings_files": {
+    "one": "%1$d файл",
+    "few": "%1$d файли",
+    "many": "%1$d файлів",
+    "other": "%1$d файла"
+  },
+  "settings_loading": "Завантаження…",
+  "settings_orders_files": {
+    "one": "%1$d замовлення (%2$d файлів)",
+    "few": "%1$d замовлення (%2$d файлів)",
+    "many": "%1$d замовлень (%2$d файлів)",
+    "other": "%1$d замовлення (%2$d файлів)"
+  },
+  "settings_delete_confirm": "Видалити %1$s, %2$s?",
+  "settings_removed": "Видалено %1$d файлів (%2$s).",
+  "settings_saved": "Налаштування автоочищення збережено.",
+  "settings_clear_tab": "Видалити всі фото з %1$s? Уже експортовані файли залишаться.",
+  "settings_canvas": "Полотно",
+  "settings_passport": "Фото на документи",
+  "settings_collage": "Колаж",
+  "settings_full_clean_confirm": "Видалити ВСЕ?\n\n• Вхідні файли: %1$d файлів\n• Замовлення друку: %2$d (%3$d фото)\n• Робота з полотнами, фото на документи й колажами: %4$d файлів\n• Готові файли: %5$d\n\nЗагалом %6$s. Цю дію не можна скасувати.",
+  "settings_full_clean_result": "Повне очищення: видалено %1$d файлів (%2$s).",
+  "settings_helper_running": "Помічник видалення фону: працює (звільняє пам’ять через 2 хвилини після останнього використання)",
+  "settings_helper_stopped": "Помічник видалення фону: зупинено (звільняє пам’ять через 2 хвилини після останнього використання)"
+}

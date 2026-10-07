@@ -1,0 +1,22 @@
+{
+  "prints_face_detection_failed": "Не вдалося розпізнати обличчя",
+  "prints_hint_selected": "%1$s → %2$s см. Перетягуйте для переміщення, прокручуйте для масштабу.",
+  "prints_hint_empty": "Додайте фото. Перетягуйте для переміщення, прокручуйте для масштабу.",
+  "prints_remove": "Видалити",
+  "prints_label": "%1$s · %2$s",
+  "prints_blur": "розмиття",
+  "prints_fit": "вмістити",
+  "prints_crop": "обрізати",
+  "prints_faces_pending": " · обличчя: …",
+  "prints_faces_count": " · обличчя: %1$d",
+  "prints_auto_detail": " · %1$s",
+  "prints_auto_blur": "розмиття: обличчя не вміщуються",
+  "prints_auto_faces": "обличчя",
+  "prints_auto_centre": "центр",
+  "prints_open_single_view": "Відкрити окремо",
+  "prints_source_error": "%1$s: %2$s",
+  "prints_saving": "Збереження…",
+  "prints_saved_file": "Збережено: %1$s",
+  "prints_saving_count": "Збереження %1$d / %2$d…",
+  "prints_saved_photos": "Збережено %1$d фото в Exported/%2$s"
+}
