@@ -137,8 +137,8 @@ function syncCanvasControls() {
   $('#canvas-tilt').textContent = tiltLabel(it);
   const mm = it && outMM(it);
   $('#canvas-size').textContent = it
-    ? `Print size ${canvasMM(it).w / 10} × ${canvasMM(it).h / 10} cm (front ${mm.w / 10} × ${mm.h / 10} + wrap ${it.wrap} cm each side)` : '';
-  $('#canvas-hint').textContent = it ? `${it.name} — drag to move, scroll to zoom.` : 'Add photos to start. Drag the front crop to move it, scroll to zoom.';
+    ? t('canvas_print_size', canvasMM(it).w / 10, canvasMM(it).h / 10, mm.w / 10, mm.h / 10, it.wrap) : '';
+  $('#canvas-hint').textContent = it ? t('canvas_hint_selected', it.name) : t('canvas_hint_empty');
 }
 
 function refreshCanvas() {
@@ -160,7 +160,7 @@ async function addCanvas(sources) {
       const it = newItem(img, name, { ...canvasPrints.last, file });
       canvasPrints.items.push(it);
       if (!canvasPrints.sel) canvasPrints.sel = it;
-    } catch (e) { setStatus($('#canvas-status'), `${source.name}: ${e.message}`, true); }
+    } catch (e) { setStatus($('#canvas-status'), t('canvas_source_error', source.name, e.message), true); }
   }
   refreshCanvas();
 }
@@ -218,17 +218,16 @@ async function saveCanvas(it) {
 
 $('#canvas-save-one').addEventListener('click', async () => {
   const it = canvasPrints.item, st = $('#canvas-status'); if (!it) return;
-  try { setStatus(st, 'Saving…'); setStatus(st, 'Saved: ' + await saveCanvas(it)); }
+  try { setStatus(st, t('canvas_saving')); setStatus(st, t('canvas_saved_file', await saveCanvas(it))); }
   catch (e) { setStatus(st, e.message, true); }
 });
 $('#canvas-save-all').addEventListener('click', async () => {
   const st = $('#canvas-status'), saved = [];
   try {
     for (const [i, it] of canvasPrints.items.entries()) {
-      setStatus(st, `Saving ${i + 1} / ${canvasPrints.items.length}…`);
+      setStatus(st, t('canvas_saving_count', i + 1, canvasPrints.items.length));
       saved.push(await saveCanvas(it));
     }
-    setStatus(st, `Saved ${saved.length} canvases to Exported (Canvas folders by size)`);
+    setStatus(st, t('canvas_saved_canvases', saved.length));
   } catch (e) { setStatus(st, e.message, true); }
 });
-

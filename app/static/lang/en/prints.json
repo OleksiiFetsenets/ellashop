@@ -1,0 +1,22 @@
+{
+  "prints_face_detection_failed": "Face detection failed",
+  "prints_hint_selected": "%1$s → %2$s cm. Drag to move, scroll to zoom.",
+  "prints_hint_empty": "Add photos to start. Drag the photo to move it, scroll to zoom.",
+  "prints_remove": "Remove",
+  "prints_label": "%1$s · %2$s",
+  "prints_blur": "blur",
+  "prints_fit": "fit",
+  "prints_crop": "crop",
+  "prints_faces_pending": " · faces: …",
+  "prints_faces_count": " · faces: %1$d",
+  "prints_auto_detail": " · %1$s",
+  "prints_auto_blur": "blur: faces don't fit",
+  "prints_auto_faces": "faces",
+  "prints_auto_centre": "centre",
+  "prints_open_single_view": "Open in single view",
+  "prints_source_error": "%1$s: %2$s",
+  "prints_saving": "Saving…",
+  "prints_saved_file": "Saved: %1$s",
+  "prints_saving_count": "Saving %1$d / %2$d…",
+  "prints_saved_photos": "Saved %1$d photos to Exported/%2$s"
+}
