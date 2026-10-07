@@ -17,6 +17,11 @@ ROOT = Path(__file__).resolve().parent.parent
 BACKUP = ROOT / "app" / ".previous"
 
 
+def tr(id, *args):
+    from server import tr as translate
+    return translate(id, *args)
+
+
 def current_version():
     return (ROOT / "VERSION").read_text(encoding="utf-8").strip()
 
@@ -56,7 +61,7 @@ def _code_files():
 def check(repo):
     if not isinstance(repo, str) or len(repo.split("/")) != 2 or not all(
             part and all(c.isalnum() or c in "-_." for c in part) for part in repo.split("/")):
-        raise ValueError("Update repository must be owner/name")
+        raise ValueError(tr('server_update_repository'))
     request = urllib.request.Request(
         f"https://api.github.com/repos/{repo}/releases/latest",
         headers={"Accept": "application/vnd.github+json", "User-Agent": "Ellashop"})
@@ -66,7 +71,7 @@ def check(repo):
     latest = str(release["tag_name"]).removeprefix("v")
     def version_parts(value):
         if not re.fullmatch(r"\d+(?:\.\d+)*", value):
-            raise ValueError(f"Invalid release version: {value}")
+            raise ValueError(tr('server_invalid_release_version', value))
         return tuple(int(part) for part in value.split("."))
     asset_name = f"ellashop-app-{latest}.zip"
     asset_url = next((item["browser_download_url"] for item in release.get("assets", [])
@@ -79,14 +84,14 @@ def check(repo):
 def rollback():
     manifest = BACKUP / "manifest.json"
     if not manifest.is_file():
-        raise FileNotFoundError("No previous version is available")
+        raise FileNotFoundError(tr('server_no_previous_version'))
     state = json.loads(manifest.read_text(encoding="utf-8"))
     for name in state["installed"]:
         if not _allowed(name):
-            raise ValueError("Invalid backup manifest")
+            raise ValueError(tr('server_invalid_backup_manifest'))
     for name in state["original"]:
         if not _allowed(name):
-            raise ValueError("Invalid backup manifest")
+            raise ValueError(tr('server_invalid_backup_manifest'))
     for name in state["installed"]:
         path = ROOT / name
         if path.is_file():
@@ -111,10 +116,10 @@ def apply(asset_url):
                 if info.is_dir() or not _allowed(info.filename):
                     continue
                 if info.filename in names or (info.external_attr >> 16) & 0o170000 == 0o120000:
-                    raise ValueError("Duplicate or linked code file in release")
+                    raise ValueError(tr('server_duplicate_release_file'))
                 names[info.filename] = info
             if not {"VERSION", "app/server.py"} <= names.keys():
-                raise ValueError("Release is missing VERSION or app/server.py")
+                raise ValueError(tr('server_missing_release_files'))
             original = [p.relative_to(ROOT).as_posix() for p in _code_files()]
             staging = Path(temporary) / "previous"
             for name in original:
@@ -130,7 +135,7 @@ def apply(asset_url):
                 for name, info in names.items():
                     target = ROOT / name
                     if target.is_symlink() or any(p.is_symlink() for p in target.parents if p != ROOT):
-                        raise ValueError(f"Linked update path: {name}")
+                        raise ValueError(tr('server_linked_update_path', name))
                     target.parent.mkdir(parents=True, exist_ok=True)
                     with archive.open(info) as source, target.open("wb") as destination:
                         shutil.copyfileobj(source, destination)
@@ -140,4 +145,4 @@ def apply(asset_url):
                                     str(ROOT / "app" / "requirements.txt")], check=True)
             except Exception as error:
                 rollback()
-                raise RuntimeError(f"Update failed; previous code restored: {error}") from error
+                raise RuntimeError(tr('server_update_failed', error)) from error
