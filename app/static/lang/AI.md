@@ -41,6 +41,8 @@ app/static/lang/
 3. Set `language_name` (in `common.json`) to the language's own name in that language:
    `"Русский"`, `"Українська"`, `"Deutsch"` — not the English name. This is what the
    language picker in Settings shows.
+   Also set `language_direction` (in `common.json`): `"rtl"` for right-to-left languages
+   (Hebrew `he`, Arabic `ar`, Persian `fa`), otherwise `"ltr"`. The app mirrors its layout for `rtl`.
 4. Run the checks in section 7. Fix everything they report.
 5. To try it: Settings → Language, or set `"language": "<code>"` in `app/settings.json` and
    restart Ellashop.
@@ -56,12 +58,30 @@ stale ones), translate the missing ids, delete ids that no longer exist in Engli
 | Keep every **placeholder** exactly, with the same number and type. You may move it within the sentence. | `%1$s` text, `%2$d` whole number, `%3$.1f` number with 1 decimal, `%%` a literal % |
 | Placeholders are positional: `%2$s` is always the second value, wherever you put it. | EN `"%1$s has %2$s mm"` → DE `"%1$s hat %2$s mm"` or any order that is natural |
 | Do not add placeholders that the English string does not have. | |
-| **Plurals** are objects. Keep the object, translate each form, and add the forms your language needs (CLDR plural categories: `zero`, `one`, `two`, `few`, `many`, `other`). `other` is required. The number deciding the form is always the first value (`%1$d`). | EN `{"one": "%1$d photo", "other": "%1$d photos"}` → RU `{"one": "%1$d фото", "few": "%1$d фото", "many": "%1$d фото", "other": "%1$d фото"}` |
+| **Plurals** are objects. Keep the object, translate each form, and add the forms your language needs (CLDR plural categories: `zero`, `one`, `two`, `few`, `many`, `other`). `other` is required. The number deciding the form is always the first value (`%1$d`). Use exactly the categories your language has: Russian/Ukrainian `one, few, many, other`; Hebrew `one, two, other`; German/Spanish/French `one, other` (French also `many`). | EN `{"one": "%1$d photo", "other": "%1$d photos"}` → RU `{"one": "%1$d фото", "few": "%1$d фото", "many": "%1$d фото", "other": "%1$d фото"}` |
 | Values are plain text, not HTML. Do not add tags. | |
 | Valid JSON, UTF-8, double quotes; write real characters (no `\u` escapes needed). Escape `"` inside a value as `\"`. | |
-| Keep symbols and number formats used for printing as they are: `×`, `mm`, `cm`, `°`, sizes like `10 × 15`, `3.5 × 4.5`. Translate unit words only if your language normally writes them differently (e.g. `мм`, `см`). | |
+| **Do not touch the math.** See section 4a. | |
+| Unit words may be written the way your language writes them (`мм`, `см`, `מ״מ`, `ס״מ`); the numbers next to them stay as they are. | |
 | Keep the product name `Ellashop`, `VISA`, `Photoroom`, `JPEG`, `PNG`, `DPI`, `ZIP` untranslated. | |
 | Keep translations about as short as the English for buttons, tabs and short labels: they sit in narrow side panels. | |
+
+## 4a. Math and measurements stay exactly as written
+
+Ellashop prints to exact sizes, so every number and formula in the strings is data, not prose.
+Copy these character for character; translate only the words around them:
+
+- Sizes and grids: `10 × 15`, `3.5 × 4.5`, `N × N`, `%1$s × %2$s cm`, `Cols × Rows` (translate the
+  words "Cols"/"Rows", keep the `×` and its spaces). Never replace `×` with `x`, `*` or `на`.
+- Numbers: keep digits and the decimal **point** as in English (`3.5`, `0.5`), even if your language
+  normally writes a decimal comma. Do not convert units (no inches, no cm↔mm changes).
+- Ranges, ratios and percentages: `32–36 mm`, `70–80%`, `1:1`, `±`, `°` stay as written.
+- Arithmetic or comparison symbols (`+`, `−`, `=`, `<`, `>`, `/`) and the order of the values
+  around them stay as written.
+- Right-to-left languages: write the sentence right to left as usual, but keep each size, range or
+  formula in its original left-to-right order (`10 × 15`, not `15 × 10`).
+
+If a string is nothing but a number, size or formula, its translation is identical to English.
 
 ## 5. Vocabulary (use one consistent translation for each)
 
