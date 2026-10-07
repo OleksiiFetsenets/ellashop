@@ -1,0 +1,22 @@
+{
+  "prints_face_detection_failed": "Не удалось определить лицо",
+  "prints_hint_selected": "%1$s → %2$s см. Перетащите для смещения, прокрутите для масштаба.",
+  "prints_hint_empty": "Добавьте фото. Перетащите для смещения, прокрутите для масштаба.",
+  "prints_remove": "Убрать",
+  "prints_label": "%1$s · %2$s",
+  "prints_blur": "размытие",
+  "prints_fit": "вписать",
+  "prints_crop": "кадрировать",
+  "prints_faces_pending": " · лица: …",
+  "prints_faces_count": " · лица: %1$d",
+  "prints_auto_detail": " · %1$s",
+  "prints_auto_blur": "размытие: лица не помещаются",
+  "prints_auto_faces": "лица",
+  "prints_auto_centre": "центр",
+  "prints_open_single_view": "Открыть отдельно",
+  "prints_source_error": "%1$s: %2$s",
+  "prints_saving": "Сохранение…",
+  "prints_saved_file": "Сохранено: %1$s",
+  "prints_saving_count": "Сохранение %1$d / %2$d…",
+  "prints_saved_photos": "Фото сохранено: %1$d — в Exported/%2$s"
+}

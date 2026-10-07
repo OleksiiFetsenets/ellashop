@@ -1,0 +1,45 @@
+{
+  "settings_bytes": "%1$s Б",
+  "settings_kilobytes": "%1$s КБ",
+  "settings_megabytes": "%1$s МБ",
+  "settings_gigabytes": "%1$s ГБ",
+  "settings_days": "дней",
+  "settings_hours": "часов",
+  "settings_number_error": "Введите целое число %1$s от %2$s до %3$s",
+  "settings_orders_prints": "Заказы (Отпечатки)",
+  "settings_canvas_workspace": "Рабочие файлы холстов",
+  "settings_passport_workspace": "Рабочие файлы фото на документы",
+  "settings_collage_workspace": "Рабочие файлы коллажей",
+  "settings_incoming": "Входящие",
+  "settings_exported_files": "Экспортированные файлы",
+  "settings_photos": {
+    "one": "%1$d фото",
+    "few": "%1$d фото",
+    "many": "%1$d фото",
+    "other": "%1$d фото"
+  },
+  "settings_files": {
+    "one": "%1$d файл",
+    "few": "%1$d файла",
+    "many": "%1$d файлов",
+    "other": "%1$d файла"
+  },
+  "settings_loading": "Загрузка…",
+  "settings_orders_files": {
+    "one": "%1$d заказ (файлов: %2$d)",
+    "few": "%1$d заказа (файлов: %2$d)",
+    "many": "%1$d заказов (файлов: %2$d)",
+    "other": "%1$d заказа (файлов: %2$d)"
+  },
+  "settings_delete_confirm": "Удалить %1$s, %2$s?",
+  "settings_removed": "Файлов удалено: %1$d (%2$s).",
+  "settings_saved": "Настройки автоочистки сохранены.",
+  "settings_clear_tab": "Удалить все фото из %1$s? Уже экспортированные файлы сохранятся.",
+  "settings_canvas": "Холст",
+  "settings_passport": "Фото на документы",
+  "settings_collage": "Коллаж",
+  "settings_full_clean_confirm": "Удалить ВСЁ?\n\n• Входящие: %1$d файлов\n• Заказы на отпечатки: %2$d (%3$d фото)\n• Рабочие файлы холстов, фото на документы и коллажей: %4$d файлов\n• Готовые файлы: %5$d\n\nВсего %6$s. Отменить это действие нельзя.",
+  "settings_full_clean_result": "Полная очистка: файлов удалено %1$d (%2$s).",
+  "settings_helper_running": "Модуль удаления фона: работает (освободит память через 2 минуты после последнего использования)",
+  "settings_helper_stopped": "Модуль удаления фона: остановлен (освободит память через 2 минуты после последнего использования)"
+}
