@@ -188,9 +188,9 @@ function collageBigTemplate(count, sheet, last = false) {
 
 function collageTemplateRoots(count, sheet) {
   return [
-    { name: 'Rows', root: collageRowsTemplate(count) },
-    { name: 'Big first', root: collageBigTemplate(count, sheet, false) },
-    { name: 'Big last', root: collageBigTemplate(count, sheet, true) },
+    { name: t('collage_rows'), root: collageRowsTemplate(count) },
+    { name: t('collage_big_first'), root: collageBigTemplate(count, sheet, false) },
+    { name: t('collage_big_last'), root: collageBigTemplate(count, sheet, true) },
   ];
 }
 
@@ -370,10 +370,11 @@ function renderCollagePool() {
     const used = usage.get(photo.file) || 0, li = document.createElement('li');
     li.className = `${photo === collagePhotoForItem(collage.sel?.item) ? 'sel' : ''}${used ? ' used' : ''}`.trim();
     li.draggable = true;
-    li.innerHTML = '<img><div class="meta"><div class="name"></div><div class="fmt"></div></div><button class="del" title="Remove">✕</button>';
+    li.innerHTML = '<img><div class="meta"><div class="name"></div><div class="fmt"></div></div><button class="del">✕</button>';
+    li.querySelector('.del').title = t('collage_remove');
     li.querySelector('img').src = photo.img.src;
     li.querySelector('.name').textContent = photo.name;
-    li.querySelector('.fmt').textContent = used ? `used ×${used}` : 'unused';
+    li.querySelector('.fmt').textContent = used ? t('collage_used', used) : t('collage_unused');
     li.addEventListener('click', e => {
       if (e.target.closest('.del')) {
         for (const sheet of collage.sheets) for (const rect of cellRects(sheet))
@@ -435,14 +436,14 @@ function collagePopulateCell(cell, leaf, sheet) {
   cell.classList.toggle('empty', !item);
   cell.classList.toggle('selected', leaf === collage.sel);
   if (!item) {
-    if (cell._item !== null) { cell.replaceChildren(); cell.textContent = 'Drop a photo'; cell._item = null; }
+    if (cell._item !== null) { cell.replaceChildren(); cell.textContent = t('collage_drop_photo'); cell._item = null; }
     return;
   }
   if (cell._item !== item) {
     cell.replaceChildren();
-    const eye = document.createElement('button'); eye.className = 'eye'; eye.title = 'Open in single view'; eye.textContent = '👁';
+    const eye = document.createElement('button'); eye.className = 'eye'; eye.title = t('collage_open_single_view'); eye.textContent = '👁';
     eye.addEventListener('click', e => { e.stopPropagation(); collageSelect(leaf); collage.view = 'single'; refreshCollage(); queueSave('collage'); });
-    const handle = document.createElement('button'); handle.className = 'collage-handle'; handle.title = 'Drag to swap cells'; handle.textContent = '⠿'; handle.draggable = true;
+    const handle = document.createElement('button'); handle.className = 'collage-handle'; handle.title = t('collage_drag_swap'); handle.textContent = '⠿'; handle.draggable = true;
     handle.addEventListener('dragstart', e => {
       e.stopPropagation(); e.dataTransfer.setData('text/x-ellashop-leaf', String(collageTreeLeaves(sheet.root).indexOf(leaf)));
       e.dataTransfer.effectAllowed = 'move';
@@ -561,8 +562,8 @@ function renderCollageSheetView() {
   }
   hint.hidden = single;
   hint.textContent = emptyPool
-    ? 'Add photos to start. Drop them into cells or choose a layout.'
-    : 'Drag photos from the left into cells. Drag inside a cell to move it, scroll to zoom, 👁 to edit.';
+    ? t('collage_add_photos_hint')
+    : t('collage_drag_photos_hint');
   viewBar.classList.toggle('has-hint', !single && !emptyPool);
   viewBar.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === collage.view));
   viewBar.querySelectorAll('[data-step]').forEach(b => { b.hidden = !single; });
@@ -597,13 +598,13 @@ function renderCollageTabs() {
   collage.sheets.forEach((sheet, i) => {
     const tab = document.createElement('div'); tab.className = `collage-tab${i === collage.active ? ' active' : ''}`;
     const pick = document.createElement('button'); pick.className = 'collage-pick'; pick.type = 'button';
-    const name = document.createElement('span'); name.className = 'collage-tab-name'; name.textContent = `Sheet ${i + 1}`;
+    const name = document.createElement('span'); name.className = 'collage-tab-name'; name.textContent = t('collage_sheet', i + 1);
     pick.append(name); pick.addEventListener('click', () => { collage.active = i; collage.sel = collageTreeLeaves(sheet.root)[0] || null; collage.view = 'sheet'; refreshCollage(); queueSave('collage'); });
-    const close = document.createElement('button'); close.className = 'collage-close'; close.type = 'button'; close.title = 'Close sheet'; close.textContent = '✕';
+    const close = document.createElement('button'); close.className = 'collage-close'; close.type = 'button'; close.title = t('collage_close_sheet'); close.textContent = '✕';
     close.addEventListener('click', e => {
       e.stopPropagation();
       const count = collageFilledLeaves(sheet).length;
-      if (count && !confirm(`Close Sheet ${i + 1} with ${count} filled cells? The photos will stay in the pool.`)) return;
+      if (count && !confirm(t('collage_close_filled_sheet', i + 1, count))) return;
       collage.sheets.splice(i, 1);
       if (!collage.sheets.length) collage.sheets.push(collageDefaultSheet());
       collage.active = Math.max(0, Math.min(collage.active - (i < collage.active ? 1 : 0), collage.sheets.length - 1));
@@ -627,7 +628,7 @@ function renderCollageShapes() {
 }
 
 $('#collage-paper').innerHTML = COLLAGE_PAPERS.map((f, i) =>
-  `${i === FORMATS.length ? '<span class="small collage-paper-label">Canvas</span>' : ''}<button type="button" data-id="${f.id}">${fmtLabel(f)}</button>`).join('');
+  `${i === FORMATS.length ? `<span class="small collage-paper-label">${t('collage_canvas')}</span>` : ''}<button type="button" data-id="${f.id}">${fmtLabel(f)}</button>`).join('');
 const collageCustomPaper = customSizeControl('#collage-paper', COLLAGE_PAPERS, [2, 200, 2, 200],
   () => collageSheet()?.fmt, fmt => setCollagePaper(fmt), '#collage-status');
 $('#collage-counts').innerHTML = [2, 4, 6, 8, 9, 12].map(n => `<button type="button" data-count="${n}">${n}</button>`).join('');
@@ -683,7 +684,7 @@ function renderCollageSizes() {
     const isSelected = sheet.sizeCell && sheet.sizeCell.w === size.w && sheet.sizeCell.h === size.h;
     buttons.push(`<button type="button" data-size="${size.w}x${size.h}" class="${isSelected ? 'on' : ''}" ${count ? '' : 'disabled'}>${fmtLabel(size)} (${count})</button>`);
   }
-  $('#collage-sizes').innerHTML = buttons.join('') || '<span class="small">No preset cell size fits this sheet.</span>';
+  $('#collage-sizes').innerHTML = buttons.join('') || `<span class="small">${t('collage_no_preset_fits')}</span>`;
 }
 
 function refreshCollage() {
@@ -787,7 +788,7 @@ $('#collage-counts').addEventListener('click', e => {
 $('#collage-apply-grid').addEventListener('click', () => {
   const cols = Number($('#collage-cols').value), rows = Number($('#collage-rows').value);
   if (!Number.isInteger(cols) || cols < 1 || cols > 10 || !Number.isInteger(rows) || rows < 1 || rows > 10) {
-    setStatus($('#collage-status'), 'Columns and rows must be from 1 to 10.', true); return;
+    setStatus($('#collage-status'), t('collage_grid_range_error'), true); return;
   }
   collageReplaceRoot(collageSheet(), collageGridTree(cols, rows), 'grid');
 });
@@ -801,7 +802,7 @@ $('#collage-sizes').addEventListener('click', e => {
 function setCollageSizeCell(size) {
   const sheet = collageSheet(); if (!sheet) return;
   const pack = collageSizePack(sheet, size);
-  if (!pack) { setStatus($('#collage-status'), 'That cell size does not fit on this sheet.', true); return; }
+  if (!pack) { setStatus($('#collage-status'), t('collage_cell_does_not_fit'), true); return; }
   const old = cellRects(sheet), items = old.map(r => r.leaf.item).filter(Boolean), index = Math.max(0, old.findIndex(r => r.leaf === collage.sel));
   sheet.sizeCell = { w: size.w, h: size.h }; sheet.layout = 'size'; collageRepackSize(sheet, items, index);
   refreshCollage(); queueSave('collage');
@@ -810,7 +811,7 @@ function setCollageSizeCell(size) {
 $('#collage-apply-cell-size').addEventListener('click', () => {
   const w = Number($('#collage-cell-w').value) * 10, h = Number($('#collage-cell-h').value) * 10;
   if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0 || w > 1000 || h > 1000) {
-    setStatus($('#collage-status'), 'Enter a cell width and height between 0.1 and 100 cm.', true); return;
+    setStatus($('#collage-status'), t('collage_cell_size_range_error'), true); return;
   }
   setCollageSizeCell({ w, h });
 });
@@ -883,7 +884,7 @@ function collageMergeSelected() {
 function collageMetricChange(key, input) {
   const sheet = collageSheet(), next = Number(input.value), old = Number(sheet[key]);
   if (!input.validity.valid || input.value === '' || !Number.isFinite(next) || next < 0 || next > 20 || Math.round(next * 2) !== next * 2) {
-    input.value = old; setStatus($('#collage-status'), 'Gap and margin must be between 0 and 20 mm.', true); return;
+    input.value = old; setStatus($('#collage-status'), t('collage_gap_margin_range_error'), true); return;
   }
   const prior = cellRects(sheet), items = prior.map(r => r.leaf.item).filter(Boolean), selectedIndex = Math.max(0, prior.findIndex(r => r.leaf === collage.sel));
   sheet[key] = next;
@@ -891,7 +892,7 @@ function collageMetricChange(key, input) {
   const innerW = Math.max(0, paper.w - 2 * sheet.margin), innerH = Math.max(0, paper.h - 2 * sheet.margin);
   const fits = sheet.layout === 'size' ? !!collageSizePack(sheet) : collageTreeFits(sheet.root, innerW, innerH, sheet.gap);
   if (sheet.margin * 2 >= Math.min(paper.w, paper.h) || !fits) {
-    sheet[key] = old; input.value = old; setStatus($('#collage-status'), 'That spacing leaves no room for the cells.', true); return;
+    sheet[key] = old; input.value = old; setStatus($('#collage-status'), t('collage_spacing_no_room'), true); return;
   }
   if (sheet.layout === 'size') collageRepackSize(sheet, items, selectedIndex); else collageSetCellFormats(sheet);
   refreshCollage(); queueSave('collage');
@@ -932,9 +933,9 @@ $('#collage-empty').addEventListener('click', () => {
   if (collage.sel) { collage.sel.item = null; collage.view = 'sheet'; refreshCollage(); queueSave('collage'); }
 });
 
-function confirmCollageEmpty(sheet, action = 'Save anyway?') {
+function confirmCollageEmpty(sheet, action = 'save') {
   const empty = cellRects(sheet).filter(r => !r.leaf.item).length;
-  return !empty || confirm(`${empty} empty cell${empty === 1 ? '' : 's'} will print white. ${action}`);
+  return !empty || confirm(t(action === 'move' ? 'collage_empty_cells_move' : 'collage_empty_cells_save', empty));
 }
 
 function collageDpi(sheet) {
@@ -973,17 +974,17 @@ async function saveCollageSheet(sheet, index) {
 
 $('#collage-to-canvas').addEventListener('click', async () => {
   const sheet = collageSheet(); if (!sheet) return;
-  if (!confirmCollageEmpty(sheet, 'Move anyway?')) return;
+  if (!confirmCollageEmpty(sheet, 'move')) return;
   const paper = collageSheetMM(sheet), short = Math.min(paper.w, paper.h), long = Math.max(paper.w, paper.h);
   const customId = customFormatId(short / 10, long / 10, CANVAS_FORMATS);
   const fmt = CANVAS_FORMATS.find(f => f.w === short && f.h === long) ||
     (customId ? formatById(CANVAS_FORMATS, customId) : null);
   if (!fmt) {
-    setStatus($('#collage-status'), 'Canvas sizes start at 10 × 10 cm — choose a bigger paper.', true); return;
+    setStatus($('#collage-status'), t('collage_canvas_size_error'), true); return;
   }
   const epoch = workspaces.canvas.epoch;
   try {
-    setStatus($('#collage-status'), 'Moving…');
+    setStatus($('#collage-status'), t('collage_moving'));
     const canvas = await renderCollage(sheet, { cutLines: false }), name = `collage_${collage.active + 1}_${paper.w}x${paper.h}.jpg`;
     const { file, src } = await uploadPhoto(await jpegBlob(canvas, 1, collageDpi(sheet), sheet.density), name, 'canvas');
     const img = await loadImage(src);
@@ -993,26 +994,26 @@ $('#collage-to-canvas').addEventListener('click', async () => {
     canvasPrints.items.push(item); canvasPrints.sel = item; canvasPrints.view = 'single';
     refreshCanvas(); queueSave('canvas');
     $('.tab[data-tab=canvas-view]').click();
-    setStatus($('#collage-status'), 'Moved to Canvas');
+    setStatus($('#collage-status'), t('collage_moved_to_canvas'));
   } catch (e) { setStatus($('#collage-status'), e.message, true); }
 });
 
 $('#collage-save-one').addEventListener('click', async () => {
   const sheet = collageSheet(); if (!sheet) return;
   try {
-    setStatus($('#collage-status'), 'Saving…');
+    setStatus($('#collage-status'), t('collage_saving'));
     const saved = await saveCollageSheet(sheet, collage.active);
-    if (saved) setStatus($('#collage-status'), `Saved: ${saved}`);
+    if (saved) setStatus($('#collage-status'), t('collage_saved_file', saved));
   } catch (e) { setStatus($('#collage-status'), e.message, true); }
 });
 $('#collage-save-all').addEventListener('click', async () => {
   const saved = [];
   try {
     for (const [i, sheet] of collage.sheets.entries()) {
-      setStatus($('#collage-status'), `Saving sheet ${i + 1} / ${collage.sheets.length}…`);
+      setStatus($('#collage-status'), t('collage_saving_sheet', i + 1, collage.sheets.length));
       const name = await saveCollageSheet(sheet, i); if (name) saved.push(name);
     }
-    setStatus($('#collage-status'), `Saved ${saved.length} sheet${saved.length === 1 ? '' : 's'}.`);
+    setStatus($('#collage-status'), t('collage_saved_sheets', saved.length));
   } catch (e) { setStatus($('#collage-status'), e.message, true); }
 });
 
