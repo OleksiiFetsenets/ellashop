@@ -35,4 +35,5 @@ function applyStrings(root = document) {
 }
 
 document.documentElement.lang = LANG;
+document.documentElement.dir = STRINGS.language_direction === 'rtl' ? 'rtl' : 'ltr';
 applyStrings();
