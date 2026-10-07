@@ -50,7 +50,7 @@ function sheetLayout(job) {
   const p = job.size;
   let best = null;
   for (const [W, H] of [[SHEET.w, SHEET.h], [SHEET.h, SHEET.w]]) {
-    const cols = Math.floor(W / p.w), rows = Math.floor(H / p.h), cells = cols * rows, count = Math.min(cells, 8);
+    const cols = Math.floor(W / p.w + 1e-9), rows = Math.floor(H / p.h + 1e-9), cells = cols * rows, count = Math.min(cells, 8);
     if (!best || count > best.count || (count === best.count && cells < best.cols * best.rows)) best = { W, H, cols, rows, count };
   }
   return best;
@@ -340,7 +340,7 @@ for (const [key, label, axis] of [['right', 'Right', 'across'], ['down', 'Down',
     const spare = axis === 'across' ? L.W - L.cols * job.size.w : L.H - L.rows * job.size.h;
     if (!input.validity.valid || input.value === '' || !Number.isFinite(next) || next < 0 || next > 20 || Math.round(next * 2) !== next * 2 || next > spare + 1e-9) {
       input.value = old;
-      setStatus($('#pp-status'), `${label} ${raw} mm doesn't fit: ${job.size.label} has ${spare} mm spare ${axis}.`, true);
+      setStatus($('#pp-status'), `${label} ${raw} mm doesn't fit: ${job.size.label} has ${+spare.toFixed(1)} mm spare ${axis}.`, true);
       return;
     }
     job[key] = next; pp.drawSheet(); queueSave('passport'); setStatus($('#pp-status'), '');

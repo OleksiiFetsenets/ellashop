@@ -37,7 +37,7 @@
  },
  {
   "op": "eval",
-  "expr": "(()=>{for(const [id,n] of [['35x45',8],['visa',6],['ca-passport',4],['cn-visa',8]]) if(!document.querySelector('#pp-size button[data-v='+id+']').textContent.includes(n+' per sheet')) throw Error(id+' count'); if(pp.active.right!==5||pp.active.down!==5) throw Error('35x45 defaults'); return true})()"
+  "expr": "(()=>{for(const [id,n] of [['35x45',8],['visa',6],['ca-passport',4],['cn-visa',8]]) if(!document.querySelector('#pp-size button[data-v=\"'+id+'\"]').textContent.includes(n+' per sheet')) throw Error(id+' count'); if(pp.active.right!==5||pp.active.down!==5) throw Error('35x45 defaults'); return true})()"
  },
  {
   "op": "click",
