@@ -57,7 +57,7 @@ function sheetLayout(job) {
 }
 
 function passportOffsets(size) {
-  const standard = { visa: [0, 0], 'ca-passport': [0, 5], 'cn-visa': [5, 4] }[size.id] || [5, 5];
+  const standard = { visa: [0, 0], 'ca-passport': [0, 5], 'cn-visa': [9, 4] }[size.id] || [5, 5];
   const L = sheetLayout({ size });
   return { right: Math.min(standard[0], Math.max(0, L.W - L.cols * size.w)),
     down: Math.min(standard[1], Math.max(0, L.H - L.rows * size.h)) };

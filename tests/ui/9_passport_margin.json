@@ -45,7 +45,7 @@
  },
  {
   "op": "eval",
-  "expr": "(()=>{if(pp.active.right!==5||pp.active.down!==4||renderSheet(pp.active).count!==8) throw Error('China defaults/count'); return true})()"
+  "expr": "(()=>{if(pp.active.right!==9||pp.active.down!==4||renderSheet(pp.active).count!==8) throw Error('China defaults/count'); return true})()"
  },
  {
   "op": "type",
