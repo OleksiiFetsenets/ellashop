@@ -11,53 +11,53 @@
 </head>
 <body>
   <header>
-    <h1>Ellashop</h1>
+    <h1 data-i18n="page_ellashop"></h1>
     <nav>
-      <button class="tab active" data-tab="prints">Prints</button>
-      <button class="tab" data-tab="canvas-view">Canvas</button>
-      <button class="tab" data-tab="passport">Passport photos</button>
-      <button class="tab" data-tab="collage">Collage</button>
+      <button class="tab active" data-tab="prints" data-i18n="page_prints"></button>
+      <button class="tab" data-tab="canvas-view" data-i18n="page_canvas"></button>
+      <button class="tab" data-tab="passport" data-i18n="page_passport_photos"></button>
+      <button class="tab" data-tab="collage" data-i18n="page_collage"></button>
       <span class="undo-redo">
-        <button id="undo" class="ghost" title="Undo (⌘Z / Ctrl+Z)" aria-label="Undo" disabled>↶</button>
-        <button id="redo" class="ghost" title="Redo (⇧⌘Z / Ctrl+Shift+Z)" aria-label="Redo" disabled>↷</button>
+        <button id="undo" class="ghost" data-i18n-title="page_undo_z_ctrl_z" data-i18n-aria-label="page_undo" disabled>↶</button>
+        <button id="redo" class="ghost" data-i18n-title="page_redo_z_ctrl_shift_z" data-i18n-aria-label="page_redo" disabled>↷</button>
       </span>
     </nav>
-    <label class="order-control prints-order-control"><span class="label-text">Order</span> <select id="order-picker" aria-label="Select order"></select></label>
-    <label class="order-control prints-order-control"><span class="label-text">Name</span> <input id="order-name" type="text" aria-label="Order name" placeholder="Order name"></label>
-    <button id="new-order" class="ghost prints-order-control">New order</button>
-    <button id="delete-order" class="ghost prints-order-control">Delete order</button>
-    <button id="open-folder" class="ghost" title="Open the folder with the finished files">Exported</button>
-    <button id="open-storage" class="ghost icon-btn" title="Settings" aria-label="Settings">⚙</button>
+    <label class="order-control prints-order-control"><span class="label-text" data-i18n="page_order"></span> <select id="order-picker" data-i18n-aria-label="page_select_order"></select></label>
+    <label class="order-control prints-order-control"><span class="label-text" data-i18n="page_name"></span> <input id="order-name" type="text" data-i18n-aria-label="page_order_name" data-i18n-placeholder="page_order_name"></label>
+    <button id="new-order" class="ghost prints-order-control" data-i18n="page_new_order"></button>
+    <button id="delete-order" class="ghost prints-order-control" data-i18n="page_delete_order"></button>
+    <button id="open-folder" class="ghost" data-i18n-title="page_open_the_folder_with_the_finished_files" data-i18n="page_exported"></button>
+    <button id="open-storage" class="ghost icon-btn" data-i18n-title="page_settings" data-i18n-aria-label="page_settings">⚙</button>
     <button id="update-btn" class="primary" hidden></button>
   </header>
 
   <dialog id="storage-dialog" aria-labelledby="storage-title">
-    <div class="storage-head"><h2 id="storage-title">Settings</h2><button id="storage-close" class="ghost">Close</button></div>
+    <div class="storage-head"><h2 id="storage-title" data-i18n="page_settings"></h2><button id="storage-close" class="ghost" data-i18n="page_close"></button></div>
     <p id="storage-status" class="status" role="status"></p>
-    <h3>Storage and cleanup</h3>
-    <table class="storage-table"><thead><tr><th>Area</th><th>Photos / files</th><th>Size</th></tr></thead><tbody id="storage-totals"></tbody></table>
+    <h3 data-i18n="page_storage_and_cleanup"></h3>
+    <table class="storage-table"><thead><tr><th data-i18n="page_area"></th><th data-i18n="page_photos_files"></th><th data-i18n="page_size"></th></tr></thead><tbody id="storage-totals"></tbody></table>
     <div class="storage-lists">
-      <section><h3>Orders (Prints)</h3><div class="storage-scroll"><table class="storage-table"><thead><tr><th>Name</th><th>Last change</th><th>Photos</th><th>Size</th></tr></thead><tbody id="storage-orders"></tbody></table></div></section>
-      <section><h3>Finished file folders</h3><div class="storage-scroll"><table class="storage-table"><thead><tr><th>Name</th><th>Files</th><th>Size</th><th>Last saved</th></tr></thead><tbody id="storage-folders"></tbody></table></div></section>
+      <section><h3 data-i18n="page_orders_prints"></h3><div class="storage-scroll"><table class="storage-table"><thead><tr><th data-i18n="page_name"></th><th data-i18n="page_last_change"></th><th data-i18n="page_photos"></th><th data-i18n="page_size"></th></tr></thead><tbody id="storage-orders"></tbody></table></div></section>
+      <section><h3 data-i18n="page_finished_file_folders"></h3><div class="storage-scroll"><table class="storage-table"><thead><tr><th data-i18n="page_name"></th><th data-i18n="page_files"></th><th data-i18n="page_size"></th><th data-i18n="page_last_saved"></th></tr></thead><tbody id="storage-folders"></tbody></table></div></section>
     </div>
     <p id="storage-helper" class="small"></p>
-    <h3>Clean up now</h3>
+    <h3 data-i18n="page_clean_up_now"></h3>
     <div class="storage-actions">
-      <label>Delete orders not changed for <input id="storage-orders-days" type="number" min="0" max="3650" step="1" value="14"> days <button data-clean="orders">Delete orders</button></label>
-      <button data-clean="incoming">Empty incoming</button>
-      <label>Delete finished files older than <input id="storage-finished-days" type="number" min="1" max="3650" step="1" value="30"> days <button data-clean="print_ready">Delete finished files</button></label>
+      <label><span data-i18n="page_delete_orders_not_changed_for"></span> <input id="storage-orders-days" type="number" min="0" max="3650" step="1" value="14"> <span data-i18n="page_days"></span> <button data-clean="orders" data-i18n="page_delete_orders"></button></label>
+      <button data-clean="incoming" data-i18n="page_empty_incoming"></button>
+      <label><span data-i18n="page_delete_finished_files_older_than"></span> <input id="storage-finished-days" type="number" min="1" max="3650" step="1" value="30"> <span data-i18n="page_days"></span> <button data-clean="print_ready" data-i18n="page_delete_finished_files"></button></label>
     </div>
-    <h3>Auto-clean at start and every hour <small>(0 = off; deleted files are listed in photos/cleanup.log)</small></h3>
+    <h3><span data-i18n="page_auto_clean_at_start_and_every_hour"></span> <small data-i18n="page_0_off_deleted_files_are_listed_in_photos_cleanup_log"></small></h3>
     <div class="storage-settings">
-      <label>Incoming <input id="auto-incoming" type="number" min="0" max="3650" step="1"> days</label>
-      <label>Orders <input id="auto-orders" type="number" min="0" max="3650" step="1"> days</label>
-      <label>Finished files <input id="auto-finished" type="number" min="0" max="87600" step="1"> hours</label>
-      <button id="storage-save" class="primary">Save</button>
+      <label><span data-i18n="page_incoming"></span> <input id="auto-incoming" type="number" min="0" max="3650" step="1"> <span data-i18n="page_days"></span></label>
+      <label><span data-i18n="page_orders"></span> <input id="auto-orders" type="number" min="0" max="3650" step="1"> <span data-i18n="page_days"></span></label>
+      <label><span data-i18n="page_finished_files"></span> <input id="auto-finished" type="number" min="0" max="87600" step="1"> <span data-i18n="page_hours"></span></label>
+      <button id="storage-save" class="primary" data-i18n="page_save"></button>
     </div>
-    <h3>Full cleanup</h3>
+    <h3 data-i18n="page_full_cleanup"></h3>
     <div class="storage-settings">
-      <span class="small">Deletes every photo the app holds: incoming, all Prints orders, Canvas and Passport work and all finished files. Listed in photos/cleanup.log.</span>
-      <button id="full-clean" class="danger">Delete everything…</button>
+      <span class="small" data-i18n="page_deletes_every_photo_the_app_holds_incoming_all_prints_orders_canvas"></span>
+      <button id="full-clean" class="danger" data-i18n="page_delete_everything"></button>
     </div>
   </dialog>
 
@@ -66,74 +66,74 @@
     <aside class="left">
       <label class="drop" id="prints-drop">
         <input type="file" id="prints-file" accept="image/*,.zip" multiple hidden>
-        <strong>Drop photos here</strong><br><span>or click to choose</span>
+        <strong data-i18n="page_drop_photos_here"></strong><br><span data-i18n="page_or_click_to_choose"></span>
       </label>
-      <button class="ghost wide" data-incoming="prints">Load from incoming folder</button>
+      <button class="ghost wide" data-incoming="prints" data-i18n="page_load_from_incoming_folder"></button>
       <ul id="queue" class="queue"></ul>
     </aside>
 
     <div class="stage" id="prints-stage">
       <div class="view-bar" id="prints-view-bar" hidden>
-        <div class="seg"><button data-view="grid">Grid</button><button data-view="single">Single</button></div>
-        <button data-step="-1">◀ Prev</button><span class="view-count"></span><button data-step="1">Next ▶</button>
+        <div class="seg"><button data-view="grid" data-i18n="page_grid"></button><button data-view="single" data-i18n="page_single"></button></div>
+        <button data-step="-1" data-i18n="page_prev"></button><span class="view-count"></span><button data-step="1" data-i18n="page_next"></button>
       </div>
       <div class="photo-grid" id="prints-grid" hidden></div>
       <canvas id="prints-canvas"></canvas>
-      <p class="hint" id="prints-hint">Add photos to start. Drag the photo to move it, scroll to zoom.</p>
+      <p class="hint" id="prints-hint" data-i18n="page_add_photos_to_start_drag_the_photo_to_move_it_scroll_to_zoom"></p>
     </div>
 
     <aside class="right">
-      <h3>Format (cm)</h3>
+      <h3 data-i18n="page_format_cm"></h3>
       <div class="grid" id="formats"></div>
 
-      <h3>Orientation</h3>
+      <h3 data-i18n="page_orientation"></h3>
       <div class="seg" id="orient">
-        <button data-v="auto" class="on">Auto</button>
-        <button data-v="portrait">Portrait</button>
-        <button data-v="landscape">Landscape</button>
+        <button data-v="auto" class="on" data-i18n="page_auto"></button>
+        <button data-v="portrait" data-i18n="page_portrait"></button>
+        <button data-v="landscape" data-i18n="page_landscape"></button>
       </div>
 
-      <h3>Fill</h3>
+      <h3 data-i18n="page_fill"></h3>
       <div class="seg" id="mode">
-        <button data-v="fill" class="on">Crop to fill</button>
-        <button data-v="fit">Fit, white border</button>
-        <button data-v="blur">Fit, blurred border</button>
+        <button data-v="fill" class="on" data-i18n="page_crop_to_fill"></button>
+        <button data-v="fit" data-i18n="page_fit_white_border"></button>
+        <button data-v="blur" data-i18n="page_fit_blurred_border"></button>
       </div>
       <div id="prints-blur-controls" hidden>
-        <h3>Blur type</h3>
+        <h3 data-i18n="page_blur_type"></h3>
         <div class="seg" id="prints-blur">
-          <button data-v="motion" class="on">Motion ↗</button>
-          <button data-v="gaussian">Gaussian</button>
+          <button data-v="motion" class="on" data-i18n="page_motion"></button>
+          <button data-v="gaussian" data-i18n="page_gaussian"></button>
         </div>
-        <h3>Strength</h3>
+        <h3 data-i18n="page_strength"></h3>
         <input type="range" id="prints-strength" min="1" max="100" value="50">
       </div>
-      <label class="check"><input type="checkbox" id="prints-smart" checked> Smart placement for new photos</label>
-      <label class="check"><input type="checkbox" id="prints-faces" checked> Show faces</label>
-      <label class="check"><input type="checkbox" id="prints-measure"> Show measurements (cm)</label>
-      <label class="check composition-row">Composition guides <select id="prints-composition">
-        <option value="">None</option><option value="thirds">Rule of thirds</option><option value="golden">Golden ratio</option>
-        <option value="spiral">Fibonacci spiral</option><option value="diagonals">Diagonals</option>
-        <option value="triangles">Golden triangles</option><option value="perspective">Perspective</option>
-      </select><button type="button" id="prints-composition-turn" title="Turn / flip the guide (key O)">↻</button></label>
-      <button id="prints-auto" class="ghost wide">Auto place</button>
+      <label class="check"><input type="checkbox" id="prints-smart" checked> <span data-i18n="page_smart_placement_for_new_photos"></span></label>
+      <label class="check"><input type="checkbox" id="prints-faces" checked> <span data-i18n="page_show_faces"></span></label>
+      <label class="check"><input type="checkbox" id="prints-measure"> <span data-i18n="page_show_measurements_cm"></span></label>
+      <label class="check composition-row"><span data-i18n="page_composition_guides"></span> <select id="prints-composition">
+        <option value="" data-i18n="page_none"></option><option value="thirds" data-i18n="page_rule_of_thirds"></option><option value="golden" data-i18n="page_golden_ratio"></option>
+        <option value="spiral" data-i18n="page_fibonacci_spiral"></option><option value="diagonals" data-i18n="page_diagonals"></option>
+        <option value="triangles" data-i18n="page_golden_triangles"></option><option value="perspective" data-i18n="page_perspective"></option>
+      </select><button type="button" id="prints-composition-turn" data-i18n-title="page_turn_flip_the_guide_key_o">↻</button></label>
+      <button id="prints-auto" class="ghost wide" data-i18n="page_auto_place"></button>
 
-      <h3>Adjust</h3>
+      <h3 data-i18n="page_adjust"></h3>
       <div class="row">
-        <button id="rot-l" title="Rotate left">⟲</button>
-        <button id="rot-r" title="Rotate right">⟳</button>
-        <input type="range" id="zoom" min="1" max="6" step="0.01" value="1" title="Zoom">
-        <span class="tilt-label" id="prints-tilt">Tilt 0.0°</span>
-        <button id="reset" title="Reset crop">Reset</button>
+        <button id="rot-l" data-i18n-title="page_rotate_left">⟲</button>
+        <button id="rot-r" data-i18n-title="page_rotate_right">⟳</button>
+        <input type="range" id="zoom" min="1" max="6" step="0.01" value="1" data-i18n-title="page_zoom">
+        <span class="tilt-label" id="prints-tilt" data-i18n="page_tilt_0_0"></span>
+        <button id="reset" data-i18n-title="page_reset_crop" data-i18n="page_reset"></button>
       </div>
 
-      <h3>Density</h3>
+      <h3 data-i18n="page_density"></h3>
       <div id="prints-density"></div>
       <section id="prints-overlays"></section>
-      <button id="apply-all" class="ghost wide">Use this format for all photos</button>
+      <button id="apply-all" class="ghost wide" data-i18n="page_use_this_format_for_all_photos"></button>
       <div class="actions">
-        <button id="save-one" class="primary">Save this photo</button>
-        <button id="save-all" class="primary">Save all</button>
+        <button id="save-one" class="primary" data-i18n="page_save_this_photo"></button>
+        <button id="save-all" class="primary" data-i18n="page_save_all"></button>
       </div>
       <p class="status" id="prints-status"></p>
     </aside>
@@ -144,104 +144,104 @@
     <aside class="left">
       <label class="drop" id="collage-drop">
         <input type="file" id="collage-file" accept="image/*,.zip" multiple hidden>
-        <strong>Drop photos here</strong><br><span>or click to choose</span>
+        <strong data-i18n="page_drop_photos_here"></strong><br><span data-i18n="page_or_click_to_choose"></span>
       </label>
-      <button class="ghost wide" data-incoming="collage">Load from incoming folder</button>
+      <button class="ghost wide" data-incoming="collage" data-i18n="page_load_from_incoming_folder"></button>
       <ul id="collage-pool" class="queue"></ul>
-      <button id="collage-clear" class="ghost wide clear-all">Clear all</button>
+      <button id="collage-clear" class="ghost wide clear-all" data-i18n="page_clear_all"></button>
     </aside>
 
     <div class="stage collage-stage" id="collage-stage">
       <div class="collage-tabs" id="collage-tabs"></div>
-      <button class="pp-add" id="collage-add-sheet" title="Add sheet">+</button>
+      <button class="pp-add" id="collage-add-sheet" data-i18n-title="page_add_sheet">+</button>
       <div class="view-bar collage-view-bar" id="collage-view-bar" hidden>
-        <div class="seg"><button data-view="sheet">Sheet</button><button data-view="single">Single</button></div>
-        <p class="hint" id="collage-hint">Drag photos from the left into cells. Drag inside a cell to move it, scroll to zoom, 👁 to edit.</p>
-        <button data-step="-1">◀ Prev</button><span class="view-count"></span><button data-step="1">Next ▶</button>
+        <div class="seg"><button data-view="sheet" data-i18n="page_sheet"></button><button data-view="single" data-i18n="page_single"></button></div>
+        <p class="hint" id="collage-hint" data-i18n="page_drag_photos_from_the_left_into_cells_drag_inside_a_cell_to_move_it_s"></p>
+        <button data-step="-1" data-i18n="page_prev"></button><span class="view-count"></span><button data-step="1" data-i18n="page_next"></button>
       </div>
       <div class="collage-sheet" id="collage-sheet"></div>
       <canvas id="collage-canvas"></canvas>
     </div>
 
     <aside class="right collage-controls">
-      <h3>Paper (cm)</h3>
+      <h3 data-i18n="page_paper_cm"></h3>
       <div class="grid" id="collage-paper"></div>
 
-      <h3>Orientation</h3>
+      <h3 data-i18n="page_orientation"></h3>
       <div class="seg" id="collage-orient">
-        <button data-v="portrait" class="on">Portrait</button>
-        <button data-v="landscape">Landscape</button>
+        <button data-v="portrait" class="on" data-i18n="page_portrait"></button>
+        <button data-v="landscape" data-i18n="page_landscape"></button>
       </div>
 
       <div id="collage-layout-section">
-        <h3>Layout</h3>
+        <h3 data-i18n="page_layout"></h3>
         <div class="seg collage-layout-tabs" id="collage-layout">
-          <button data-v="grid" class="on">Equal grid</button>
-          <button data-v="size">Photo size</button>
-          <button data-v="template">Shapes</button>
-          <button data-v="custom">Custom</button>
+          <button data-v="grid" class="on" data-i18n="page_equal_grid"></button>
+          <button data-v="size" data-i18n="page_photo_size"></button>
+          <button data-v="template" data-i18n="page_shapes"></button>
+          <button data-v="custom" data-i18n="page_custom"></button>
         </div>
         <div id="collage-layout-grid" class="collage-layout-panel">
           <div class="grid collage-counts" id="collage-counts"></div>
-          <label class="collage-dimensions">Cols <input id="collage-cols" type="number" min="1" max="10" value="2"> × Rows <input id="collage-rows" type="number" min="1" max="10" value="2"></label>
-          <button id="collage-apply-grid" class="ghost wide">Apply columns × rows</button>
+          <label class="collage-dimensions"><span data-i18n="page_cols"></span> <input id="collage-cols" type="number" min="1" max="10" value="2"> <span data-i18n="page_rows"></span> <input id="collage-rows" type="number" min="1" max="10" value="2"></label>
+          <button id="collage-apply-grid" class="ghost wide" data-i18n="page_apply_columns_rows"></button>
         </div>
         <div id="collage-layout-size" class="collage-layout-panel" hidden>
           <div class="grid collage-sizes" id="collage-sizes"></div>
           <div class="custom-size-row collage-cell-custom" id="collage-cell-custom">
-            W <input id="collage-cell-w" type="number" min="0.5" max="100" step="0.1" aria-label="Cell width in cm">
-            × H <input id="collage-cell-h" type="number" min="0.5" max="100" step="0.1" aria-label="Cell height in cm">
-            cm <button id="collage-apply-cell-size" type="button">Apply</button>
+            <span data-i18n="page_w"></span> <input id="collage-cell-w" type="number" min="0.5" max="100" step="0.1" data-i18n-aria-label="page_cell_width_in_cm">
+            <span data-i18n="page_h"></span> <input id="collage-cell-h" type="number" min="0.5" max="100" step="0.1" data-i18n-aria-label="page_cell_height_in_cm">
+            <span data-i18n="page_cm"></span> <button id="collage-apply-cell-size" type="button" data-i18n="page_apply"></button>
           </div>
         </div>
         <div id="collage-layout-template" class="collage-layout-panel" hidden>
-          <div class="row collage-template-count"><button id="collage-shapes-minus">−</button><label>N <input id="collage-shapes-count" type="number" min="2" max="20" value="5"></label><button id="collage-shapes-plus">+</button></div>
+          <div class="row collage-template-count"><button id="collage-shapes-minus">−</button><label><span data-i18n="page_n"></span> <input id="collage-shapes-count" type="number" min="2" max="20" value="5"></label><button id="collage-shapes-plus">+</button></div>
           <div id="collage-shapes" class="collage-shapes"></div>
         </div>
         <div id="collage-layout-custom" class="collage-layout-panel" hidden>
-          <div class="row"><button id="collage-split-row" title="Split side by side">Split ↔</button><button id="collage-split-col" title="Split top and bottom">Split ↕</button></div>
-          <div class="row"><button id="collage-merge" class="wide">Merge</button><button id="collage-start-over" class="wide">Start over</button></div>
-          <button id="collage-equalize" class="ghost wide">Make equal</button>
-          <label class="check"><input id="collage-magnet" type="checkbox" checked> Magnet</label>
+          <div class="row"><button id="collage-split-row" data-i18n-title="page_split_side_by_side" data-i18n="page_split"></button><button id="collage-split-col" data-i18n-title="page_split_top_and_bottom" data-i18n="page_split_2"></button></div>
+          <div class="row"><button id="collage-merge" class="wide" data-i18n="page_merge"></button><button id="collage-start-over" class="wide" data-i18n="page_start_over"></button></div>
+          <button id="collage-equalize" class="ghost wide" data-i18n="page_make_equal"></button>
+          <label class="check"><input id="collage-magnet" type="checkbox" checked> <span data-i18n="page_magnet"></span></label>
         </div>
       </div>
-      <p class="small" id="collage-layout-note" hidden>Layout is edited in Sheet view.</p>
+      <p class="small" id="collage-layout-note" hidden data-i18n="page_layout_is_edited_in_sheet_view"></p>
 
-      <h3>Spacing</h3>
-      <label class="collage-number">Gap <input id="collage-gap" type="number" min="0" max="20" step="0.5" value="0"> mm</label>
-      <label class="collage-number">Margin <input id="collage-margin" type="number" min="0" max="20" step="0.5" value="0"> mm</label>
+      <h3 data-i18n="page_spacing"></h3>
+      <label class="collage-number"><span data-i18n="page_gap"></span> <input id="collage-gap" type="number" min="0" max="20" step="0.5" value="0"> <span data-i18n="page_mm"></span></label>
+      <label class="collage-number"><span data-i18n="page_margin"></span> <input id="collage-margin" type="number" min="0" max="20" step="0.5" value="0"> <span data-i18n="page_mm"></span></label>
       <div class="seg" id="collage-gap-color">
-        <button data-v="#ffffff" class="on">White gaps</button>
-        <button data-v="#000000">Black gaps</button>
+        <button data-v="#ffffff" class="on" data-i18n="page_white_gaps"></button>
+        <button data-v="#000000" data-i18n="page_black_gaps"></button>
       </div>
-      <label class="check"><input id="collage-cutlines" type="checkbox" checked> Cut lines when gap is 0</label>
+      <label class="check"><input id="collage-cutlines" type="checkbox" checked> <span data-i18n="page_cut_lines_when_gap_is_0"></span></label>
 
-      <h3>Density</h3>
+      <h3 data-i18n="page_density"></h3>
       <div id="collage-density"></div>
 
-      <h3>Selected cell</h3>
+      <h3 data-i18n="page_selected_cell"></h3>
       <div class="seg" id="collage-mode">
-        <button data-v="fill" class="on">Crop</button>
-        <button data-v="fit">Fit white</button>
-        <button data-v="blur">Fit blurred</button>
+        <button data-v="fill" class="on" data-i18n="page_crop"></button>
+        <button data-v="fit" data-i18n="page_fit_white"></button>
+        <button data-v="blur" data-i18n="page_fit_blurred"></button>
       </div>
       <div class="row">
-        <button id="collage-rot-l" title="Rotate left">⟲</button>
-        <button id="collage-rot-r" title="Rotate right">⟳</button>
-        <input type="range" id="collage-zoom" min="1" max="6" step="0.01" value="1" title="Zoom">
-        <button id="collage-reset" title="Reset crop">Reset</button>
+        <button id="collage-rot-l" data-i18n-title="page_rotate_left">⟲</button>
+        <button id="collage-rot-r" data-i18n-title="page_rotate_right">⟳</button>
+        <input type="range" id="collage-zoom" min="1" max="6" step="0.01" value="1" data-i18n-title="page_zoom">
+        <button id="collage-reset" data-i18n-title="page_reset_crop" data-i18n="page_reset"></button>
       </div>
-      <label class="check composition-row" id="collage-composition-row" hidden>Composition guides <select id="collage-composition">
-        <option value="">None</option><option value="thirds">Rule of thirds</option><option value="golden">Golden ratio</option>
-        <option value="spiral">Fibonacci spiral</option><option value="diagonals">Diagonals</option>
-        <option value="triangles">Golden triangles</option><option value="perspective">Perspective</option>
-      </select><button type="button" id="collage-composition-turn" title="Turn / flip the guide (key O)">↻</button></label>
-      <button id="collage-empty" class="ghost wide">Empty cell</button>
-      <button id="collage-to-canvas" class="wide" title="Open this sheet in the Canvas tab to add wrap and print it as a canvas">Move to Canvas</button>
+      <label class="check composition-row" id="collage-composition-row" hidden><span data-i18n="page_composition_guides"></span> <select id="collage-composition">
+        <option value="" data-i18n="page_none"></option><option value="thirds" data-i18n="page_rule_of_thirds"></option><option value="golden" data-i18n="page_golden_ratio"></option>
+        <option value="spiral" data-i18n="page_fibonacci_spiral"></option><option value="diagonals" data-i18n="page_diagonals"></option>
+        <option value="triangles" data-i18n="page_golden_triangles"></option><option value="perspective" data-i18n="page_perspective"></option>
+      </select><button type="button" id="collage-composition-turn" data-i18n-title="page_turn_flip_the_guide_key_o">↻</button></label>
+      <button id="collage-empty" class="ghost wide" data-i18n="page_empty_cell"></button>
+      <button id="collage-to-canvas" class="wide" data-i18n-title="page_open_this_sheet_in_the_canvas_tab_to_add_wrap_and_print_it_as_a_canv" data-i18n="page_move_to_canvas"></button>
 
       <div class="actions">
-        <button id="collage-save-one" class="primary">Save sheet</button>
-        <button id="collage-save-all" class="primary">Save all sheets</button>
+        <button id="collage-save-one" class="primary" data-i18n="page_save_sheet"></button>
+        <button id="collage-save-all" class="primary" data-i18n="page_save_all_sheets"></button>
       </div>
       <p class="status" id="collage-status" role="status"></p>
     </aside>
@@ -252,62 +252,62 @@
     <aside class="left">
       <label class="drop" id="canvas-drop">
         <input type="file" id="canvas-file" accept="image/*,.zip" multiple hidden>
-        <strong>Drop photos here</strong><br><span>or click to choose</span>
+        <strong data-i18n="page_drop_photos_here"></strong><br><span data-i18n="page_or_click_to_choose"></span>
       </label>
-      <button class="ghost wide" data-incoming="canvas">Load from incoming folder</button>
+      <button class="ghost wide" data-incoming="canvas" data-i18n="page_load_from_incoming_folder"></button>
       <ul id="canvas-queue" class="queue"></ul>
-      <button id="canvas-clear" class="ghost wide clear-all">Clear all</button>
+      <button id="canvas-clear" class="ghost wide clear-all" data-i18n="page_clear_all"></button>
     </aside>
     <div class="stage" id="canvas-stage">
       <div class="view-bar" id="canvas-view-bar" hidden>
-        <div class="seg"><button data-view="grid">Grid</button><button data-view="single">Single</button></div>
-        <button data-step="-1">◀ Prev</button><span class="view-count"></span><button data-step="1">Next ▶</button>
+        <div class="seg"><button data-view="grid" data-i18n="page_grid"></button><button data-view="single" data-i18n="page_single"></button></div>
+        <button data-step="-1" data-i18n="page_prev"></button><span class="view-count"></span><button data-step="1" data-i18n="page_next"></button>
       </div>
       <div class="photo-grid" id="canvas-grid" hidden></div>
       <canvas id="canvas-preview"></canvas>
-      <p class="hint" id="canvas-hint">Add photos to start. Drag the front crop to move it, scroll to zoom.</p>
+      <p class="hint" id="canvas-hint" data-i18n="page_add_photos_to_start_drag_the_front_crop_to_move_it_scroll_to_zoom"></p>
     </div>
     <aside class="right">
-      <h3>Format (cm)</h3>
+      <h3 data-i18n="page_format_cm"></h3>
       <div class="grid" id="canvas-formats"></div>
-      <h3>Orientation</h3>
+      <h3 data-i18n="page_orientation"></h3>
       <div class="seg" id="canvas-orient">
-        <button data-v="auto" class="on">Auto</button>
-        <button data-v="portrait">Portrait</button>
-        <button data-v="landscape">Landscape</button>
+        <button data-v="auto" class="on" data-i18n="page_auto"></button>
+        <button data-v="portrait" data-i18n="page_portrait"></button>
+        <button data-v="landscape" data-i18n="page_landscape"></button>
       </div>
-      <h3>Adjust</h3>
+      <h3 data-i18n="page_adjust"></h3>
       <div class="row">
-        <button id="canvas-rot-l" title="Rotate left">⟲</button>
-        <button id="canvas-rot-r" title="Rotate right">⟳</button>
-        <input type="range" id="canvas-zoom" min="1" max="6" step="0.01" value="1" title="Zoom">
-        <span class="tilt-label" id="canvas-tilt">Tilt 0.0°</span>
-        <button id="canvas-reset" title="Reset crop">Reset</button>
+        <button id="canvas-rot-l" data-i18n-title="page_rotate_left">⟲</button>
+        <button id="canvas-rot-r" data-i18n-title="page_rotate_right">⟳</button>
+        <input type="range" id="canvas-zoom" min="1" max="6" step="0.01" value="1" data-i18n-title="page_zoom">
+        <span class="tilt-label" id="canvas-tilt" data-i18n="page_tilt_0_0"></span>
+        <button id="canvas-reset" data-i18n-title="page_reset_crop" data-i18n="page_reset"></button>
       </div>
-      <h3>Wrap (cm)</h3>
+      <h3 data-i18n="page_wrap_cm"></h3>
       <input type="number" id="canvas-wrap" min="2" max="15" step="0.5" value="5">
-      <h3>Blur type</h3>
+      <h3 data-i18n="page_blur_type"></h3>
       <div class="seg" id="canvas-blur">
-        <button data-v="motion" class="on">Motion ↗</button>
-        <button data-v="gaussian">Gaussian</button>
+        <button data-v="motion" class="on" data-i18n="page_motion"></button>
+        <button data-v="gaussian" data-i18n="page_gaussian"></button>
       </div>
-      <h3>Strength</h3>
+      <h3 data-i18n="page_strength"></h3>
       <input type="range" id="canvas-strength" min="1" max="100" value="50">
-      <label class="check"><input type="checkbox" id="canvas-marks"> Fold marks</label>
-      <label class="check"><input type="checkbox" id="canvas-measure"> Show measurements (cm)</label>
-      <label class="check composition-row">Composition guides <select id="canvas-composition">
-        <option value="">None</option><option value="thirds">Rule of thirds</option><option value="golden">Golden ratio</option>
-        <option value="spiral">Fibonacci spiral</option><option value="diagonals">Diagonals</option>
-        <option value="triangles">Golden triangles</option><option value="perspective">Perspective</option>
-      </select><button type="button" id="canvas-composition-turn" title="Turn / flip the guide (key O)">↻</button></label>
-      <h3>Density</h3>
+      <label class="check"><input type="checkbox" id="canvas-marks"> <span data-i18n="page_fold_marks"></span></label>
+      <label class="check"><input type="checkbox" id="canvas-measure"> <span data-i18n="page_show_measurements_cm"></span></label>
+      <label class="check composition-row"><span data-i18n="page_composition_guides"></span> <select id="canvas-composition">
+        <option value="" data-i18n="page_none"></option><option value="thirds" data-i18n="page_rule_of_thirds"></option><option value="golden" data-i18n="page_golden_ratio"></option>
+        <option value="spiral" data-i18n="page_fibonacci_spiral"></option><option value="diagonals" data-i18n="page_diagonals"></option>
+        <option value="triangles" data-i18n="page_golden_triangles"></option><option value="perspective" data-i18n="page_perspective"></option>
+      </select><button type="button" id="canvas-composition-turn" data-i18n-title="page_turn_flip_the_guide_key_o">↻</button></label>
+      <h3 data-i18n="page_density"></h3>
       <div id="canvas-density"></div>
       <section id="canvas-overlays"></section>
-      <button id="canvas-apply-all" class="ghost wide">Use these settings for all photos</button>
+      <button id="canvas-apply-all" class="ghost wide" data-i18n="page_use_these_settings_for_all_photos"></button>
       <p class="small" id="canvas-size"></p>
       <div class="actions">
-        <button id="canvas-save-one" class="primary">Save this canvas</button>
-        <button id="canvas-save-all" class="primary">Save all</button>
+        <button id="canvas-save-one" class="primary" data-i18n="page_save_this_canvas"></button>
+        <button id="canvas-save-all" class="primary" data-i18n="page_save_all"></button>
       </div>
       <p class="status" id="canvas-status"></p>
     </aside>
@@ -316,69 +316,69 @@
   <!-- ===================== PASSPORT ===================== -->
   <section id="passport" class="view">
     <aside class="left">
-      <h3>1. Photo</h3>
+      <h3 data-i18n="page_1_photo"></h3>
       <label class="drop" id="pp-drop">
         <input type="file" id="pp-file" accept="image/*,.zip" multiple hidden>
-        <strong>Drop photos here</strong><br><span>or click to choose</span>
+        <strong data-i18n="page_drop_photos_here"></strong><br><span data-i18n="page_or_click_to_choose"></span>
       </label>
-      <button class="ghost wide" data-incoming="passport">Load from incoming folder</button>
+      <button class="ghost wide" data-incoming="passport" data-i18n="page_load_from_incoming_folder"></button>
 
-      <h3>2. Remove background</h3>
-      <label class="check"><input type="checkbox" id="pp-auto"> Remove background automatically when a photo is added</label>
-      <button id="pp-remove-all" class="ghost wide">Remove background for all</button>
-      <button id="pp-remove-local" class="primary wide" hidden>Remove background (offline)</button>
-      <p id="pp-local-note" class="small" hidden>Offline removal not installed — double-click app/setup_offline_bg.command</p>
-      <p class="small">Or by hand: open the Photoroom site, remove the background there, download the PNG and drop it into the box below.</p>
+      <h3 data-i18n="page_2_remove_background"></h3>
+      <label class="check"><input type="checkbox" id="pp-auto"> <span data-i18n="page_remove_background_automatically_when_a_photo_is_added"></span></label>
+      <button id="pp-remove-all" class="ghost wide" data-i18n="page_remove_background_for_all"></button>
+      <button id="pp-remove-local" class="primary wide" hidden data-i18n="page_remove_background_offline"></button>
+      <p id="pp-local-note" class="small" hidden data-i18n="page_offline_removal_not_installed_double_click_app_setup_offline_bg_comm"></p>
+      <p class="small" data-i18n="page_or_by_hand_open_the_photoroom_site_remove_the_background_there_downl"></p>
       <div class="row">
-        <a class="button ghost" href="https://www.photoroom.com/ru/tools/background-remover" target="_blank" rel="noopener">Open Photoroom site ↗</a>
+        <a class="button ghost" href="https://www.photoroom.com/ru/tools/background-remover" target="_blank" rel="noopener" data-i18n="page_open_photoroom_site"></a>
       </div>
       <label class="drop small-drop" id="pp-result-drop">
         <input type="file" id="pp-result" accept="image/png,image/*" hidden>
-        Drop the Photoroom result (PNG) here
+        <span data-i18n="page_drop_the_photoroom_result_png_here"></span>
       </label>
 
-      <h3>Background colour</h3>
+      <h3 data-i18n="page_background_colour"></h3>
       <div class="swatches" id="pp-bg">
-        <button data-v="#ffffff" class="on" style="background:#ffffff" title="White"></button>
-        <button data-v="#f0f0f0" style="background:#f0f0f0" title="Light grey"></button>
-        <button data-v="#dfe9f5" style="background:#dfe9f5" title="Light blue"></button>
+        <button data-v="#ffffff" class="on" style="background:#ffffff" data-i18n-title="page_white"></button>
+        <button data-v="#f0f0f0" style="background:#f0f0f0" data-i18n-title="page_light_grey"></button>
+        <button data-v="#dfe9f5" style="background:#dfe9f5" data-i18n-title="page_light_blue"></button>
       </div>
-      <button id="passport-clear" class="ghost wide clear-all">Clear all</button>
+      <button id="passport-clear" class="ghost wide clear-all" data-i18n="page_clear_all"></button>
     </aside>
 
     <div class="stage passport-stage" id="pp-stage">
       <div class="pp-tabs" id="pp-tabs"></div>
-      <button class="pp-add" id="pp-add" title="Add photos">+</button>
+      <button class="pp-add" id="pp-add" data-i18n-title="page_add_photos">+</button>
       <canvas id="pp-canvas"></canvas>
-      <p class="hint" id="pp-hint">Load a photo. Then drag and zoom so the top of the head and the chin sit on the guide lines.</p>
+      <p class="hint" id="pp-hint" data-i18n="page_load_a_photo_then_drag_and_zoom_so_the_top_of_the_head_and_the_chin"></p>
     </div>
 
     <aside class="right">
-      <h3>3. Size</h3>
+      <h3 data-i18n="page_3_size"></h3>
       <div class="seg vertical" id="pp-size"></div>
       <div class="row">
-        <input type="range" id="pp-zoom" min="0.3" max="15" step="0.01" value="1" title="Zoom">
-        <span class="tilt-label" id="pp-tilt">Tilt 0.0°</span>
-        <button id="pp-reset">Reset</button>
+        <input type="range" id="pp-zoom" min="0.3" max="15" step="0.01" value="1" data-i18n-title="page_zoom">
+        <span class="tilt-label" id="pp-tilt" data-i18n="page_tilt_0_0"></span>
+        <button id="pp-reset" data-i18n="page_reset"></button>
       </div>
       <div class="row">
-        <button id="pp-align" class="wide" title="Zoom and centre from the detected face">Auto align to face</button>
-        <button id="pp-align-all" class="wide" title="Re-align every passport photo to its document's guides">Auto align all photos</button>
+        <button id="pp-align" class="wide" data-i18n-title="page_zoom_and_centre_from_the_detected_face" data-i18n="page_auto_align_to_face"></button>
+        <button id="pp-align-all" class="wide" data-i18n-title="page_re_align_every_passport_photo_to_its_document_s_guides" data-i18n="page_auto_align_all_photos"></button>
       </div>
-      <label class="check"><input type="checkbox" id="pp-guides" checked> Show head guides</label>
-      <label class="check"><input type="checkbox" id="pp-measure"> Show measurements (cm)</label>
-      <label class="check"><input type="checkbox" id="pp-align-new" checked> Auto align new photos</label>
+      <label class="check"><input type="checkbox" id="pp-guides" checked> <span data-i18n="page_show_head_guides"></span></label>
+      <label class="check"><input type="checkbox" id="pp-measure"> <span data-i18n="page_show_measurements_cm"></span></label>
+      <label class="check"><input type="checkbox" id="pp-align-new" checked> <span data-i18n="page_auto_align_new_photos"></span></label>
 
-      <h3>Density</h3>
+      <h3 data-i18n="page_density"></h3>
       <div id="pp-density"></div>
 
-      <h3>4. Sheet 10 × 15</h3>
-      <label class="collage-number">Right <input id="pp-right" type="number" min="0" max="20" step="0.5" value="5"> mm</label>
-      <label class="collage-number">Down <input id="pp-down" type="number" min="0" max="20" step="0.5" value="5"> mm</label>
+      <h3 data-i18n="page_4_sheet_10_15"></h3>
+      <label class="collage-number"><span data-i18n="page_right"></span> <input id="pp-right" type="number" min="0" max="20" step="0.5" value="5"> <span data-i18n="page_mm"></span></label>
+      <label class="collage-number"><span data-i18n="page_down"></span> <input id="pp-down" type="number" min="0" max="20" step="0.5" value="5"> <span data-i18n="page_mm"></span></label>
       <canvas id="pp-sheet" class="sheet"></canvas>
       <div class="actions">
-        <button id="pp-save" class="primary wide">Save sheet</button>
-        <button id="pp-save-all" class="primary wide">Save all sheets</button>
+        <button id="pp-save" class="primary wide" data-i18n="page_save_sheet"></button>
+        <button id="pp-save-all" class="primary wide" data-i18n="page_save_all_sheets"></button>
       </div>
       <p class="status" id="pp-status"></p>
     </aside>
