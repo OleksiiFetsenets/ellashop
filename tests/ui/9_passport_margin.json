@@ -66,7 +66,7 @@
  },
  {
   "op": "eval",
-  "expr": "(()=>{if(pp.active.right!==0||pp.active.down!==0) throw Error('Canada defaults'); return true})()"
+  "expr": "(()=>{if(pp.active.right!==0||pp.active.down!==5) throw Error('Canada defaults'); return true})()"
  },
  {
   "op": "type",
