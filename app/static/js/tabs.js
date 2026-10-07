@@ -5,7 +5,7 @@
 const clampTilt = tilt => Math.min(20, Math.max(-20, tilt));
 // Passport photos zoom 0.3–15 (close-up selfies shrink, distant faces grow); others 1–6.
 const clampZoom = (item, z) => item.free ? Math.min(15, Math.max(.3, z)) : Math.min(6, Math.max(1, z));
-const tiltLabel = item => `Tilt ${item ? item.tilt.toFixed(1) : '0.0'}°`;
+const tiltLabel = item => t('common_tilt', item ? item.tilt.toFixed(1) : '0.0');
 
 function newItem(img, name, extra) {
   const overlayDefault = (PASSPORT.includes(extra?.fmt) || (extra?.fmt?.custom && extra.fmt.measure)) ? {} : { overlays: [] };
@@ -14,7 +14,7 @@ function newItem(img, name, extra) {
 
 async function fetchIncoming() {
   const names = await (await fetch('/api/incoming')).json();
-  if (!names.length) { alert('The photos/incoming folder is empty.'); return null; }
+  if (!names.length) { alert(t('common_incoming_empty')); return null; }
   return names;
 }
 
@@ -31,7 +31,7 @@ async function pickIncoming(multiple) {
         <input type="${multiple ? 'checkbox' : 'radio'}" name="inc" value="${n.replace(/"/g, '&quot;')}"> ${n.replace(/</g, '&lt;')}</label>`).join('')}
       </div>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
-        <button value="cancel">Cancel</button><button value="ok" class="primary">Open</button></div>`;
+        <button value="cancel">${t('common_cancel')}</button><button value="ok" class="primary">${t('common_open')}</button></div>`;
     document.body.appendChild(dlg);
     dlg.addEventListener('click', e => {
       const b = e.target.closest('button'); if (!b) return;

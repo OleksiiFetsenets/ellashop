@@ -1,0 +1,39 @@
+{
+  "settings_bytes": "%1$s B",
+  "settings_kilobytes": "%1$s KB",
+  "settings_megabytes": "%1$s MB",
+  "settings_gigabytes": "%1$s GB",
+  "settings_days": "days",
+  "settings_hours": "hours",
+  "settings_number_error": "Enter a whole number of %1$s from %2$s to %3$s",
+  "settings_orders_prints": "Orders (Prints)",
+  "settings_canvas_workspace": "Canvas workspace",
+  "settings_passport_workspace": "Passport workspace",
+  "settings_collage_workspace": "Collage workspace",
+  "settings_incoming": "Incoming",
+  "settings_exported_files": "Exported files",
+  "settings_photos": {
+    "one": "%1$d photos",
+    "other": "%1$d photos"
+  },
+  "settings_files": {
+    "one": "%1$d files",
+    "other": "%1$d files"
+  },
+  "settings_loading": "Loading…",
+  "settings_orders_files": {
+    "one": "%1$d orders (%2$d files)",
+    "other": "%1$d orders (%2$d files)"
+  },
+  "settings_delete_confirm": "Delete %1$s, %2$s?",
+  "settings_removed": "Removed %1$d files (%2$s).",
+  "settings_saved": "Auto-clean settings saved.",
+  "settings_clear_tab": "Remove all photos from %1$s? Files already exported stay.",
+  "settings_canvas": "Canvas",
+  "settings_passport": "Passport",
+  "settings_collage": "Collage",
+  "settings_full_clean_confirm": "Delete EVERYTHING?\n\n• Incoming: %1$d files\n• Prints orders: %2$d (%3$d photos)\n• Canvas, Passport, and Collage work: %4$d files\n• Finished files: %5$d\n\n%6$s in total. This cannot be undone.",
+  "settings_full_clean_result": "Full cleanup: removed %1$d files (%2$s).",
+  "settings_helper_running": "Background removal helper: running (frees its memory 2 minutes after the last use)",
+  "settings_helper_stopped": "Background removal helper: stopped (frees its memory 2 minutes after the last use)"
+}

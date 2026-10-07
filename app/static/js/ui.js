@@ -8,17 +8,17 @@ function wireDrop(label, input, onFiles) {
     try {
       for (const file of files) {
         if (['application/zip', 'application/x-zip-compressed'].includes(file.type) || file.name.toLowerCase().endsWith('.zip')) {
-          if (status) setStatus(status, `Unpacking ${file.name}…`);
+          if (status) setStatus(status, t('common_unpacking', file.name));
           const response = await fetch('/api/unzip?name=' + encodeURIComponent(file.name), { method: 'POST', body: file });
           const result = await response.json();
-          if (!response.ok) throw new Error(result.error || `Unpack failed (${response.status})`);
+          if (!response.ok) throw new Error(result.error || t('common_unpack_failed', response.status));
           for (const name of result.files) {
             const photo = await fetch('/incoming/' + encodeURIComponent(name));
-            if (!photo.ok) throw new Error(`Could not load ${name}`);
+            if (!photo.ok) throw new Error(t('common_load_failed', name));
             const blob = await photo.blob();
             images.push(new File([blob], name, { type: blob.type }));
           }
-          if (status) setStatus(status, `Unpacked ${result.files.length} photos`);
+          if (status) setStatus(status, t('common_unpacked_photos', result.files.length));
         } else if (file.type.startsWith('image/')) images.push(file);
       }
       if (images.length) await onFiles(images);
@@ -81,7 +81,7 @@ function drawMeasurements(ctx, mm, pxPerMM) {
     ctx.beginPath(); ctx.moveTo(band, py); ctx.lineTo(band - t, py); ctx.stroke();
     if (big) { ctx.save(); ctx.translate(2 * k, py); ctx.rotate(-Math.PI / 2); ctx.textAlign = 'center'; ctx.fillText(String(+(y / 10).toFixed(1)), 0, 0); ctx.restore(); }
   }
-  ctx.textAlign = 'left'; ctx.fillText('cm', 3 * k, 4 * k);
+  ctx.textAlign = 'left'; ctx.fillText(t('common_cm'), 3 * k, 4 * k);
   ctx.restore();
 }
 

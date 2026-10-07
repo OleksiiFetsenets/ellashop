@@ -33,10 +33,10 @@ const passportPreset = (id, label, w, h, [min, max], measure, bgNote) => {
 };
 const PASSPORT = [
   // Regular 3.5×4.5: chin to the very top of the head (incl. hair) 32–36 mm = 70–80% of the height.
-  passportPreset('35x45', '3.5 × 4.5 cm', 35, 45, [32, 36], 'crown', 'plain white or light grey'),
-  passportPreset('visa', 'VISA', 50, 50, [32, 36], 'crown', 'plain white or light grey'),  // chin → very top of head
-  passportPreset('ca-passport', 'Canada — passport', 50, 70, [31, 36], 'crown', 'plain white or light'),
-  passportPreset('cn-visa', 'China — visa', 33, 48, [28, 33], 'crown', 'plain white or off-white'),
+  passportPreset('35x45', t('size_passport_35x45'), 35, 45, [32, 36], 'crown', t('size_plain_white_light_grey')),
+  passportPreset('visa', t('size_visa'), 50, 50, [32, 36], 'crown', t('size_plain_white_light_grey')),  // chin → very top of head
+  passportPreset('ca-passport', t('size_canada_passport'), 50, 70, [31, 36], 'crown', t('size_plain_white_light')),
+  passportPreset('cn-visa', t('size_china_visa'), 33, 48, [28, 33], 'crown', t('size_plain_white_off_white')),
 ];
 const SHEET = { w: 100, h: 150 }; // 10×15 paper
 
@@ -52,8 +52,8 @@ function formatById(list, id) {
   if (!Number.isFinite(w) || !Number.isFinite(h) || w > h || w < min[0] || h < min[1] || w > max[0] || h > max[1]) return list[0];
   if (!passport) return { id, w, h, custom: true };
   const roundHalf = n => Math.round(n * 2) / 2;
-  return { ...passportPreset(id, `Custom ${w / 10} × ${h / 10} cm`, w, h,
-    [roundHalf(h * .7), roundHalf(h * .8)], 'crown', 'as required'), custom: true };
+  return { ...passportPreset(id, t('size_custom_cm', w / 10, h / 10), w, h,
+    [roundHalf(h * .7), roundHalf(h * .8)], 'crown', t('size_as_required')), custom: true };
 }
 
 function customFormatId(wCm, hCm, list) {
@@ -66,9 +66,9 @@ function customFormatId(wCm, hCm, list) {
 
 function customSizeControl(selector, list, limits, selected, apply, status) {
   const bar = $(selector), button = document.createElement('button'), row = document.createElement('div');
-  button.type = 'button'; button.className = 'custom-size-button'; button.textContent = 'Custom…';
+  button.type = 'button'; button.className = 'custom-size-button'; button.textContent = t('size_custom');
   row.className = 'custom-size-row'; row.hidden = true;
-  row.innerHTML = `W <input type="number" step="0.1" min="${limits[0]}" max="${limits[1]}" aria-label="Width in cm"> × H <input type="number" step="0.1" min="${limits[2]}" max="${limits[3]}" aria-label="Height in cm"> cm <button type="button">Apply</button>`;
+  row.innerHTML = `<span>${t('size_width_short')}</span> <input type="number" step="0.1" min="${limits[0]}" max="${limits[1]}" aria-label="${t('size_width_cm')}"> × <span>${t('size_height_short')}</span> <input type="number" step="0.1" min="${limits[2]}" max="${limits[3]}" aria-label="${t('size_height_cm')}"><span> ${t('size_cm')}</span> <button type="button">${t('size_apply')}</button>`;
   bar.append(button); bar.after(row);
   const [width, height] = row.querySelectorAll('input');
   button.addEventListener('click', e => { e.stopPropagation(); row.hidden = !row.hidden; if (!row.hidden) width.focus(); });
@@ -76,17 +76,17 @@ function customSizeControl(selector, list, limits, selected, apply, status) {
     const w = +width.value, h = +height.value;
     if (!width.value || !height.value || !width.validity.valid || !height.validity.valid ||
         w < limits[0] || w > limits[1] || h < limits[2] || h > limits[3]) {
-      setStatus($(status), `Size must be ${limits[0]}–${limits[1]} cm wide and ${limits[2]}–${limits[3]} cm high.`, true); return;
+      setStatus($(status), t('size_range_error', limits[0], limits[1], limits[2], limits[3]), true); return;
     }
     const id = customFormatId(w, h, list);
-    if (!id) { setStatus($(status), 'This size does not fit the available format.', true); return; }
+    if (!id) { setStatus($(status), t('size_unavailable'), true); return; }
     apply(formatById(list, id)); row.hidden = true;
   };
   row.querySelector('button').addEventListener('click', submit);
   row.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
   return fmt => {
     button.classList.toggle('on', !!fmt?.custom);
-    button.textContent = fmt?.custom ? fmtLabel(fmt) : 'Custom…';
+    button.textContent = fmt?.custom ? fmtLabel(fmt) : t('size_custom');
     if (fmt?.custom) { width.value = fmt.w / 10; height.value = fmt.h / 10; }
   };
 }

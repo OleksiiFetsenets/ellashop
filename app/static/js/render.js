@@ -7,7 +7,7 @@ function loadImage(src) {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error('Could not open this image'));
+    img.onerror = () => reject(new Error(t('common_image_open_error')));
     img.src = src;
   });
 }
@@ -109,10 +109,10 @@ async function readyOverlays(item) {
   await localFontsReady;
   await Promise.all((item.overlays || []).map(o => o.type === 'text' ? ensureFont(o.font, o.bold) : new Promise((resolve, reject) => {
     const img = stickerImage(o.sticker);
-    if (!img) return reject(new Error('Unknown sticker'));
-    if (img.complete) return img.naturalWidth ? resolve() : reject(new Error('Could not load sticker'));
+    if (!img) return reject(new Error(t('common_unknown_sticker')));
+    if (img.complete) return img.naturalWidth ? resolve() : reject(new Error(t('common_sticker_load_error')));
     img.addEventListener('load', resolve, { once: true });
-    img.addEventListener('error', () => reject(new Error('Could not load sticker')), { once: true });
+    img.addEventListener('error', () => reject(new Error(t('common_sticker_load_error'))), { once: true });
   })));
 }
 function overlayFrame(item, front) {
@@ -301,8 +301,8 @@ document.body.insertAdjacentHTML('beforeend', `<svg width="0" height="0" style="
 // Returns a sync function that shows the selected photo's value.
 function densityControl(root, { item, items, refresh }) {
   root.className = 'row density';
-  root.innerHTML = '<button data-d="-1" title="Lighter print">−</button><output>0</output>' +
-    '<button data-d="1" title="Darker print">+</button><button class="ghost" data-all>Apply to all photos</button>';
+  root.innerHTML = `<button data-d="-1" title="${t('common_lighter_print')}">−</button><output>0</output>` +
+    `<button data-d="1" title="${t('common_darker_print')}">+</button><button class="ghost" data-all>${t('common_apply_all_photos')}</button>`;
   root.addEventListener('click', e => {
     const b = e.target.closest('button'), it = item(); if (!b || !it) return;
     if ('all' in b.dataset) items().forEach(x => { x.density = it.density; });
@@ -315,13 +315,13 @@ function densityControl(root, { item, items, refresh }) {
     root.classList.toggle('changed', d !== 0);
   };
 }
-const densityLabel = it => (it.density ? ` · density ${it.density > 0 ? '+' : ''}${it.density}` : '');
+const densityLabel = it => (it.density ? t('common_density_label', `${it.density > 0 ? '+' : ''}${it.density}`) : '');
 
 // JPEG (with the photo's density) and the DPI written into the JFIF header so printers use the real size.
 async function jpegBlob(canvas, quality = 1, dpi = DPI, density = 0) { // quality 1 keeps full colour resolution (4:4:4)
   applyDensity(canvas, density);
   const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', quality));
-  if (!blob) throw new Error('Image too large for this browser — use Google Chrome');
+  if (!blob) throw new Error(t('common_image_too_large'));
   let buf = new Uint8Array(await blob.arrayBuffer());
   const hi = dpi >> 8, lo = dpi & 255;
   const isJfif = buf[2] === 0xFF && buf[3] === 0xE0 && buf[6] === 0x4A && buf[7] === 0x46 && buf[8] === 0x49 && buf[9] === 0x46;
@@ -338,7 +338,7 @@ async function jpegBlob(canvas, quality = 1, dpi = DPI, density = 0) { // qualit
 
 async function saveFile(blob, name, folder) {
   const res = await fetch('/api/save?name=' + encodeURIComponent(name) + '&folder=' + encodeURIComponent(folder), { method: 'POST', body: blob });
-  if (!res.ok) throw new Error('Save failed (' + res.status + ')');
+  if (!res.ok) throw new Error(t('common_save_failed', res.status));
   return (await res.json()).saved;
 }
 
@@ -364,12 +364,12 @@ const lastOrder = () => { try { return localStorage.getItem('ellashop-order-id')
 async function orderRequest(url, options) {
   const response = await fetch(url, options);
   const data = await response.json();
-  if (!response.ok) throw new Error(data.error || `Order request failed (${response.status})`);
+  if (!response.ok) throw new Error(data.error || t('order_request_failed', response.status));
   return data;
 }
 
 async function uploadPhoto(blob, name, owner = currentOrder?.id) {
-  if (!owner) throw new Error('Storage is not ready');
+  if (!owner) throw new Error(t('order_storage_not_ready'));
   const workspace = owner === 'canvas' || owner === 'passport' || owner === 'collage';
   const url = workspace ? `/api/workspace/${owner}/files` : `/api/orders/${owner}/files`;
   const { file } = await orderRequest(`${url}?name=${encodeURIComponent(name)}`, { method: 'POST', body: blob });
