@@ -279,6 +279,45 @@ def read_settings():
     return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
 
 
+LANG_DIR = STATIC / "lang"
+
+
+def ui_language():
+    """The UI language from settings.json ("language"), English when unset or not installed."""
+    try:
+        lang = str(read_settings().get("language") or "en")
+    except (ValueError, json.JSONDecodeError):
+        return "en"
+    return lang if re.fullmatch(r"[a-z]{2}(-[A-Za-z]{2,4})?", lang) and (LANG_DIR / lang).is_dir() else "en"
+
+
+def ui_strings(lang):
+    """Merge lang/en/*.json, then overlay lang/<lang>/*.json; untranslated ids fall back to English."""
+    strings = {}
+    for code in dict.fromkeys(["en", lang]):
+        for file in sorted((LANG_DIR / code).glob("*.json")):
+            strings.update(json.loads(file.read_text(encoding="utf-8")))
+    return strings
+
+
+def tr(id, *args):
+    """Server-side t(): the same ids and %1$s placeholders as the browser."""
+    text = ui_strings(ui_language()).get(id, id)
+    if isinstance(text, dict):
+        text = text.get("one" if args and args[0] == 1 else "other", id)
+
+    def fill(m):
+        i = int(m[1] or 1) - 1
+        if m[3] == "%":
+            return "%"
+        if i >= len(args):
+            return m[0]
+        if m[3] == "d":
+            return str(round(float(args[i])))
+        return f"{float(args[i]):.{int(m[2])}f}" if m[3] == "f" and m[2] else str(args[i])
+    return re.sub(r"%(?:(\d+)\$)?(?:\.(\d+))?([sdf%])", fill, text)
+
+
 def write_settings(**changes):
     """Update keys in app/settings.json, keeping the others."""
     try:
@@ -724,6 +763,14 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 return self.send_file(stored_file(workspace_path(match[1]), match[2]))
             except (ValueError, FileNotFoundError) as e:
                 return self.order_error(e)
+        if url.path == "/lang.js":
+            lang = ui_language()
+            body = f"'use strict';\nconst LANG = {json.dumps(lang)};\nconst STRINGS = {json.dumps(ui_strings(lang), ensure_ascii=False)};\n".encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/javascript; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            return self.wfile.write(body)
         if url.path == "/api/local-fonts":
             return self.send_json(local_fonts())
         if url.path == "/api/config":
