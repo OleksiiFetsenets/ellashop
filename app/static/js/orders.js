@@ -98,7 +98,7 @@ function clearTab(tab) {
     return;
   }
   if (tab === 'collage') { clearCollage(); return; }
-  pp.jobs = []; pp.active = null; pp.queue = []; pp.margin = 5;
+  pp.jobs = []; pp.active = null; pp.queue = [];
   clearTimeout(sheetTimer);
   setStatus($('#pp-status'), ''); $('#pp-tabs').replaceChildren(); ppSyncItem();
 }
@@ -157,13 +157,14 @@ async function restoreWorkspace(tab) {
       canvasPrints.view = state.view;
       refreshCanvas();
     } else if (tab === 'passport') {
-      pp.margin = state.margin ?? 5;
       for (const saved of state.jobs || []) {
         try {
           const size = formatById(PASSPORT, saved.size);
           const item = await restoreItem(saved.item || {}, tab, PASSPORT, saved.cutFile || saved.file);
           if (item) pp.jobs.push({ id: nextJobId++, file: saved.file, cutFile: saved.cutFile,
-            name: saved.name, size, status: saved.status === 'done' ? 'done' : 'new', face: saved.face,
+            name: saved.name, size,
+            right: saved.right ?? passportOffsets(size).right, down: saved.down ?? passportOffsets(size).down,
+            status: saved.status === 'done' ? 'done' : 'new', face: saved.face,
             item, error: '' });
         } catch (e) { showWorkspaceError(tab, new Error(`${saved.name}: ${e.message}`)); }
       }

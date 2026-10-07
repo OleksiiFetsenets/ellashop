@@ -1,26 +1,162 @@
 [
- {"op": "goto", "url": "http://localhost:8799/"},
- {"op": "sleep", "ms": 1500},
- {"op": "eval", "expr": "document.querySelector('dialog[open] button[value=continue]')?.click(); true"},
- {"op": "sleep", "ms": 1000},
- {"op": "click", "sel": "[data-tab=passport]"},
- {"op": "click", "sel": "[data-incoming=passport]"},
- {"op": "click", "sel": "dialog input[value='test1.jpg']"},
- {"op": "click", "sel": "dialog button[value=ok]"},
- {"op": "sleep", "ms": 1500},
- {"op": "eval", "expr": "(()=>{const b=document.querySelector('#pp-size button[data-v=\"35x45\"]'); if (pp.margin !== 5 || document.querySelector('#pp-margin').value !== '5' || !b.textContent.includes('8 per sheet')) throw Error('Default margin or count is wrong'); return '5 mm, 8 photos'})()"},
- {"op": "type", "sel": "#pp-margin", "value": "12"},
- {"op": "press", "key": "Tab"},
- {"op": "eval", "expr": "(()=>{const b=document.querySelector('#pp-size button[data-v=\"35x45\"]'); if (pp.margin !== 12 || !b.textContent.includes('4 per sheet')) throw Error('12 mm margin or count is wrong'); return '12 mm, 4 photos'})()"},
- {"op": "type", "sel": "#pp-margin", "value": "25"},
- {"op": "press", "key": "Tab"},
- {"op": "eval", "expr": "(()=>{if (pp.margin !== 12 || document.querySelector('#pp-margin').value !== '12' || !document.querySelector('#pp-status').textContent.includes('Margin must')) throw Error('Invalid margin was not rejected'); return 'invalid margin rejected'})()"},
- {"op": "eval", "expr": "(async()=>{await undo('passport'); if (pp.margin !== 5 || document.querySelector('#pp-margin').value !== '5') throw Error('Undo did not restore 5 mm'); await redo('passport'); if (pp.margin !== 12 || document.querySelector('#pp-margin').value !== '12') throw Error('Redo did not restore 12 mm'); return 'undo and redo restored margins'})()"},
- {"op": "sleep", "ms": 700},
- {"op": "goto", "url": "http://localhost:8799/"},
- {"op": "waitFor", "sel": "dialog.resume-dialog"},
- {"op": "click", "sel": "dialog.resume-dialog button[value=continue]"},
- {"op": "sleep", "ms": 1500},
- {"op": "eval", "expr": "(()=>{if (pp.margin !== 12 || document.querySelector('#pp-margin').value !== '12' || !document.querySelector('#pp-size button[data-v=\"35x45\"]').textContent.includes('4 per sheet')) throw Error('Saved margin did not restore'); return '12 mm restored'})()"},
- {"op": "assertNoErrors"}
+ {
+  "op": "goto",
+  "url": "http://localhost:8799/"
+ },
+ {
+  "op": "sleep",
+  "ms": 1500
+ },
+ {
+  "op": "eval",
+  "expr": "document.querySelector('dialog[open] button[value=continue]')?.click(); true"
+ },
+ {
+  "op": "sleep",
+  "ms": 1000
+ },
+ {
+  "op": "click",
+  "sel": "[data-tab=passport]"
+ },
+ {
+  "op": "click",
+  "sel": "[data-incoming=passport]"
+ },
+ {
+  "op": "click",
+  "sel": "dialog input[value='test1.jpg']"
+ },
+ {
+  "op": "click",
+  "sel": "dialog button[value=ok]"
+ },
+ {
+  "op": "sleep",
+  "ms": 1500
+ },
+ {
+  "op": "eval",
+  "expr": "(()=>{for(const [id,n] of [['35x45',8],['visa',6],['ca-passport',4],['cn-visa',8]]) if(!document.querySelector('#pp-size button[data-v='+id+']').textContent.includes(n+' per sheet')) throw Error(id+' count'); if(pp.active.right!==5||pp.active.down!==5) throw Error('35x45 defaults'); return true})()"
+ },
+ {
+  "op": "click",
+  "sel": "#pp-size button[data-v=\"cn-visa\"]"
+ },
+ {
+  "op": "eval",
+  "expr": "(()=>{if(pp.active.right!==5||pp.active.down!==4||renderSheet(pp.active).count!==8) throw Error('China defaults/count'); return true})()"
+ },
+ {
+  "op": "type",
+  "sel": "#pp-down",
+  "value": "5"
+ },
+ {
+  "op": "press",
+  "key": "Tab"
+ },
+ {
+  "op": "eval",
+  "expr": "(()=>{if(pp.active.down!==4||!document.querySelector('#pp-status').textContent.includes('Down 5 mm doesn')) throw Error('China Down rejection'); return true})()"
+ },
+ {
+  "op": "click",
+  "sel": "#pp-size button[data-v=\"ca-passport\"]"
+ },
+ {
+  "op": "eval",
+  "expr": "(()=>{if(pp.active.right!==0||pp.active.down!==0) throw Error('Canada defaults'); return true})()"
+ },
+ {
+  "op": "type",
+  "sel": "#pp-down",
+  "value": "10"
+ },
+ {
+  "op": "press",
+  "key": "Tab"
+ },
+ {
+  "op": "eval",
+  "expr": "(()=>{if(pp.active.down!==10) throw Error('Canada Down'); return true})()"
+ },
+ {
+  "op": "type",
+  "sel": "#pp-right",
+  "value": "5"
+ },
+ {
+  "op": "press",
+  "key": "Tab"
+ },
+ {
+  "op": "eval",
+  "expr": "(()=>{if(pp.active.right!==0||!document.querySelector('#pp-status').textContent.includes('Right 5 mm doesn')) throw Error('Canada Right rejection'); return true})()"
+ },
+ {
+  "op": "click",
+  "sel": "#pp-size button[data-v=\"visa\"]"
+ },
+ {
+  "op": "eval",
+  "expr": "(()=>{if(pp.active.right!==0||pp.active.down!==0) throw Error('VISA defaults'); return true})()"
+ },
+ {
+  "op": "type",
+  "sel": "#pp-right",
+  "value": "0.5"
+ },
+ {
+  "op": "press",
+  "key": "Tab"
+ },
+ {
+  "op": "eval",
+  "expr": "(()=>{if(pp.active.right!==0||!document.querySelector('#pp-status').textContent.includes('Right 0.5 mm doesn')) throw Error('VISA Right rejection'); return true})()"
+ },
+ {
+  "op": "click",
+  "sel": "#pp-size button[data-v=\"35x45\"]"
+ },
+ {
+  "op": "type",
+  "sel": "#pp-right",
+  "value": "7"
+ },
+ {
+  "op": "press",
+  "key": "Tab"
+ },
+ {
+  "op": "eval",
+  "expr": "(async()=>{await undo('passport'); if(pp.active.right!==5) throw Error('Undo Right'); await redo('passport'); if(pp.active.right!==7) throw Error('Redo Right'); return true})()"
+ },
+ {
+  "op": "sleep",
+  "ms": 700
+ },
+ {
+  "op": "goto",
+  "url": "http://localhost:8799/"
+ },
+ {
+  "op": "waitFor",
+  "sel": "dialog.resume-dialog"
+ },
+ {
+  "op": "click",
+  "sel": "dialog.resume-dialog button[value=continue]"
+ },
+ {
+  "op": "sleep",
+  "ms": 1500
+ },
+ {
+  "op": "eval",
+  "expr": "(()=>{if(pp.active.right!==7||pp.active.down!==5||document.querySelector('#pp-right').value!=='7') throw Error('Reload offsets'); return true})()"
+ },
+ {
+  "op": "assertNoErrors"
+ }
 ]

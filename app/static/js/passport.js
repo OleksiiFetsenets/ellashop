@@ -3,17 +3,13 @@
 // Loads after Canvas and before shared keyboard controls.
 // ---------------------------------------------------------------- passport
 
-const pp = { jobs: [], active: null, margin: 5, guides: true, queue: [], running: false, config: {} };
+const pp = { jobs: [], active: null, guides: true, queue: [], running: false, config: {} };
 let nextJobId = 1;
 
 $('#pp-size').innerHTML = PASSPORT.map(p => {
   const L = sheetLayout({ size: p }), face = `face ${p.face[0]}–${p.face[1]} mm chin–${p.measure === 'hairline' ? 'hairline' : 'crown'}`;
-  return `<button data-v="${p.id}">${p.label}<small>${p.w / 10} × ${p.h / 10} cm · ${face} · ${L.cols * L.rows} per sheet · background ${p.bgNote}</small></button>`;
+  return `<button data-v="${p.id}">${p.label}<small>${p.w / 10} × ${p.h / 10} cm · ${face} · ${L.count} per sheet · background ${p.bgNote}</small></button>`;
 }).join('');
-function refreshPpSizes() { PASSPORT.forEach(p => {
-  const small = $(`#pp-size button[data-v="${p.id}"] small`), count = sheetLayout({ size: p });
-  small.textContent = small.textContent.replace(/\d+ per sheet/, `${count.cols * count.rows} per sheet`);
-}); }
 
 const syncPpCustom = customSizeControl('#pp-size', PASSPORT, [2, 10, 2, 15], () => pp.active?.size, setPassportSize, '#pp-status');
 
@@ -49,15 +45,22 @@ pp.preview = new Preview($('#pp-canvas'), $('#pp-stage'), {
   },
 });
 
-// Pack photos inside the paper margin with no gaps for guillotine cuts.
+// Choose the fixed grid before applying a job's offsets.
 function sheetLayout(job) {
   const p = job.size;
   let best = null;
   for (const [W, H] of [[SHEET.w, SHEET.h], [SHEET.h, SHEET.w]]) {
-    const cols = Math.max(0, Math.floor((W - 2 * pp.margin) / p.w + 1e-9)), rows = Math.max(0, Math.floor((H - 2 * pp.margin) / p.h + 1e-9));
-    if (!best || cols * rows > best.cols * best.rows) best = { W, H, cols, rows };
+    const cols = Math.floor(W / p.w), rows = Math.floor(H / p.h), cells = cols * rows, count = Math.min(cells, 8);
+    if (!best || count > best.count || (count === best.count && cells < best.cols * best.rows)) best = { W, H, cols, rows, count };
   }
   return best;
+}
+
+function passportOffsets(size) {
+  const standard = { visa: [0, 0], 'ca-passport': [0, 0], 'cn-visa': [5, 4] }[size.id] || [5, 5];
+  const L = sheetLayout({ size });
+  return { right: Math.min(standard[0], Math.max(0, L.W - L.cols * size.w)),
+    down: Math.min(standard[1], Math.max(0, L.H - L.rows * size.h)) };
 }
 
 // Render one high-quality passport tile, repeat it, and mark cut lines.
@@ -69,23 +72,24 @@ function renderSheet(job) {
   ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, sheet.width, sheet.height);
   const tile = { ...it, fmt: p }, PW = mm2px(p.w), PH = mm2px(p.h);
   const photo = renderHQ(PW, PH, shrinks(tile, PW, PH), (c, w, h) => renderItem(c, tile, w, h));
-  const offset = mm2px(pp.margin);
+  const right = job.right ?? passportOffsets(p).right, down = job.down ?? passportOffsets(p).down;
 
   for (let r = 0; r < L.rows; r++) for (let c = 0; c < L.cols; c++) {
-    ctx.drawImage(photo, offset + c * photo.width, offset + r * photo.height);
+    if (r * L.cols + c >= L.count) continue;
+    ctx.drawImage(photo, mm2px(right + c * p.w), mm2px(down + r * p.h));
   }
 
   const CUT = 2; // cut line width in px (≈0.17 mm at 300 DPI)
   ctx.fillStyle = '#000';
   for (let c = 0; c <= L.cols; c++) {
-    const x = offset + c * photo.width;
-    if (x < sheet.width) ctx.fillRect(x - CUT / 2, 0, CUT, sheet.height);
+    const x = mm2px(right + c * p.w);
+    if (x >= 0 && x <= sheet.width) ctx.fillRect(x - CUT / 2, 0, CUT, sheet.height);
   }
   for (let r = 0; r <= L.rows; r++) {
-    const y = offset + r * photo.height;
-    if (y < sheet.height) ctx.fillRect(0, y - CUT / 2, sheet.width, CUT);
+    const y = mm2px(down + r * p.h);
+    if (y >= 0 && y <= sheet.height) ctx.fillRect(0, y - CUT / 2, sheet.width, CUT);
   }
-  return { sheet, count: L.cols * L.rows };
+  return { sheet, count: L.count };
 }
 
 let sheetTimer = 0;
@@ -138,8 +142,8 @@ function ppTabs() {
 const syncPpDensity = densityControl($('#pp-density'), { item: () => pp.active?.item, items: () => pp.jobs.map(j => j.item), refresh: () => ppSyncItem() });
 function ppSyncItem() {
   const job = pp.active, item = job?.item;
-  $('#pp-margin').value = pp.margin;
-  refreshPpSizes();
+  $('#pp-right').value = job?.right ?? (job ? passportOffsets(job.size).right : 0);
+  $('#pp-down').value = job?.down ?? (job ? passportOffsets(job.size).down : 0);
   syncPpDensity();
   if (item) { item.fmt = job.size; item.orient = 'portrait'; }
   setSeg($('#pp-size'), job?.size.id);
@@ -163,7 +167,7 @@ async function ppAdd(files) {
       const img = await loadImage(src);
       if (epoch !== workspaces.passport.epoch) return;
       const job = { id: nextJobId++, name, file, original, item: newItem(img, name, { file, fmt: PASSPORT[0], free: true }),
-        size: PASSPORT[0], status: 'new', error: '' };
+        size: PASSPORT[0], ...passportOffsets(PASSPORT[0]), status: 'new', error: '' };
       pp.jobs.push(job); pp.active = job;
       ppSyncItem();
       if ($('#pp-auto').checked && pp.config.localBg) ppEnqueue(job, '/api/remove-bg-local');
@@ -326,21 +330,22 @@ async function refreshConfig() {
 wireSeg($('#pp-bg'), v => { const job = pp.active; if (job) { job.item.bg = v; ppSyncItem(); } });
 function setPassportSize(size) {
   const job = pp.active; if (!job) return;
-  job.size = size; if (job.item.auto) ppAutoAlign(job); ppSyncItem();
+  job.size = size; Object.assign(job, passportOffsets(size)); if (job.item.auto) ppAutoAlign(job); ppSyncItem();
 }
 wireSeg($('#pp-size'), v => setPassportSize(formatById(PASSPORT, v)));
-$('#pp-margin').addEventListener('change', e => {
-  const input = e.currentTarget, next = Number(input.value), old = pp.margin;
-  if (!input.validity.valid || input.value === '' || !Number.isFinite(next) || next < 0 || next > 20 || Math.round(next * 2) !== next * 2) {
-    input.value = old; setStatus($('#pp-status'), 'Margin must be between 0 and 20 mm.', true); return;
-  }
-  pp.margin = next;
-  const layout = pp.active && sheetLayout(pp.active);
-  if (layout && (!layout.cols || !layout.rows)) {
-    pp.margin = old; input.value = old; setStatus($('#pp-status'), 'That margin leaves no room for a photo.', true); return;
-  }
-  refreshPpSizes(); setSeg($('#pp-size'), pp.active?.size.id); pp.drawSheet(); queueSave('passport'); setStatus($('#pp-status'), '');
-});
+for (const [key, label, axis] of [['right', 'Right', 'across'], ['down', 'Down', 'down']]) {
+  $(`#pp-${key}`).addEventListener('change', e => {
+    const job = pp.active, input = e.currentTarget; if (!job) return;
+    const raw = input.value, next = Number(raw), old = job[key], L = sheetLayout(job);
+    const spare = axis === 'across' ? L.W - L.cols * job.size.w : L.H - L.rows * job.size.h;
+    if (!input.validity.valid || input.value === '' || !Number.isFinite(next) || next < 0 || next > 20 || Math.round(next * 2) !== next * 2 || next > spare + 1e-9) {
+      input.value = old;
+      setStatus($('#pp-status'), `${label} ${raw} mm doesn't fit: ${job.size.label} has ${spare} mm spare ${axis}.`, true);
+      return;
+    }
+    job[key] = next; pp.drawSheet(); queueSave('passport'); setStatus($('#pp-status'), '');
+  });
+}
 $('#pp-zoom').addEventListener('input', e => { const job = pp.active; if (job) { job.item.zoom = +e.target.value; job.item.auto = ''; pp.preview.draw(); pp.drawSheet(); queueSave(); } });
 $('#pp-reset').addEventListener('click', () => { const job = pp.active; if (job) { Object.assign(job.item, { zoom: 1, cx: .5, cy: .5, tilt: 0, auto: '' }); ppSyncItem(); } });
 $('#pp-align-all').addEventListener('click', () => {

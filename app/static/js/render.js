@@ -392,6 +392,6 @@ function tabState(tab) {
   if (tab === 'canvas') return { items: canvasPrints.items.map(itemState), sel: canvasPrints.items.indexOf(canvasPrints.sel), view: canvasPrints.view || null };
   if (tab === 'collage') return collageState();
   return { jobs: pp.jobs.map(job => ({ file: job.file, cutFile: job.cutFile || null,
-      name: job.name, size: job.size.id, status: job.status === 'done' ? 'done' : 'new',
-      face: job.face, item: itemState(job.item) })), active: pp.jobs.indexOf(pp.active), margin: pp.margin };
+      name: job.name, size: job.size.id, right: job.right, down: job.down, status: job.status === 'done' ? 'done' : 'new',
+      face: job.face, item: itemState(job.item) })), active: pp.jobs.indexOf(pp.active) };
 }
