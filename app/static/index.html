@@ -201,67 +201,28 @@
 
   <!-- ===================== CANVAS ===================== -->
   <section id="canvas-view" class="view">
+    <!-- Shared parts are built by PhotoUI (js/photo-ui.js) from the "canvas" prefix. -->
     <aside class="left">
-      <label class="drop" id="canvas-drop">
-        <input type="file" id="canvas-file" accept="image/*,.zip" multiple hidden>
-        <strong data-i18n="page_drop_photos_here"></strong><br><span data-i18n="page_or_click_to_choose"></span>
-      </label>
-      <button class="ghost wide" data-incoming="canvas" data-i18n="page_load_from_incoming_folder"></button>
-      <ul id="canvas-queue" class="queue"></ul>
+      <div data-ui="drop"></div>
       <button id="canvas-clear" class="ghost wide clear-all" data-i18n="page_clear_all"></button>
     </aside>
-    <div class="stage" id="canvas-stage">
-      <div class="view-bar" id="canvas-view-bar" hidden>
-        <div class="seg"><button data-view="grid" data-i18n="page_grid"></button><button data-view="single" data-i18n="page_single"></button></div>
-        <button data-step="-1" data-i18n="page_prev"></button><span class="view-count"></span><button data-step="1" data-i18n="page_next"></button>
-      </div>
-      <div class="photo-grid" id="canvas-grid" hidden></div>
-      <canvas id="canvas-preview"></canvas>
-      <p class="hint" id="canvas-hint" data-i18n="page_add_photos_to_start_drag_the_front_crop_to_move_it_scroll_to_zoom"></p>
-    </div>
+    <div data-ui="stage"></div>
     <aside class="right">
       <h3 data-i18n="page_format_cm"></h3>
       <div class="grid" id="canvas-formats"></div>
-      <h3 data-i18n="page_orientation"></h3>
-      <div class="seg" id="canvas-orient">
-        <button data-v="auto" class="on" data-i18n="page_auto"></button>
-        <button data-v="portrait" data-i18n="page_portrait"></button>
-        <button data-v="landscape" data-i18n="page_landscape"></button>
-      </div>
-      <h3 data-i18n="page_adjust"></h3>
-      <div class="row">
-        <button id="canvas-rot-l" data-i18n-title="page_rotate_left">⟲</button>
-        <button id="canvas-rot-r" data-i18n-title="page_rotate_right">⟳</button>
-        <input type="range" id="canvas-zoom" min="1" max="6" step="0.01" value="1" data-i18n-title="page_zoom">
-        <span class="tilt-label" id="canvas-tilt" data-i18n="page_tilt_0_0"></span>
-        <button id="canvas-reset" data-i18n-title="page_reset_crop" data-i18n="page_reset"></button>
-      </div>
+      <div data-ui="orient"></div>
+      <div data-ui="adjust"></div>
       <h3 data-i18n="page_wrap_cm"></h3>
       <input type="number" id="canvas-wrap" min="2" max="15" step="0.5" value="5">
-      <h3 data-i18n="page_blur_type"></h3>
-      <div class="seg" id="canvas-blur">
-        <button data-v="motion" class="on" data-i18n="page_motion"></button>
-        <button data-v="gaussian" data-i18n="page_gaussian"></button>
-      </div>
-      <h3 data-i18n="page_strength"></h3>
-      <input type="range" id="canvas-strength" min="1" max="100" value="50">
+      <div data-ui="blur"></div>
       <label class="check"><input type="checkbox" id="canvas-marks"> <span data-i18n="page_fold_marks"></span></label>
-      <label class="check"><input type="checkbox" id="canvas-measure"> <span data-i18n="page_show_measurements_cm"></span></label>
-      <label class="check composition-row"><span data-i18n="page_composition_guides"></span> <select id="canvas-composition">
-        <option value="" data-i18n="page_none"></option><option value="thirds" data-i18n="page_rule_of_thirds"></option><option value="golden" data-i18n="page_golden_ratio"></option>
-        <option value="spiral" data-i18n="page_fibonacci_spiral"></option><option value="diagonals" data-i18n="page_diagonals"></option>
-        <option value="triangles" data-i18n="page_golden_triangles"></option><option value="perspective" data-i18n="page_perspective"></option>
-      </select><button type="button" id="canvas-composition-turn" data-i18n-title="page_turn_flip_the_guide_key_o">↻</button></label>
+      <div data-ui="guides"></div>
       <h3 data-i18n="page_density"></h3>
       <div id="canvas-density"></div>
       <section id="canvas-overlays"></section>
       <button id="canvas-apply-all" class="ghost wide" data-i18n="page_use_these_settings_for_all_photos"></button>
       <p class="small" id="canvas-size"></p>
-      <div class="actions">
-        <button id="canvas-save-one" class="primary" data-i18n="page_save_this_canvas"></button>
-        <button id="canvas-save-all" class="primary" data-i18n="page_save_all"></button>
-      </div>
-      <p class="status" id="canvas-status"></p>
+      <div data-ui="save"></div>
     </aside>
   </section>
 

@@ -78,9 +78,10 @@ const PhotoUI = (() => {
       </div>`);
   }
 
-  function blurControls(p) {
+  // Hidden until the fill mode is 'blur' (Prints); Canvas always shows it ({ hidden: false }).
+  function blurControls(p, { hidden = true } = {}) {
     return html(`
-      <div id="${p}-blur-controls" hidden>
+      <div id="${p}-blur-controls"${hidden ? ' hidden' : ''}>
         <h3 data-i18n="page_blur_type"></h3>
         <div class="seg" id="${p}-blur">
           <button data-v="motion" class="on" data-i18n="page_motion"></button>

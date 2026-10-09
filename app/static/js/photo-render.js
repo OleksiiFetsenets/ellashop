@@ -1,11 +1,11 @@
 'use strict';
 // Render engine and export: draws an edited item (photo, background, overlays) at preview or print
 // quality and saves it as a JPEG with the real DPI. Pages and the Photo Editor call this; it never
-// touches page controls. Not loaded by index.html yet; when wired it must load after photo-editor.js
-// (coordinates), canvas.js (printBackground for the blurred border) and the font/sticker loaders in render.js.
+// touches page controls. Loads after photo-editor.js (coordinates) and render.js (font/sticker loaders).
 //
-// Derived from (originals are unchanged):
+// Derived from:
 //   PhotoRender.drawRotated                     ← render.js drawRotated
+//   PhotoRender.blurredBackdrop / printBackground ← canvas.js (canvas.js now forwards to these)
 //   PhotoRender.textLines / drawOverlays (+ helpers) ← render.js textWidth / textLines / drawSpacedText /
 //                                                   stickerStroke / overlayBox / drawOverlays
 //   PhotoRender.readyOverlays                   ← render.js readyOverlays (font/sticker loading reused)
@@ -32,6 +32,50 @@ const PhotoRender = (() => {
     else if (rot === 270) { ctx.translate(0, w); ctx.rotate(-Math.PI / 2); }
     ctx.drawImage(img, 0, 0);
     ctx.restore();
+  }
+
+  // ------------------------------------------------------------ blurred background
+
+  // Low-resolution, cached enlargement of `source`, blurred (gaussian or layered motion) so it can
+  // fill a border or canvas wrap without stretching sharp detail. Cached on item.wrapCache by `key`.
+  function blurredBackdrop(item, source, W, H, key) {
+    if (item.wrapCache?.key === key) return item.wrapCache.canvas;
+    const scale = 600 / Math.max(W, H), w = Math.max(1, Math.round(W * scale));
+    const h = Math.max(1, Math.round(H * scale));
+    const blur = document.createElement('canvas'); blur.width = w; blur.height = h;
+    const ctx = blur.getContext('2d');
+    const length = Math.max(2, Math.round(item.strength * Math.max(w, h) / 750));
+    const cover = Math.max(w / source.width, h / source.height);
+    const dw = source.width * cover + length * 3, dh = source.height * cover + length * 3;
+    const x = (w - dw) / 2, y = (h - dh) / 2;
+    if (item.blur === 'gaussian') {
+      ctx.filter = `blur(${length}px)`;
+      ctx.drawImage(source, x, y, dw, dh);
+      ctx.filter = 'none';
+    } else {
+      for (let i = 0; i < 40; i++) {
+        const t = (i / 39 - .5) * length;
+        ctx.globalAlpha = 1 / (i + 1);
+        ctx.drawImage(source, x + t, y - t, dw, dh);
+      }
+      ctx.globalAlpha = 1;
+    }
+    item.wrapCache = { key, canvas: blur };
+    return blur;
+  }
+
+  // Blurred copy of the whole photo for the 'blur' fill mode (the "Fit, blurred border" option).
+  function printBackground(item, W, H) {
+    const key = [W, H, item.img.src, item.rot, item.blur, item.strength].join('|');
+    if (item.wrapCache?.key === key) return item.wrapCache.canvas;
+    const d = srcDims(item), scale = 600 / Math.max(d.w, d.h);
+    const source = document.createElement('canvas');
+    source.width = Math.max(1, Math.round(d.w * scale));
+    source.height = Math.max(1, Math.round(d.h * scale));
+    const ctx = source.getContext('2d');
+    ctx.scale(source.width / d.w, source.height / d.h);
+    drawRotated(ctx, item);
+    return blurredBackdrop(item, source, W, H, key);
   }
 
   // ------------------------------------------------------------ overlays (text & stickers)
@@ -271,7 +315,7 @@ const PhotoRender = (() => {
   }
 
   return {
-    drawRotated, textLines, overlayBox, drawOverlays, readyOverlays,
+    drawRotated, blurredBackdrop, printBackground, textLines, overlayBox, drawOverlays, readyOverlays,
     renderItem, renderHQ, shrinks, renderToCanvas,
     densityFilter, applyDensity,
     jpegBlob, saveFile, exportItem, exportCanvas, exportAll,
