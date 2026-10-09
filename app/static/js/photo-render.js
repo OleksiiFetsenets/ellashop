@@ -3,9 +3,9 @@
 // quality and saves it as a JPEG with the real DPI. Pages and the Photo Editor call this; it never
 // touches page controls. Loads after photo-editor.js (coordinates) and render.js (font/sticker loaders).
 //
-// Derived from (originals are unchanged, except render.js renderToCanvas, which moved here):
+// Moved here from (the old copies are gone):
 //   PhotoRender.drawRotated                     ← render.js drawRotated
-//   PhotoRender.blurredBackdrop / printBackground ← canvas.js (canvas.js now forwards to these)
+//   PhotoRender.blurredBackdrop / printBackground ← canvas.js (blurredBackdrop / printBackground were in canvas.js)
 //   PhotoRender.textLines / drawOverlays (+ helpers) ← render.js textWidth / textLines / drawSpacedText /
 //                                                   stickerStroke / overlayBox / drawOverlays
 //   PhotoRender.readyOverlays                   ← render.js readyOverlays (font/sticker loading reused)

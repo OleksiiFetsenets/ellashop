@@ -1,5 +1,6 @@
 'use strict';
-// Provides shared drop zones, previews, measurements, and composition guides.
+// Provides shared drop zones, segmented buttons, measurements, and composition guides.
+// The interactive preview is PhotoEditor.Stage (photo-editor.js), which calls the drawing helpers here.
 // Loads before editor.js and the photo-tab scripts that create previews.
 // Make a drop zone (label + hidden file input) accept images and .zip archives; zips are unpacked by the
 // server into the incoming folder and fetched back as Files. `onFiles` receives only the image files.
@@ -45,18 +46,6 @@ function wireSeg(container, onPick) {
 }
 // Highlight the button whose data-v is `v` (without calling any handler).
 function setSeg(container, v) { [...container.children].forEach(x => x.classList.toggle('on', x.dataset.v === v)); }
-
-// Move the photo by (dx, dy) CSS pixels as drawn on `canvas` (the preview or a grid card),
-// in screen directions even when tilted. frontRect gives where the photo crop sits on the canvas.
-// Convert preview drag distance into a crop-centre shift in source space.
-function panOnCanvas(item, canvas, frontRect, dx, dy) {
-  if (item.mode === 'fit' || item.mode === 'blur') return;
-  const k = canvas.width / canvas.getBoundingClientRect().width;
-  const front = frontRect(item, canvas.width, canvas.height), { s, d } = placement(item, front.w, front.h);
-  const t = -item.tilt * Math.PI / 180;
-  item.cx -= (dx * Math.cos(t) - dy * Math.sin(t)) * k / s / d.w;
-  item.cy -= (dx * Math.sin(t) + dy * Math.cos(t)) * k / s / d.h;
-}
 
 // Centimetre rulers along the top and left edges plus a faint grid, in the single-view preview only
 // (never in saved files or grid cards). Tick spacing adapts so labels never crowd (1, 2, 5 or 10 cm).
@@ -150,95 +139,5 @@ function drawComposition(ctx, r, type, turn) {
   ctx.strokeStyle = 'rgba(0,0,0,.45)'; ctx.lineWidth = 3 * k; ctx.stroke();
   ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 1.2 * k; ctx.stroke();
   ctx.restore();
-}
-
-// Interactive preview: drag to pan, wheel to zoom, fits inside its stage.
-// Options: getItem, onChange(settled), overlay(ctx, item, pxPerMM), sizeMM, render, frontRect, frameDraw
-// (frameDraw: coalesce redraws to one per animation frame).
-class Preview {
-  constructor(canvas, stage, { getItem, onChange, overlay, sizeMM = outMM, render = renderItem, frontRect = (item, W, H) => ({ x: 0, y: 0, w: W, h: H }), frameDraw = false }) {
-    Object.assign(this, { canvas, stage, getItem, onChange, overlay, sizeMM, render, frontRect, frameDraw });
-    this.ctx = canvas.getContext('2d');
-    let last = null, rotating = null, overlayDrag = null;
-    const corner = e => {
-      const r = canvas.getBoundingClientRect();
-      const x = e.clientX - r.left, y = e.clientY - r.top;
-      return [[10, 10], [r.width - 10, 10], [10, r.height - 10], [r.width - 10, r.height - 10]]
-        .some(([cx, cy]) => Math.hypot(x - cx, y - cy) <= 16);
-    };
-    const angle = e => {
-      const r = canvas.getBoundingClientRect();
-      return Math.atan2(e.clientY - r.top - r.height / 2, e.clientX - r.left - r.width / 2);
-    };
-    canvas.addEventListener('pointerdown', e => {
-      const item = this.getItem(); if (!item) return;
-      last = [e.clientX, e.clientY];
-      overlayDrag = this.overlayEditor?.pointerDown(e, item, this) || null;
-      if (!overlayDrag && corner(e)) rotating = { tilt: item.tilt, angle: angle(e) };
-      canvas.setPointerCapture(e.pointerId);
-    });
-    canvas.addEventListener('pointerup', () => { if (last) { if (overlayDrag) this.overlayEditor.changed(true); else this.onChange(true); } last = rotating = overlayDrag = null; this.overlayEditor?.clearGuides(); });
-    canvas.addEventListener('pointercancel', () => { last = rotating = overlayDrag = null; this.overlayEditor?.clearGuides(); });
-    canvas.addEventListener('pointermove', e => {
-      const item = this.getItem();
-      if (!last) { canvas.style.cursor = this.overlayEditor?.cursor(e, item, this) || (corner(e) && item ? 'alias' : 'grab'); return; }
-      if (!item) return;
-      if (overlayDrag) this.overlayEditor.pointerMove(e, overlayDrag, item, this);
-      else if (rotating) {
-        let delta = angle(e) - rotating.angle;
-        if (delta > Math.PI) delta -= 2 * Math.PI;
-        if (delta < -Math.PI) delta += 2 * Math.PI;
-        item.tilt = clampTilt(rotating.tilt + delta * 180 / Math.PI);
-      } else this.pan(item, e.clientX - last[0], e.clientY - last[1]);
-      last = [e.clientX, e.clientY];
-      this.redraw();
-      if (overlayDrag) this.overlayEditor.changed(false); else this.onChange(false);
-    });
-    canvas.addEventListener('dblclick', e => this.overlayEditor?.doubleClick(e, this));
-    canvas.addEventListener('wheel', e => {
-      const item = this.getItem(); if (!item || item.mode === 'fit' || item.mode === 'blur') return;
-      e.preventDefault();
-      item.zoom = clampZoom(item, item.zoom * Math.exp(-e.deltaY * 0.0015));
-      this.redraw(); this.onChange(true);
-    }, { passive: false });
-    new ResizeObserver(() => this.draw()).observe(stage);
-  }
-  redraw() {
-    if (!this.frameDraw) return this.draw();
-    if (this.framePending) return;
-    this.framePending = true;
-    requestAnimationFrame(() => { this.framePending = false; this.draw(); });
-  }
-  // Move the photo by (dx, dy) screen pixels, in screen directions even when tilted.
-  pan(item, dx, dy) { panOnCanvas(item, this.canvas, this.frontRect, dx, dy); }
-  draw() {
-    const item = this.getItem();
-    this.canvas.classList.toggle('show', !!item);
-    if (!item) return;
-    const mm = this.sizeMM(item);
-    const r = this.stage.getBoundingClientRect();
-    const cs = getComputedStyle(this.stage); // padding leaves room for the passport tab bar
-    const maxW = r.width - 48, maxH = r.height - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - 8;
-    const scale = Math.min(maxW / mm.w, maxH / mm.h);
-    const cw = Math.max(50, mm.w * scale), ch = Math.max(50, mm.h * scale);
-    const k = devicePixelRatio;
-    this.canvas.style.width = cw + 'px'; this.canvas.style.height = ch + 'px';
-    this.canvas.width = Math.round(cw * k); this.canvas.height = Math.round(ch * k);
-    this.canvas.style.filter = densityFilter(item.density);
-    this.render(this.ctx, item, this.canvas.width, this.canvas.height);
-    if (this.showMeasure) drawMeasurements(this.ctx, mm, this.canvas.width / mm.w);  // under the guides
-    if (this.composition) drawComposition(this.ctx, this.frontRect(item, this.canvas.width, this.canvas.height), this.composition, this.compositionTurn || 0);
-    if (this.overlay) this.overlay(this.ctx, item, this.canvas.width / mm.w);
-    this.overlayEditor?.drawSelection(this.ctx, item, this);
-    this.ctx.save();
-    this.ctx.fillStyle = '#2f6fdf';
-    this.ctx.strokeStyle = '#fff';
-    this.ctx.lineWidth = 2 * k;
-    for (const x of [10 * k, this.canvas.width - 10 * k]) for (const y of [10 * k, this.canvas.height - 10 * k]) {
-      this.ctx.beginPath(); this.ctx.arc(x, y, 5 * k, 0, 2 * Math.PI);
-      this.ctx.fill(); this.ctx.stroke();
-    }
-    this.ctx.restore();
-  }
 }
 

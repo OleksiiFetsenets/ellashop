@@ -13,7 +13,7 @@ $('#pp-size').innerHTML = PASSPORT.map(p => {
 
 const syncPpCustom = customSizeControl('#pp-size', PASSPORT, [2, 10, 2, 15], () => pp.active?.size, setPassportSize, '#pp-status');
 
-pp.preview = new Preview($('#pp-canvas'), $('#pp-stage'), {
+pp.preview = new PhotoEditor.Stage($('#pp-canvas'), $('#pp-stage'), {
   getItem: () => pp.active?.item,
   onChange: done => {
     if (pp.active) pp.active.item.auto = '';
@@ -75,7 +75,7 @@ function renderSheet(job) {
   const ctx = sheet.getContext('2d');
   ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, sheet.width, sheet.height);
   const tile = { ...it, fmt: p }, PW = mm2px(p.w), PH = mm2px(p.h);
-  const photo = renderHQ(PW, PH, shrinks(tile, PW, PH), (c, w, h) => renderItem(c, tile, w, h));
+  const photo = PhotoRender.renderHQ(PW, PH, PhotoRender.shrinks(tile, PW, PH), (c, w, h) => PhotoRender.renderItem(c, tile, w, h));
   const right = job.right ?? passportOffsets(p).right, down = job.down ?? passportOffsets(p).down;
 
   for (let r = 0; r < L.rows; r++) for (let c = 0; c < L.cols; c++) {
@@ -108,7 +108,7 @@ pp.drawSheet = () => {
       return;
     }
     const { sheet, count } = renderSheet(job);
-    view.style.filter = densityFilter(job.item.density);
+    view.style.filter = PhotoRender.densityFilter(job.item.density);
     view.width = Math.round(sheet.width / 2); view.height = Math.round(sheet.height / 2);
     ctx.drawImage(sheet, 0, 0, view.width, view.height);
     $('#pp-save').textContent = t('passport_save_sheet_count', count);
@@ -170,7 +170,7 @@ async function ppAdd(files) {
       const { file, src } = await uploadPhoto(original, name, 'passport');
       const img = await loadImage(src);
       if (epoch !== workspaces.passport.epoch) return;
-      const job = { id: nextJobId++, name, file, original, item: newItem(img, name, { file, fmt: PASSPORT[0], free: true }),
+      const job = { id: nextJobId++, name, file, original, item: PhotoEditor.newItem(img, name, { file, fmt: PASSPORT[0], free: true }),
         size: PASSPORT[0], ...passportOffsets(PASSPORT[0]), status: 'new', error: '' };
       pp.jobs.push(job); pp.active = job;
       ppSyncItem();
@@ -230,7 +230,7 @@ function cutoutCrown(job) {
 function ppAutoAlign(job) {
   const it = job.item, f = job.face, p = job.size;
   if (!f) return false;
-  const d = srcDims(it), mid = ([a, b]) => (a + b) / 2;
+  const d = PhotoEditor.srcDims(it), mid = ([a, b]) => (a + b) / 2;
   const [[rx], [lx]] = f.eyes;
   // Face box: top ≈ upper forehead, bottom ≈ chin + 0.1h. Crown (hair top) ≈ 0.4h above the box,
   // hairline ≈ 0.1h above it; real chin ≈ 0.9h below the box top.
@@ -239,11 +239,11 @@ function ppAutoAlign(job) {
   const crownMM = mid(p.crown), headMM = mid(p.chin) - crownMM;
   const s0 = Math.max(p.w / d.w, p.h / d.h);
   it.mode = 'fill';
-  it.zoom = clampZoom(it, headMM / (headSrc * s0));
+  it.zoom = PhotoEditor.clampZoom(it, headMM / (headSrc * s0));
   const s = s0 * it.zoom;
   it.cx = (rx + lx) / 2 / d.w;
   it.cy = (crownSrc - crownMM / s + p.h / (2 * s)) / d.h;
-  placement(it, p.w, p.h);
+  PhotoEditor.placement(it, p.w, p.h);
   it.auto = 'face';
   return true;
 }
@@ -370,7 +370,7 @@ async function savePassport(job) {
   const { sheet, count } = renderSheet(job);
   const name = `${baseName(job.name)}_passport_${job.size.id}_x${count}.jpg`;
   const short = Math.min(job.size.w, job.size.h) / 10, long = Math.max(job.size.w, job.size.h) / 10;
-  return saveFile(await jpegBlob(sheet, 1, DPI, job.item.density), name, `Passport ${short}x${long}`);
+  return PhotoRender.saveFile(await PhotoRender.jpegBlob(sheet, 1, DPI, job.item.density), name, `Passport ${short}x${long}`);
 }
 $('#pp-save').addEventListener('click', async () => {
   const job = pp.active, st = $('#pp-status');

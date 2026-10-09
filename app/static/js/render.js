@@ -1,5 +1,6 @@
 'use strict';
-// Draws crops, text, stickers, and export canvases for the photo tabs.
+// Shared helpers for the photo tabs: image loading, font and sticker loading, density filters and order state.
+// Drawing, text layout and export live in PhotoEditor and PhotoRender (photo-editor.js, photo-render.js).
 // Loads after config.js; history, editors, and tab scripts use these helpers.
 // ---------------------------------------------------------------- helpers
 
@@ -11,48 +12,6 @@ function loadImage(src) {
     img.onerror = () => reject(new Error(t('common_image_open_error')));
     img.src = src;
   });
-}
-
-// Source size after the 90° rotation steps (item.rot).
-function srcDims(item) {
-  const { naturalWidth: w, naturalHeight: h } = item.img;
-  return item.rot % 180 ? { w: h, h: w } : { w, h };
-}
-
-// Draw the (rotated) source so it covers [0,sw]×[0,sh].
-function drawRotated(ctx, item) {
-  const { img, rot } = item;
-  const w = img.naturalWidth, h = img.naturalHeight;
-  ctx.save();
-  if (rot === 90) { ctx.translate(h, 0); ctx.rotate(Math.PI / 2); }
-  else if (rot === 180) { ctx.translate(w, h); ctx.rotate(Math.PI); }
-  else if (rot === 270) { ctx.translate(0, w); ctx.rotate(-Math.PI / 2); }
-  ctx.drawImage(img, 0, 0);
-  ctx.restore();
-}
-
-// Output size in mm for an item (format + orientation).
-function outMM(item) {
-  let { w, h } = item.fmt;
-  if (w !== h) {
-    let o = item.orient;
-    if (o === 'auto') { const d = srcDims(item); o = d.h >= d.w ? 'portrait' : 'landscape'; }
-    if (o === 'landscape') [w, h] = [h, w];
-  }
-  return { w, h };
-}
-
-// Scale (output px per source px) and clamp the crop centre.
-function placement(item, W, H) {
-  const d = srcDims(item);
-  const fit = item.mode === 'fit' || item.mode === 'blur';
-  const s = (fit ? Math.min(W / d.w, H / d.h) : Math.max(W / d.w, H / d.h) * item.zoom);
-  const vw = W / s / d.w, vh = H / s / d.h; // visible fraction of the source
-  const clamp = (c, v) => (v >= 1 ? 0.5 : Math.min(1 - v / 2, Math.max(v / 2, c)));
-  if (fit) { item.cx = item.cy = 0.5; }
-  else if (item.free) { /* passport: may move past the photo edge; bg colour fills the gap */ }
-  else { item.cx = clamp(item.cx, vw); item.cy = clamp(item.cy, vh); }
-  return { s, d };
 }
 
 // Sticker files in app/static/stickers; stickerImage() refuses any name not in this list.
@@ -88,7 +47,6 @@ const fontStack = font => { const name = OVERLAY_FONTS.includes(font) ? font : '
   return FONT_FALLBACK[name] ? `"${name}", "${FONT_FALLBACK[name]}"` : `"${name}"`; };
 // fontLoads/fontReady are keyed "<weight> <name>"; fontReady is what drawOverlays checks before drawing text.
 const fontLoads = new Map(), fontReady = new Set(), stickerImages = new Map();
-const stickerStrokeCache = new Map();
 // Bumped whenever a font or sticker finishes loading; it is part of the preview cache keys so cached drawings are redone.
 let assetVersion = 0;
 function assetsChanged() {
@@ -127,182 +85,14 @@ async function readyOverlays(item) {
 }
 // Frame for drawOverlays: the photo's rectangle plus mmToPx (canvas px per mm of output width).
 function overlayFrame(item, front) {
-  return { ...front, mmToPx: front.w / outMM(item).w };
+  return { ...front, mmToPx: front.w / PhotoEditor.outMM(item).w };
 }
-const outlineColour = o => o.outline === 'white' ? '#ffffff' : o.outline === 'custom' ? (o.outlineColor || '#000000') : '#000000';
-const textSpacing = (o, h) => (o.letterSpacing || 0) * h / 100;
-const graphemes = s => typeof Intl.Segmenter === 'function'
-  ? [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(s)].map(x => x.segment) : Array.from(s);
-function textWidth(ctx, s, spacing) {
-  if (!spacing) { if ('letterSpacing' in ctx) ctx.letterSpacing = '0px'; return ctx.measureText(s).width; }
-  const parts = graphemes(s);
-  if ('letterSpacing' in ctx) { ctx.letterSpacing = `${spacing}px`; return ctx.measureText(s).width; }
-  return parts.reduce((w, ch) => w + ctx.measureText(ch).width, 0) + Math.max(0, parts.length - 1) * spacing;
-}
-// Wrap text by measured grapheme width, including explicit line breaks.
-// Letter spacing contributes to each line width so the rendered frame fits.
-function textLines(ctx, o, frame, h) {
-  const spacing = textSpacing(o, h), maxW = frame.w * .92, result = [];
-  for (const explicit of String(o.text || '').split('\n')) {
-    if (!explicit) { result.push(''); continue; }
-    if (textWidth(ctx, explicit, spacing) <= maxW) { result.push(explicit); continue; }
-    let line = '';
-    for (const word of explicit.split(/(\s+)/u).filter(Boolean)) {
-      const next = line + word;
-      if (textWidth(ctx, next, spacing) <= maxW) { line = next; continue; }
-      if (line.trim() && !/^\s+$/u.test(word)) { result.push(line.trimEnd()); line = ''; }
-      if (/^\s+$/u.test(word)) continue;
-      for (const ch of graphemes(word)) {
-        if (line && textWidth(ctx, line + ch, spacing) > maxW) { result.push(line); line = ''; }
-        line += ch;
-      }
-    }
-    result.push(line.trimEnd());
-  }
-  return result;
-}
-// Draw graphemes individually to apply spacing that canvas text APIs lack.
-function drawSpacedText(ctx, line, y, spacing, stroke) {
-  if (!spacing || 'letterSpacing' in ctx) {
-    if ('letterSpacing' in ctx) ctx.letterSpacing = `${spacing}px`;
-    if (stroke) ctx.strokeText(line, 0, y);
-    ctx.fillText(line, 0, y);
-    return;
-  }
-  const chars = graphemes(line), widths = chars.map(ch => ctx.measureText(ch).width);
-  const total = widths.reduce((a, b) => a + b, 0) + Math.max(0, chars.length - 1) * spacing;
-  // Hebrew and Arabic blocks: lay glyphs out right to left.
-  const rtl = /[\u0590-\u08ff]/u.test(line);
-  let x = rtl ? total / 2 : -total / 2;
-  chars.forEach((ch, i) => {
-    x += (rtl ? -1 : 1) * widths[i] / 2;
-    if (stroke) ctx.strokeText(ch, x, y);
-    ctx.fillText(ch, x, y);
-    x += (rtl ? -1 : 1) * (widths[i] / 2 + spacing);
-  });
-}
-// Build a cached alpha silhouette so sticker outlines follow their shape.
-function stickerStroke(o, img, w, h, radius) {
-  const px = Math.round(radius), W = Math.max(1, Math.round(w)), H = Math.max(1, Math.round(h));
-  const key = `${o.sticker}|${outlineColour(o)}|${px}|${W}|${H}`;
-  if (stickerStrokeCache.has(key)) return stickerStrokeCache.get(key);
-  const mask = document.createElement('canvas'); mask.width = W; mask.height = H;
-  const mc = mask.getContext('2d'); mc.drawImage(img, 0, 0, W, H);
-  mc.globalCompositeOperation = 'source-in'; mc.fillStyle = outlineColour(o); mc.fillRect(0, 0, W, H);
-  const bitmap = document.createElement('canvas'); bitmap.width = W + 2 * px; bitmap.height = H + 2 * px;
-  const bc = bitmap.getContext('2d');
-  for (let i = 0; i < 36; i++) {
-    const angle = i * 2 * Math.PI / 36;
-    bc.drawImage(mask, px + Math.cos(angle) * px, px + Math.sin(angle) * px);
-  }
-  bc.drawImage(img, px, px, W, H);
-  if (stickerStrokeCache.size >= 8) stickerStrokeCache.delete(stickerStrokeCache.keys().next().value);
-  stickerStrokeCache.set(key, bitmap);
-  return bitmap;
-}
-// Size of one overlay in canvas pixels (and its wrapped lines for text); o.size is its height in mm.
-function overlayBox(ctx, o, frame) {
-  const h = o.size * frame.mmToPx;
-  if (o.type === 'sticker') {
-    const img = stickerImage(o.sticker), ratio = img?.naturalHeight ? img.naturalWidth / img.naturalHeight : 1;
-    const stroke = o.outline && o.outline !== 'none' && o.strokeWidth > 0 ? Math.round(o.strokeWidth * frame.mmToPx) : 0;
-    return { w: h * ratio + 2 * stroke, h: h + 2 * stroke, stroke };
-  }
-  ctx.save();
-  ctx.font = `${fontWeight(o.font, o.bold)} ${h}px ${fontStack(o.font)}`;
-  const lines = textLines(ctx, o, frame, h);
-  const w = Math.max(h * .5, ...lines.map(line => textWidth(ctx, line || ' ', textSpacing(o, h))));
-  ctx.restore();
-  return { w, h: h * 1.15 * lines.length, lines };
-}
-// Draw text and stickers in print-frame coordinates independent of the crop.
-function drawOverlays(ctx, item, frame) {
-  if (!item.overlays?.length) return;
-  ctx.save(); ctx.beginPath(); ctx.rect(frame.x, frame.y, frame.w, frame.h); ctx.clip();
-  for (const o of item.overlays) {
-    if (o.type === 'text') {
-      ensureFont(o.font, o.bold);
-      if (!fontReady.has(`${fontWeight(o.font, o.bold)} ${OVERLAY_FONTS.includes(o.font) ? o.font : 'Ella'}`)) continue;
-    }
-    const { w, h, lines, stroke } = overlayBox(ctx, o, frame);
-    ctx.save(); ctx.translate(frame.x + o.x * frame.w, frame.y + o.y * frame.h);
-    ctx.rotate((o.rot || 0) * Math.PI / 180);
-    if (o.type === 'sticker') {
-      const img = stickerImage(o.sticker);
-      if (img?.complete && img.naturalWidth) {
-        if (stroke) {
-          const bitmap = stickerStroke(o, img, w - 2 * stroke, h - 2 * stroke, stroke);
-          ctx.drawImage(bitmap, -w / 2, -h / 2, w, h);
-        } else ctx.drawImage(img, -w / 2, -h / 2, w, h);
-      }
-    } else {
-      // 1.15 = line height relative to the font size.
-      const lineH = o.size * frame.mmToPx * 1.15;
-      ctx.font = `${fontWeight(o.font, o.bold)} ${o.size * frame.mmToPx}px ${fontStack(o.font)}`;
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillStyle = o.color || '#ffffff';
-      ctx.lineJoin = 'round'; ctx.lineWidth = (o.strokeWidth ?? o.size * .12) * frame.mmToPx;
-      ctx.strokeStyle = outlineColour(o);
-      lines.forEach((line, i) => {
-        ctx.direction = /[\u0590-\u05ff]/.test(line) ? 'rtl' : 'ltr';
-        const y = (i - (lines.length - 1) / 2) * lineH;
-        drawSpacedText(ctx, line, y, textSpacing(o, o.size * frame.mmToPx), o.outline && o.outline !== 'none' && ctx.lineWidth > 0);
-      });
-    }
-    ctx.restore();
-  }
-  ctx.restore();
-}
-
-// Render the item into a W×H canvas context.
-function renderItem(ctx, item, W, H, drawExtras = true) {
-  const { s, d } = placement(item, W, H);
-  ctx.save();
-  ctx.fillStyle = item.bg || '#ffffff';
-  ctx.fillRect(0, 0, W, H);
-  if (item.mode === 'blur') ctx.drawImage(printBackground(item, W, H), 0, 0, W, H);
-  ctx.imageSmoothingQuality = 'high';
-  ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.clip();
-  ctx.translate(W / 2, H / 2);
-  ctx.rotate(item.tilt * Math.PI / 180);
-  ctx.scale(s, s);
-  ctx.translate(-item.cx * d.w, -item.cy * d.h);
-  drawRotated(ctx, item);
-  ctx.restore();
-  if (drawExtras) drawOverlays(ctx, item, { x: 0, y: 0, w: W, h: H, mmToPx: W / outMM(item).w });
-}
-
-// Final-quality render for saving. When the photo is shrunk (output px per photo px < 1), draw at 2×
-// and shrink once with 'high' smoothing: measured on a 6000 px test chart this matches a Lanczos
-// resize, while a one-step browser shrink keeps only ~70% of fine detail (hair, fabric). Skipped
-// when the photo is enlarged anyway or the 2× canvas would exceed 64 MP.
-function renderHQ(W, H, shrinking, draw) {
-  const out = document.createElement('canvas'); out.width = W; out.height = H;
-  const ctx = out.getContext('2d');
-  if (!shrinking || 4 * W * H > 64e6) { draw(ctx, W, H); return out; }
-  const big = document.createElement('canvas'); big.width = W * 2; big.height = H * 2;
-  draw(big.getContext('2d'), W * 2, H * 2);
-  ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(big, 0, 0, W, H);
-  return out;
-}
-const shrinks = (item, W, H) => placement(item, W, H).s < 1;
 
 // Printer density per photo (−5…+5, default 0). Each step bends the mid-tones ~7% through a gamma
 // curve; black and white stay put. Negative = lighter print, positive = darker.
 // Previews show the same curve through one SVG filter per step (#density-N).
 const densityGamma = d => 1 + .07 * d;
-const densityFilter = d => (d ? `url(#density-${d})` : '');
-// Apply the selected tonal adjustment through a lookup table to output pixels.
-function applyDensity(canvas, d) {
-  if (!d) return;
-  const gamma = densityGamma(d), lut = new Uint8ClampedArray(256);
-  for (let v = 0; v < 256; v++) lut[v] = Math.round(255 * (v / 255) ** gamma);
-  const ctx = canvas.getContext('2d'), img = ctx.getImageData(0, 0, canvas.width, canvas.height), px = img.data;
-  for (let i = 0; i < px.length; i += 4) { px[i] = lut[px[i]]; px[i + 1] = lut[px[i + 1]]; px[i + 2] = lut[px[i + 2]]; }
-  ctx.putImageData(img, 0, 0);
-}
-// One hidden SVG gamma filter per density step, so previews match what applyDensity does to the saved file.
+// One hidden SVG gamma filter per density step, so previews match what PhotoRender.applyDensity does to the saved file.
 document.body.insertAdjacentHTML('beforeend', `<svg width="0" height="0" style="position:absolute" aria-hidden="true">${
   [-5, -4, -3, -2, -1, 1, 2, 3, 4, 5].map(d => `<filter id="density-${d}" color-interpolation-filters="sRGB"><feComponentTransfer>${
     ['R', 'G', 'B'].map(c => `<feFunc${c} type="gamma" exponent="${densityGamma(d)}"/>`).join('')}</feComponentTransfer></filter>`).join('')}</svg>`);
@@ -326,32 +116,6 @@ function densityControl(root, { item, items, refresh }) {
   };
 }
 const densityLabel = it => (it.density ? t('common_density_label', `${it.density > 0 ? '+' : ''}${it.density}`) : '');
-
-// JPEG (with the photo's density) and the DPI written into the JFIF header so printers use the real size.
-async function jpegBlob(canvas, quality = 1, dpi = DPI, density = 0) { // quality 1 keeps full colour resolution (4:4:4)
-  applyDensity(canvas, density);
-  const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', quality));
-  if (!blob) throw new Error(t('common_image_too_large'));
-  let buf = new Uint8Array(await blob.arrayBuffer());
-  const hi = dpi >> 8, lo = dpi & 255;
-  const isJfif = buf[2] === 0xFF && buf[3] === 0xE0 && buf[6] === 0x4A && buf[7] === 0x46 && buf[8] === 0x49 && buf[9] === 0x46;
-  if (isJfif) {
-    buf[13] = 1; buf[14] = hi; buf[15] = lo; buf[16] = hi; buf[17] = lo;
-  } else {
-    const app0 = [0xFF, 0xE0, 0, 16, 0x4A, 0x46, 0x49, 0x46, 0, 1, 1, 1, hi, lo, hi, lo, 0, 0];
-    const out = new Uint8Array(buf.length + app0.length);
-    out.set(buf.subarray(0, 2)); out.set(app0, 2); out.set(buf.subarray(2), 2 + app0.length);
-    buf = out;
-  }
-  return new Blob([buf], { type: 'image/jpeg' });
-}
-
-// Store the file in the exported folder on the server; returns the saved path.
-async function saveFile(blob, name, folder) {
-  const res = await fetch('/api/save?name=' + encodeURIComponent(name) + '&folder=' + encodeURIComponent(folder), { method: 'POST', body: blob });
-  if (!res.ok) throw new Error(t('common_save_failed', res.status));
-  return (await res.json()).saved;
-}
 
 // File name without its extension.
 const baseName = name => name.replace(/\.[^.]+$/, '');

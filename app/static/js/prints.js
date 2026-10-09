@@ -92,12 +92,6 @@ function printLabel(it) {
 
 function canvasLabel(it) { return t('canvas_label', fmtLabel(it.fmt), it.wrap) + densityLabel(it); }
 
-// Cache key for the grid thumbnails: every field that changes the rendered pixels.
-function gridKey(it, mm, kind) {
-  return [kind, it.img.src, mm.w, mm.h, it.rot, it.tilt, it.zoom, it.cx, it.cy,
-    it.mode, it.bg, it.blur, it.strength, it.wrap, it.marks, JSON.stringify(it.overlays || []), assetVersion].join('|');
-}
-
 const printsGrid = PhotoUI.photoGrid(prints, $('#prints-stage'), $('#prints-grid'), $('#prints-view-bar'),
   $('#prints-hint'), printLabel, PhotoEditor.outMM, PhotoRender.renderItem, refreshPrints, 'prints');
 
@@ -121,7 +115,7 @@ async function addPrints(sources) {
       const img = await loadImage(src);
       if (epoch !== orderEpoch) return;
       // faces: null = detection pending, undefined = detection unavailable. smartPending: auto-place once faces are known.
-      const it = newItem(img, name, { fmt: prints.lastFmt, blur: 'motion', strength: 50,
+      const it = PhotoEditor.newItem(img, name, { fmt: prints.lastFmt, blur: 'motion', strength: 50,
         file, faces: prints.facesAvailable ? null : undefined, smartPending: $('#prints-smart').checked, auto: '' });
       prints.items.push(it);
       if (!prints.sel) prints.sel = it;

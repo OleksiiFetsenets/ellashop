@@ -1,9 +1,9 @@
 'use strict';
 // Shared photo editor: crop, fit, zoom, pan, rotate, coordinates, overlays and history for one item.
-// Pages (Prints, Canvas, Passport, Collage) will call this instead of keeping their own copies.
+// Pages (Prints, Canvas, Passport, Collage) call this instead of keeping their own copies.
 // Loaded by index.html after render.js, ui.js, editor.js and tabs.js.
 //
-// Derived from (originals are unchanged):
+// Moved here from (the old copies are gone):
 //   PhotoEditor.srcDims / outMM / placement      ← render.js srcDims / outMM / placement
 //   PhotoEditor.rotatedFace                      ← prints.js rotatedFace
 //   PhotoEditor.rotate / clampTilt / setTilt     ← prints.js #rot-l/#rot-r handlers, tabs.js clampTilt
@@ -182,7 +182,7 @@ const PhotoEditor = (() => {
   // Drag to pan, drag a corner to tilt, wheel to zoom; fits inside its stage element.
   // Options: getItem, onChange(settled), overlay(ctx, item, pxPerMM), sizeMM, render, frontRect, frameDraw.
   class Stage {
-    constructor(canvas, stage, { getItem, onChange, overlay, sizeMM = outMM, render = renderItem, frontRect = (item, W, H) => ({ x: 0, y: 0, w: W, h: H }), frameDraw = false }) {
+    constructor(canvas, stage, { getItem, onChange, overlay, sizeMM = outMM, render = PhotoRender.renderItem, frontRect = (item, W, H) => ({ x: 0, y: 0, w: W, h: H }), frameDraw = false }) {
       Object.assign(this, { canvas, stage, getItem, onChange, overlay, sizeMM, render, frontRect, frameDraw });
       this.ctx = canvas.getContext('2d');
       let last = null, rotating = null, overlayDrag = null;
@@ -254,7 +254,7 @@ const PhotoEditor = (() => {
       const k = devicePixelRatio;
       this.canvas.style.width = cw + 'px'; this.canvas.style.height = ch + 'px';
       this.canvas.width = Math.round(cw * k); this.canvas.height = Math.round(ch * k);
-      this.canvas.style.filter = densityFilter(item.density);
+      this.canvas.style.filter = PhotoRender.densityFilter(item.density);
       this.render(this.ctx, item, this.canvas.width, this.canvas.height);
       if (this.showMeasure) drawMeasurements(this.ctx, mm, this.canvas.width / mm.w);  // under the guides
       if (this.composition) drawComposition(this.ctx, this.frontRect(item, this.canvas.width, this.canvas.height), this.composition, this.compositionTurn || 0);

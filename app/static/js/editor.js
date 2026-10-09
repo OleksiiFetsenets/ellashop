@@ -134,7 +134,7 @@ function textAndStickers(root, state, refresh, preview) {
   function point(e, pv) { const r = pv.canvas.getBoundingClientRect(); return { x: (e.clientX - r.left) * pv.canvas.width / r.width, y: (e.clientY - r.top) * pv.canvas.height / r.height }; }
   // Overlay box in canvas px: centre (cx, cy), size, and rotation in radians.
   function geometry(ctx, o, f) {
-    const box = overlayBox(ctx, o, f), cx = f.x + o.x * f.w, cy = f.y + o.y * f.h;
+    const box = PhotoRender.overlayBox(ctx, o, f), cx = f.x + o.x * f.w, cy = f.y + o.y * f.h;
     return { ...box, cx, cy, angle: (o.rot || 0) * Math.PI / 180 };
   }
   // Canvas point -> coordinates relative to the overlay's centre, un-rotated.

@@ -39,9 +39,6 @@ function canvasKey(item, W, H) {
     item.rot, item.tilt, item.zoom, item.cx, item.cy].join('|');
 }
 
-// Kept for Passport and Collage, which still call this name; the code lives in PhotoRender.
-const printBackground = (...args) => PhotoRender.printBackground(...args);
-
 // The wrap: a blurred enlargement of the sharp front crop.
 function canvasBackground(item, W, H) {
   const key = canvasKey(item, W, H);

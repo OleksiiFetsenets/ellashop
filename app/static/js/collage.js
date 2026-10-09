@@ -3,7 +3,7 @@
 // Loads after Passport and before shared keyboard controls.
 // Cell editing, drawing and export use PhotoEditor, PhotoRender and PhotoUI; sheet maths is in PhotoSheet.
 //
-// Derived from (originals are unchanged):
+// Moved from (the old copies are gone):
 //   renderCollage / saveCollageSheet  → PhotoRender.renderSheet / exportSheet (renderCollage stays as a wrapper for tests)
 //   cell pan, wheel zoom, preview     → PhotoEditor.pan / wheelZoom / clampZoom / Stage (was ui.js Preview)
 //   composition guides                → PhotoUI.wireGuides (was the collage loop in shortcuts.js)
@@ -237,6 +237,11 @@ function collagePopulateCell(cell, leaf, sheet) {
   collagePaintCell(cell, leaf, item, sheet);
 }
 
+// Cache key for a painted cell: every field that changes the rendered pixels.
+function collageGridKey(it, mm) {
+  return ['collage', it.img.src, mm.w, mm.h, it.rot, it.tilt, it.zoom, it.cx, it.cy,
+    it.mode, it.bg, it.blur, it.strength, it.wrap, it.marks, JSON.stringify(it.overlays || []), assetVersion].join('|');
+}
 function collagePaintCell(cell, leaf, item, sheet, rect = cell._rect) {
   const canvas = cell.querySelector('canvas'); if (!canvas || !rect) return;
   const r = cell.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
@@ -244,7 +249,7 @@ function collagePaintCell(cell, leaf, item, sheet, rect = cell._rect) {
   if (canvas.width !== W) canvas.width = W;
   if (canvas.height !== H) canvas.height = H;
   canvas.style.filter = PhotoRender.densityFilter(sheet.density);
-  const mm = { w: rect.w, h: rect.h }, key = `${gridKey(item, mm, 'collage')}|${sheet.density}|${W}|${H}`;
+  const mm = { w: rect.w, h: rect.h }, key = `${collageGridKey(item, mm)}|${sheet.density}|${W}|${H}`;
   if (canvas._renderKey === key) return;
   PhotoRender.renderItem(canvas.getContext('2d'), item, W, H);
   canvas._renderKey = key;

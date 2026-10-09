@@ -117,7 +117,7 @@ async function restoreItem(saved, owner, formats, file = saved.file) {
   if (!file) return null;
   const img = await loadImage(owner === 'canvas' || owner === 'passport' || owner === 'collage' ? workspaceUrl(owner, file) : orderUrl(owner, file));
   const fmt = formatById(formats, saved.fmt);
-  return newItem(img, saved.name || file, { ...saved, file: saved.file, fmt });
+  return PhotoEditor.newItem(img, saved.name || file, { ...saved, file: saved.file, fmt });
 }
 
 // Save the outgoing order, restore the selected one, and reset its history.

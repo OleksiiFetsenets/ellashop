@@ -65,7 +65,7 @@ async function applySnapshot(tab, json) {
   h.restoring = true;
   try {
     // Turn saved item state back into a live item; `formats` resolves the saved format id.
-    const build = async (saved, formats, file = saved.file) => newItem(await historyImage(tab, file), saved.name || file,
+    const build = async (saved, formats, file = saved.file) => PhotoEditor.newItem(await historyImage(tab, file), saved.name || file,
       { ...saved, fmt: formatById(formats, saved.fmt) });
     if (tab === 'passport') {
       const jobs = [];

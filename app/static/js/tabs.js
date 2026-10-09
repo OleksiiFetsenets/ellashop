@@ -2,18 +2,8 @@
 // Handles incoming photos and navigation between the photo tabs.
 // Loads before settings.js and the tab scripts that add and edit photos.
 
-// Tilt is limited to +/-20 degrees.
-const clampTilt = tilt => Math.min(20, Math.max(-20, tilt));
-// Passport photos zoom 0.3–15 (close-up selfies shrink, distant faces grow); others 1–6.
-const clampZoom = (item, z) => item.free ? Math.min(15, Math.max(.3, z)) : Math.min(6, Math.max(1, z));
 // Text for the tilt readout next to the adjust controls.
 const tiltLabel = item => t('common_tilt', item ? item.tilt.toFixed(1) : '0.0');
-
-// Default edit state for a photo; `extra` overrides. Passport and measured custom formats start without an overlays list.
-function newItem(img, name, extra) {
-  const overlayDefault = (PASSPORT.includes(extra?.fmt) || (extra?.fmt?.custom && extra.fmt.measure)) ? {} : { overlays: [] };
-  return { img, name, rot: 0, tilt: 0, zoom: 1, cx: 0.5, cy: 0.5, orient: 'auto', mode: 'fill', bg: '#ffffff', density: 0, ...overlayDefault, ...extra };
-}
 
 // Names of the files in photos/incoming, or null (after telling the user) when it is empty.
 async function fetchIncoming() {
