@@ -101,6 +101,11 @@ function gridKey(it, mm, kind) {
 const printsGrid = PhotoUI.photoGrid(prints, $('#prints-stage'), $('#prints-grid'), $('#prints-view-bar'),
   $('#prints-hint'), printLabel, PhotoEditor.outMM, PhotoRender.renderItem, refreshPrints, 'prints');
 
+PhotoUI.keys.register('prints', {
+  active: () => $('#prints').classList.contains('active'),
+  item: () => prints.item, stage: prints.preview, grid: printsGrid, changed: refreshPrints,
+});
+
 function refreshPrints() {
   PhotoUI.renderQueue(prints, $('#prints-queue'), refreshPrints, printLabel);
   syncPrintControls(); prints.preview.draw(); printsGrid.update();

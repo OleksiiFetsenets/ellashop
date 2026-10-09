@@ -127,6 +127,11 @@ function refreshCanvas() {
 const canvasGrid = PhotoUI.photoGrid(canvasPrints, $('#canvas-stage'), $('#canvas-grid'), $('#canvas-view-bar'),
   $('#canvas-hint'), canvasLabel, canvasMM, renderCanvas, refreshCanvas, 'canvas');
 
+PhotoUI.keys.register('canvas', {
+  active: () => $('#canvas-view').classList.contains('active'),
+  item: () => canvasPrints.item, stage: canvasPrints.preview, grid: canvasGrid, changed: refreshCanvas,
+});
+
 async function addCanvas(sources) {
   // Drop the result if the Canvas workspace was reset or switched while the image was loading.
   const epoch = workspaces.canvas.epoch;

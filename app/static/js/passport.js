@@ -44,6 +44,10 @@ pp.preview = new Preview($('#pp-canvas'), $('#pp-stage'), {
     ctx.restore();
   },
 });
+PhotoUI.keys.register('passport', {
+  active: () => $('#passport').classList.contains('active'),
+  item: () => pp.active?.item, stage: pp.preview, changed: () => ppSyncItem(),
+});
 
 // Choose the fixed grid before applying a job's offsets.
 function sheetLayout(job) {

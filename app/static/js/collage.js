@@ -474,6 +474,18 @@ collage.preview = new PhotoEditor.Stage($('#collage-canvas'), $('#collage-stage'
   },
 });
 PhotoUI.wireGuides('collage', collage.preview);
+// Keys act on the selected sheet cell while the sheet shows; Escape leaves the single view; O needs the single view.
+PhotoUI.keys.register('collage', {
+  active: () => $('#collage').classList.contains('active'),
+  item: () => collage.sel?.item, stage: collage.preview,
+  panTarget: () => collageSelectedCanvas(),
+  changed: () => { refreshCollage(); queueSave('collage'); },
+  escape: () => {
+    if (collage.view !== 'single') return false;
+    collage.view = 'sheet'; refreshCollage(); queueSave('collage'); return true;
+  },
+  guides: () => collage.view === 'single',
+});
 
 $('#collage-view-bar').addEventListener('click', e => {
   const button = e.target.closest('button'); if (!button) return;

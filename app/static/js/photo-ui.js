@@ -13,6 +13,7 @@
 //   PhotoUI.wireAdjust                    ← prints.js #rot-l/#rot-r/#zoom/#reset, canvas.js equivalents
 //   PhotoUI.syncAdjust                    ← prints.js syncPrintControls (zoom, tilt, segments)
 //   PhotoUI.wireGuides                    ← shortcuts.js measurement and composition loops (incl. Collage)
+//   PhotoUI.keys                          ← shortcuts.js overlay, zoom, pan/tilt, view and O key handlers
 //   PhotoUI.wireSave                      ← prints.js #save-one/#save-all, canvas.js, passport.js
 //   PhotoUI.renderQueue / photoGrid       ← prints.js renderQueue / photoGrid
 //   wireDrop, wireSeg, setSeg             ← reused from ui.js as they are
@@ -306,8 +307,101 @@ const PhotoUI = (() => {
     return { update, choose, step, cardCanvas };
   }
 
+  // ------------------------------------------------------------ keyboard
+
+  // One key handler for every photo page. A page registers once; the handler acts for the page whose
+  // active() is true. Keys: arrows pan 0.5 mm (Alt: 0.1 mm), Shift+←/→ tilt 0.5° (Alt: 0.1°), +/− zoom 10%
+  // (Alt: 2%), O turns the composition guide, Escape / [ / ] / PageUp / PageDown switch view and photo.
+  // With a text overlay selected in single view, arrows, +/−, Delete and Escape act on the overlay instead.
+  //   register(name, {
+  //     active()      the page's tab is showing
+  //     item()        the selected photo, or null
+  //     stage         the Stage (canvas, sizeMM, frontRect, turnComposition, overlayEditor)
+  //     changed()     redraw and save after the photo changed
+  //     grid?         photoGrid: pans on the grid card when one is on screen; Escape/[/] use it
+  //     panTarget?(item)  canvas to pan on, when it is not the grid card (Collage: the selected sheet cell)
+  //     escape?()     the page's own Escape; returns true when it handled the key (Collage: single view → sheet)
+  //     guides?()     false while the stage is not on screen, so O is ignored (Collage sheet view)
+  //   })
+  const keys = (() => {
+    const pages = new Map();
+    // Direction vectors for the arrow keys (x right, y down).
+    const ARROWS = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+    const anyField = e => e.target.closest?.('input, textarea, select, [contenteditable]');
+    // Range and checkbox inputs keep the photo keys; other inputs and text areas keep their own.
+    const typing = e => e.target.matches?.('textarea, input:not([type=range]):not([type=checkbox])');
+    const current = () => [...pages.values()].find(p => p.active());
+
+    // Overlay keys run first (capture) and stop the photo keys below.
+    document.addEventListener('keydown', e => {
+      if (e.metaKey || e.ctrlKey || anyField(e)) return;
+      const page = current(), item = page?.item();
+      const editor = page?.stage.overlayEditor, o = editor?.selected();
+      // In grid view there is no single stage to edit overlays on.
+      if (!o || page.grid?.cardCanvas(item)) return;
+      const dir = ARROWS[e.key];
+      if (dir) {
+        // Overlay arrows move 1 mm (Alt: 0.2 mm); o.x/o.y are fractions, so divide by the output size.
+        const mm = PhotoEditor.outMM(item), step = e.altKey ? .2 : 1;
+        o.x = Math.max(0, Math.min(1, o.x + dir[0] * step / mm.w));
+        o.y = Math.max(0, Math.min(1, o.y + dir[1] * step / mm.h));
+      } else if (['+', '=', '-', '_'].includes(e.key)) o.size = Math.max(3, Math.min(80, o.size * (e.key === '+' || e.key === '=' ? 1.1 : .9)));
+      else if (e.key === 'Delete' || e.key === 'Backspace') { item.overlays = item.overlays.filter(x => x !== o); editor.select(null); }
+      else if (e.key === 'Escape') editor.select(null);
+      else return;
+      e.preventDefault(); e.stopImmediatePropagation();
+      if (e.key !== 'Escape') editor.changed();
+    }, true);
+
+    document.addEventListener('keydown', e => {
+      const page = current(); if (!page) return;
+      if (e.key === 'Escape' && page.escape) { if (page.escape()) e.preventDefault(); return; }
+      const dir = ARROWS[e.key];
+      const zoom = { '+': 1, '=': 1, '-': -1, '_': -1 }[e.key];
+      if (dir || zoom) {
+        if (e.metaKey || e.ctrlKey || typing(e)) return;
+        const item = page.item();
+        if (!item) return;
+        if (zoom) {
+          if (!PhotoEditor.canZoom(item)) return;
+          e.preventDefault();
+          item.zoom = PhotoEditor.clampZoom(item, item.zoom * (e.altKey ? 1.02 : 1.1) ** zoom);
+        } else {
+          const step = e.altKey ? .1 : .5;
+          if (e.shiftKey) {
+            if (!dir[0]) return;
+            item.tilt = PhotoEditor.clampTilt(item.tilt + dir[0] * step);
+          } else {
+            // Pan on what the user sees (the grid card or sheet cell), else on the stage; cssPerMM turns the mm step into CSS pixels.
+            const stage = page.stage, target = page.panTarget?.(item) || page.grid?.cardCanvas(item) || stage.canvas;
+            const cssPerMM = target.getBoundingClientRect().width / stage.sizeMM(item).w;
+            PhotoEditor.pan(item, target, stage.frontRect, dir[0] * step * cssPerMM, dir[1] * step * cssPerMM);
+          }
+          e.preventDefault();
+        }
+        item.auto = ''; item.smartPending = false;
+        page.changed();
+        return;
+      }
+      if (e.key.toLowerCase() === 'o') {
+        if (e.metaKey || e.ctrlKey || e.altKey || anyField(e)) return;
+        if (page.stage.composition && (page.guides?.() ?? true)) { e.preventDefault(); page.stage.turnComposition(); }
+        return;
+      }
+      if (e.metaKey || e.ctrlKey || e.altKey || e.target.matches?.('input[type=text], input[type=number], textarea, [contenteditable]')) return;
+      const grid = page.grid; if (!grid) return;
+      if (e.key === 'Escape') grid.choose('grid');
+      else if (e.key === ']' || e.key === 'PageDown') grid.step(1);
+      else if (e.key === '[' || e.key === 'PageUp') grid.step(-1);
+      else return;
+      e.preventDefault();
+    });
+
+    return { register: (name, page) => pages.set(name, page) };
+  })();
+
   return {
     mount, dropZone, stage, orientSeg, fillModeSeg, blurControls, adjustRow, guideChecks, saveActions,
-    wireAdjust, syncAdjust, wireGuides, wireSave, renderQueue, photoGrid,
+    wireAdjust, syncAdjust, wireGuides, wireSave, renderQueue, photoGrid, keys,
   };
 })();
