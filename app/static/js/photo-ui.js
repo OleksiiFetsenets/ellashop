@@ -4,9 +4,9 @@
 // status) built once from a page prefix, plus the wiring that connects them to the Photo Editor
 // and the Render engine. Text comes from data-i18n ids (app/static/lang/en/page.json), so
 // applyStrings() translates the built markup like the hand-written one.
-// Not loaded by index.html yet; when wired it must load after photo-editor.js and photo-render.js.
+// Loaded by index.html after photo-editor.js and photo-render.js.
 //
-// Derived from (originals are unchanged):
+// Derived from (originals are unchanged, except renderQueue / photoGrid, which moved here from prints.js):
 //   PhotoUI.dropZone / stage / orientSeg / fillModeSeg / blurControls / adjustRow / guideChecks /
 //   saveActions / status                  ← index.html #prints and #canvas-view sections (same classes and ids
 //                                           with the page prefix, e.g. canvas-rot-l, canvas-zoom)

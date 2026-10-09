@@ -274,11 +274,6 @@ function renderHQ(W, H, shrinking, draw) {
 }
 const shrinks = (item, W, H) => placement(item, W, H).s < 1;
 
-function renderToCanvas(item) {
-  const mm = outMM(item), W = mm2px(mm.w), H = mm2px(mm.h);
-  return renderHQ(W, H, shrinks(item, W, H), (ctx, w, h) => renderItem(ctx, item, w, h));
-}
-
 // Printer density per photo (−5…+5, default 0). Each step bends the mid-tones ~7% through a gamma
 // curve; black and white stay put. Negative = lighter print, positive = darker.
 // Previews show the same curve through one SVG filter per step (#density-N).

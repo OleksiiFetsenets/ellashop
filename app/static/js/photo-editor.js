@@ -1,7 +1,7 @@
 'use strict';
 // Shared photo editor: crop, fit, zoom, pan, rotate, coordinates, overlays and history for one item.
 // Pages (Prints, Canvas, Passport, Collage) will call this instead of keeping their own copies.
-// Not loaded by index.html yet; when wired it must load after render.js, ui.js, editor.js and tabs.js.
+// Loaded by index.html after render.js, ui.js, editor.js and tabs.js.
 //
 // Derived from (originals are unchanged):
 //   PhotoEditor.srcDims / outMM / placement      ← render.js srcDims / outMM / placement

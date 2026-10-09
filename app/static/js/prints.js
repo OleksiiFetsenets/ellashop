@@ -80,25 +80,6 @@ function syncPrintControls() {
     : t('prints_hint_empty');
 }
 
-function renderQueue(state, q, refresh, label) {
-  q.innerHTML = '';
-  state.items.forEach(it => {
-    const li = document.createElement('li');
-    li.className = it === state.sel ? 'sel' : '';
-    li.innerHTML = `<img src="${it.img.src}"><div class="meta"><div class="name"></div><div class="fmt"></div></div><button class="del" title="${t('prints_remove')}">✕</button>`;
-    li.querySelector('.name').textContent = it.name;
-    li.querySelector('.fmt').textContent = label(it);
-    li.addEventListener('click', e => {
-      if (e.target.closest('.del')) {
-        state.items = state.items.filter(x => x !== it);
-        if (state.sel === it) state.sel = state.items[0] || null;
-      } else state.sel = it;
-      refresh();
-    });
-    q.appendChild(li);
-  });
-}
-
 function printLabel(it) {
   return t('prints_label', fmtLabel(it.fmt), t(it.mode === 'blur' ? 'prints_blur' : it.mode === 'fit' ? 'prints_fit' : 'prints_crop')) + (it.faces === null ? t('prints_faces_pending') : it.faces ? t('prints_faces_count', it.faces.length) : '') + (it.auto ? t('prints_auto_detail', ({ 'blur: faces don\'t fit': t('prints_auto_blur'), faces: t('prints_auto_faces'), centre: t('prints_auto_centre') })[it.auto] || it.auto) : '') + densityLabel(it);
 }
@@ -108,86 +89,6 @@ function canvasLabel(it) { return t('canvas_label', fmtLabel(it.fmt), it.wrap) +
 function gridKey(it, mm, kind) {
   return [kind, it.img.src, mm.w, mm.h, it.rot, it.tilt, it.zoom, it.cx, it.cy,
     it.mode, it.bg, it.blur, it.strength, it.wrap, it.marks, JSON.stringify(it.overlays || []), assetVersion].join('|');
-}
-
-// Keep grid and single-photo views synchronized as images are selected.
-function photoGrid(state, stage, grid, bar, hint, label, sizeMM, render, refresh) {
-  const cards = new WeakMap();
-  stage.classList.add('photo-stage');
-  function choose(view) { if (state.items.length) { state.view = view; state.preview.overlayEditor?.select(null); update(); queueSave(); } }
-  function step(delta) {
-    const i = state.items.indexOf(state.sel), next = i + delta;
-    if (next < 0 || next >= state.items.length) return;
-    state.sel = state.items[next]; refresh();
-  }
-  bar.addEventListener('click', e => {
-    const b = e.target.closest('button'); if (!b) return;
-    if (b.dataset.view) choose(b.dataset.view);
-    else if (b.dataset.step) step(+b.dataset.step);
-  });
-  function paint(card, it) {
-    const mm = sizeMM(it), key = gridKey(it, mm, render === renderItem ? 'prints' : 'canvas');
-    if (card.renderKey === key) return;
-    const c = card.querySelector('canvas'), scale = 300 * devicePixelRatio / Math.max(mm.w, mm.h);
-    c.width = Math.max(1, Math.round(mm.w * scale)); c.height = Math.max(1, Math.round(mm.h * scale));
-    render(c.getContext('2d'), it, c.width, c.height);
-    card.renderKey = key;
-  }
-  // Click selects (right-panel controls then act on it); the eye opens Single view;
-  // dragging on the picture moves the crop, like dragging in the big preview.
-  function makeCard(it) {
-    const card = document.createElement('div');
-    card.className = 'photo-card';
-    card.innerHTML = `<button class="eye" title="${t('prints_open_single_view')}">👁</button><canvas></canvas><div class="name"></div><div class="fmt"></div>`;
-    card.addEventListener('click', () => { if (state.sel !== it) { state.sel = it; refresh(); } });
-    card.querySelector('.eye').addEventListener('click', e => { e.stopPropagation(); state.sel = it; state.view = 'single'; refresh(); });
-    const c = card.querySelector('canvas');
-    let last = null, moved = false;
-    c.addEventListener('pointerdown', e => {
-      if (state.sel !== it) { state.sel = it; refresh(); }
-      last = [e.clientX, e.clientY]; moved = false; c.setPointerCapture(e.pointerId);
-    });
-    c.addEventListener('pointermove', e => {
-      if (!last) return;
-      panOnCanvas(it, c, state.preview.frontRect, e.clientX - last[0], e.clientY - last[1]);
-      last = [e.clientX, e.clientY]; moved = true;
-      it.auto = ''; it.smartPending = false;
-      paint(card, it);
-    });
-    c.addEventListener('pointerup', () => { last = null; if (moved) refresh(); });
-    cards.set(it, card);
-    return card;
-  }
-  // The selected photo's card canvas while the grid is showing (arrow keys move it there).
-  function cardCanvas(it) {
-    return !grid.hidden && cards.get(it)?.isConnected ? cards.get(it).querySelector('canvas') : null;
-  }
-  function update() {
-    const count = state.items.length, view = state.view || (count > 1 ? 'grid' : 'single');
-    const single = view === 'single';
-    bar.hidden = !count; grid.hidden = !count || single;
-    state.preview.canvas.hidden = !single;
-    hint.hidden = !!count && !single;
-    bar.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === view));
-    bar.querySelectorAll('[data-step]').forEach(b => {
-      b.hidden = !single;
-      b.disabled = b.dataset.step === '-1' ? state.sel === state.items[0] : state.sel === state.items[count - 1];
-    });
-    const counter = bar.querySelector('.view-count');
-    counter.hidden = !single; counter.textContent = `${state.items.indexOf(state.sel) + 1} / ${count}`;
-    if (grid.hidden || !stage.closest('.view.active')) return;
-    grid.replaceChildren();
-    for (const it of state.items) {
-      const card = cards.get(it) || makeCard(it);
-      paint(card, it);
-      card.querySelector('canvas').style.filter = densityFilter(it.density);
-      card.querySelector('.name').textContent = it.name;
-      card.querySelector('.fmt').textContent = label(it);
-      card.classList.toggle('sel', it === state.sel);
-      grid.appendChild(card);
-    }
-  }
-  return { update, choose, step, cardCanvas };
 }
 
 const printsGrid = PhotoUI.photoGrid(prints, $('#prints-stage'), $('#prints-grid'), $('#prints-view-bar'),

@@ -3,14 +3,14 @@
 // quality and saves it as a JPEG with the real DPI. Pages and the Photo Editor call this; it never
 // touches page controls. Loads after photo-editor.js (coordinates) and render.js (font/sticker loaders).
 //
-// Derived from:
+// Derived from (originals are unchanged, except render.js renderToCanvas, which moved here):
 //   PhotoRender.drawRotated                     ← render.js drawRotated
 //   PhotoRender.blurredBackdrop / printBackground ← canvas.js (canvas.js now forwards to these)
 //   PhotoRender.textLines / drawOverlays (+ helpers) ← render.js textWidth / textLines / drawSpacedText /
 //                                                   stickerStroke / overlayBox / drawOverlays
 //   PhotoRender.readyOverlays                   ← render.js readyOverlays (font/sticker loading reused)
 //   PhotoRender.renderItem                      ← render.js renderItem
-//   PhotoRender.renderHQ / shrinks / renderToCanvas ← render.js renderHQ / shrinks / renderToCanvas
+//   PhotoRender.renderHQ / shrinks / renderToCanvas ← render.js renderHQ / shrinks (renderToCanvas moved here)
 //   PhotoRender.applyDensity / densityFilter    ← render.js applyDensity / densityFilter
 //   PhotoRender.jpegBlob / saveFile             ← render.js jpegBlob / saveFile
 //   PhotoRender.exportItem                      ← prints.js savePrint, canvas.js saveCanvas (shared shape)
