@@ -1,6 +1,12 @@
 'use strict';
 // Places different photos into the cells of printable sheets.
 // Loads after Passport and before shared keyboard controls.
+// Cell editing, drawing and export use PhotoEditor, PhotoRender and PhotoUI; sheet maths is in PhotoSheet.
+//
+// Derived from (originals are unchanged):
+//   renderCollage / saveCollageSheet  → PhotoRender.renderSheet / exportSheet (renderCollage stays as a wrapper for tests)
+//   cell pan, wheel zoom, preview     → PhotoEditor.pan / wheelZoom / clampZoom / Stage (was ui.js Preview)
+//   composition guides                → PhotoUI.wireGuides (was the collage loop in shortcuts.js)
 // ---------------------------------------------------------------- collage
 
 const collage = { photos: [], sheets: [], active: 0, sel: null, view: 'sheet' };
@@ -83,7 +89,7 @@ function collageRenderMagnetGuide(sheet, paper) {
 }
 
 function collageNewCellItem(photo, rect) {
-  return newItem(photo.img, photo.name, {
+  return PhotoEditor.newItem(photo.img, photo.name, {
     file: photo.file, orient: 'portrait', fmt: { id: 'cell', w: rect.w, h: rect.h },
     mode: 'fill', blur: 'motion', strength: 50, overlays: [],
   });
@@ -215,15 +221,15 @@ function collagePopulateCell(cell, leaf, sheet) {
     });
     canvas.addEventListener('pointermove', e => {
       if (!last) return;
-      panOnCanvas(item, canvas, (it, W, H) => ({ x: 0, y: 0, w: W, h: H }), e.clientX - last[0], e.clientY - last[1]);
+      PhotoEditor.pan(item, canvas, (it, W, H) => ({ x: 0, y: 0, w: W, h: H }), e.clientX - last[0], e.clientY - last[1]);
       last = [e.clientX, e.clientY]; item.auto = ''; item.smartPending = false;
       collagePaintCell(cell, leaf, item, sheet);
     });
     canvas.addEventListener('pointerup', () => { if (last) queueSave('collage'); last = null; });
     canvas.addEventListener('pointercancel', () => { last = null; });
     canvas.addEventListener('wheel', e => {
-      if (item.mode === 'fit' || item.mode === 'blur') return;
-      e.preventDefault(); item.zoom = clampZoom(item, item.zoom * Math.exp(-e.deltaY * .0015));
+      if (!PhotoEditor.wheelZoom(item, e.deltaY)) return;
+      e.preventDefault();
       collagePaintCell(cell, leaf, item, sheet); syncCollageControls(); queueSave('collage');
     }, { passive: false });
     cell.append(eye, handle, canvas); cell._item = item;
@@ -237,10 +243,10 @@ function collagePaintCell(cell, leaf, item, sheet, rect = cell._rect) {
   const W = Math.max(1, Math.round(r.width * 2 * dpr)), H = Math.max(1, Math.round(r.height * 2 * dpr));
   if (canvas.width !== W) canvas.width = W;
   if (canvas.height !== H) canvas.height = H;
-  canvas.style.filter = densityFilter(sheet.density);
+  canvas.style.filter = PhotoRender.densityFilter(sheet.density);
   const mm = { w: rect.w, h: rect.h }, key = `${gridKey(item, mm, 'collage')}|${sheet.density}|${W}|${H}`;
   if (canvas._renderKey === key) return;
-  renderItem(canvas.getContext('2d'), item, W, H);
+  PhotoRender.renderItem(canvas.getContext('2d'), item, W, H);
   canvas._renderKey = key;
 }
 
@@ -334,7 +340,7 @@ function renderCollageSheetView() {
   $('#collage-add-sheet').hidden = single;
   box.hidden = single; canvas.hidden = !single;
   if (single) {
-    collage.preview.draw(); canvas.style.filter = densityFilter(sheet.density);
+    collage.preview.draw(); canvas.style.filter = PhotoRender.densityFilter(sheet.density);
     return;
   }
   const stageRect = stage.getBoundingClientRect(), cs = getComputedStyle(stage);
@@ -460,13 +466,14 @@ function selectCollageView(view) {
   refreshCollage(); queueSave('collage');
 }
 
-collage.preview = new Preview($('#collage-canvas'), $('#collage-stage'), {
+collage.preview = new PhotoEditor.Stage($('#collage-canvas'), $('#collage-stage'), {
   getItem: () => collage.sel?.item,
   sizeMM: item => item.fmt,
   onChange: done => {
     if (done) { refreshCollage(); queueSave('collage'); }
   },
 });
+PhotoUI.wireGuides('collage', collage.preview);
 
 $('#collage-view-bar').addEventListener('click', e => {
   const button = e.target.closest('button'); if (!button) return;
@@ -671,7 +678,7 @@ $('#collage-rot-l').addEventListener('click', () => { const it = collage.sel?.it
 $('#collage-rot-r').addEventListener('click', () => { const it = collage.sel?.item; if (it) { it.rot = (it.rot + 90) % 360; refreshCollage(); queueSave('collage'); } });
 $('#collage-zoom').addEventListener('input', e => {
   const item = collage.sel?.item; if (!item) return;
-  item.zoom = clampZoom(item, Number(e.currentTarget.value));
+  item.zoom = PhotoEditor.clampZoom(item, Number(e.currentTarget.value));
   if (collage.view === 'single') collage.preview.draw(); else renderCollageSheetView();
   queueSave('collage');
 });
@@ -695,32 +702,18 @@ function collageDpi(sheet) {
 }
 
 // Cut lines help trim a printed sheet; a canvas is one print, so Move to Canvas leaves them out.
+// Also called from tests/ui/*.json.
 async function renderCollage(sheet, { cutLines = sheet.cutLines } = {}) {
-  const paper = PhotoSheet.sheetMM(sheet), dpi = collageDpi(sheet);
-  const PW = mm2px(paper.w, dpi), PH = mm2px(paper.h, dpi), canvas = document.createElement('canvas');
-  canvas.width = PW; canvas.height = PH;
-  const ctx = canvas.getContext('2d'); ctx.fillStyle = sheet.gapColor; ctx.fillRect(0, 0, PW, PH);
-  for (const rect of cellRects(sheet)) {
-    const x = mm2px(rect.x, dpi), y = mm2px(rect.y, dpi), w = mm2px(rect.w, dpi), h = mm2px(rect.h, dpi);
-    if (!rect.leaf.item) { ctx.fillStyle = '#ffffff'; ctx.fillRect(x, y, w, h); continue; }
-    const item = rect.leaf.item, photo = renderHQ(w, h, shrinks(item, w, h), (c, cw, ch) => renderItem(c, item, cw, ch));
-    ctx.drawImage(photo, x, y, w, h);
-  }
-  if (cutLines && Number(sheet.gap) === 0) {
-    ctx.fillStyle = '#000';
-    for (const line of PhotoSheet.sharedSegments(cellRects(sheet))) {
-      if (line.dir === 'row') ctx.fillRect(mm2px(line.x, dpi) - 1, mm2px(line.y, dpi), 2, mm2px(line.h, dpi));
-      else ctx.fillRect(mm2px(line.x, dpi), mm2px(line.y, dpi) - 1, mm2px(line.w, dpi), 2);
-    }
-  }
-  return canvas;
+  return PhotoRender.renderSheet(sheet, { dpi: collageDpi(sheet), cutLines, cellRects: cellRects(sheet) });
 }
 
 async function saveCollageSheet(sheet, index) {
   if (!confirmCollageEmpty(sheet)) return null;
-  const paper = PhotoSheet.sheetMM(sheet), dpi = collageDpi(sheet), canvas = await renderCollage(sheet);
-  const name = `collage_${index + 1}_${paper.w}x${paper.h}.jpg`;
-  return saveFile(await jpegBlob(canvas, 1, dpi, sheet.density), name, 'Collage');
+  const paper = PhotoSheet.sheetMM(sheet);
+  return PhotoRender.exportSheet(sheet, {
+    name: `collage_${index + 1}_${paper.w}x${paper.h}.jpg`, folder: 'Collage',
+    dpi: collageDpi(sheet), cellRects: cellRects(sheet),
+  });
 }
 
 $('#collage-to-canvas').addEventListener('click', async () => {
@@ -736,12 +729,13 @@ $('#collage-to-canvas').addEventListener('click', async () => {
   const epoch = workspaces.canvas.epoch;
   try {
     setStatus($('#collage-status'), t('collage_moving'));
-    const canvas = await renderCollage(sheet, { cutLines: false }), name = `collage_${collage.active + 1}_${paper.w}x${paper.h}.jpg`;
-    const { file, src } = await uploadPhoto(await jpegBlob(canvas, 1, collageDpi(sheet), sheet.density), name, 'canvas');
+    const canvas = PhotoRender.renderSheet(sheet, { dpi: collageDpi(sheet), cutLines: false, cellRects: cellRects(sheet) });
+    const name = `collage_${collage.active + 1}_${paper.w}x${paper.h}.jpg`;
+    const { file, src } = await uploadPhoto(await PhotoRender.jpegBlob(canvas, 1, collageDpi(sheet), sheet.density), name, 'canvas');
     const img = await loadImage(src);
     if (epoch !== workspaces.canvas.epoch) return;
     canvasPrints.last.fmt = fmt; canvasPrints.last.orient = sheet.orient;
-    const item = newItem(img, name, { ...canvasPrints.last, file, fmt, orient: sheet.orient, density: 0 });
+    const item = PhotoEditor.newItem(img, name, { ...canvasPrints.last, file, fmt, orient: sheet.orient, density: 0 });
     canvasPrints.items.push(item); canvasPrints.sel = item; canvasPrints.view = 'single';
     refreshCanvas(); queueSave('canvas');
     $('.tab[data-tab=canvas-view]').click();
@@ -787,7 +781,7 @@ async function collageTreeFromState(saved, owner, imageFor) {
     const leaf = PhotoSheet.leaf();
     if (saved?.item?.file) {
       const img = await imageFor(saved.item.file);
-      leaf.item = newItem(img, saved.item.name || saved.item.file, { ...saved.item, file: saved.item.file, fmt: formatById(COLLAGE_PAPERS, saved.item.fmt) });
+      leaf.item = PhotoEditor.newItem(img, saved.item.name || saved.item.file, { ...saved.item, file: saved.item.file, fmt: formatById(COLLAGE_PAPERS, saved.item.fmt) });
     }
     return leaf;
   }

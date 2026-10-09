@@ -110,19 +110,7 @@ for (const [id, preview, key] of [['#pp-measure', pp.preview, 'passport']]) {
   });
 }
 
-// Composition guides: remembered per tab; ↻ or the O key turns them.
-for (const [tab, preview] of [['collage', collage.preview]]) {
-  const select = $(`#${tab}-composition`), turn = $(`#${tab}-composition-turn`);
-  try {
-    select.value = localStorage.getItem('ellashop-composition-' + tab) || '';
-    preview.compositionTurn = +(localStorage.getItem('ellashop-composition-turn-' + tab) || 0);
-  } catch (_) { /* storage may be unavailable */ }
-  preview.composition = select.value;
-  const save = () => { try { localStorage.setItem('ellashop-composition-' + tab, select.value); localStorage.setItem('ellashop-composition-turn-' + tab, preview.compositionTurn); } catch (_) { /* storage may be unavailable */ } };
-  select.addEventListener('change', () => { preview.composition = select.value; preview.draw(); save(); });
-  preview.turnComposition = () => { preview.compositionTurn = ((preview.compositionTurn || 0) + 1) % 4; preview.draw(); save(); };
-  turn.addEventListener('click', preview.turnComposition);
-}
+// Composition guides are wired by PhotoUI.wireGuides in each page; the O key turns the active one.
 document.addEventListener('keydown', e => {
   if (e.key.toLowerCase() !== 'o' || e.metaKey || e.ctrlKey || e.altKey || e.target.closest?.('input, textarea, select, [contenteditable]')) return;
   const preview = $('#prints').classList.contains('active') ? prints.preview

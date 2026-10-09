@@ -14,7 +14,8 @@
 //   PhotoRender.applyDensity / densityFilter    ← render.js applyDensity / densityFilter
 //   PhotoRender.jpegBlob / saveFile             ← render.js jpegBlob / saveFile
 //   PhotoRender.exportItem                      ← prints.js savePrint, canvas.js saveCanvas (shared shape)
-//   PhotoRender.exportCanvas                    ← passport.js savePassport, collage.js saveCollageSheet
+//   PhotoRender.exportCanvas                    ← passport.js savePassport
+//   PhotoRender.renderSheet / exportSheet       ← collage.js renderCollage / saveCollageSheet
 //   PhotoRender.exportAll                       ← prints.js #save-all, canvas.js / passport.js save-all loops
 
 const PhotoRender = (() => {
@@ -322,6 +323,34 @@ const PhotoRender = (() => {
     return saveFile(await jpegBlob(canvas, 1, dpi, density), name, folder);
   }
 
+  // Draw a sheet of cells (Collage) at `dpi`: paper colour, white empty cells, each photo rendered at
+  // print quality, then 2 px cut lines along shared cell edges (only when the gap is 0).
+  // `cellRects` are the PhotoSheet.cellRects(sheet) boxes in mm; cutLines defaults to the sheet's setting.
+  function renderSheet(sheet, { dpi = DPI, cutLines = sheet.cutLines, cellRects = PhotoSheet.cellRects(sheet) } = {}) {
+    const paper = PhotoSheet.sheetMM(sheet), PW = mm2px(paper.w, dpi), PH = mm2px(paper.h, dpi);
+    const canvas = document.createElement('canvas'); canvas.width = PW; canvas.height = PH;
+    const ctx = canvas.getContext('2d'); ctx.fillStyle = sheet.gapColor; ctx.fillRect(0, 0, PW, PH);
+    for (const rect of cellRects) {
+      const x = mm2px(rect.x, dpi), y = mm2px(rect.y, dpi), w = mm2px(rect.w, dpi), h = mm2px(rect.h, dpi);
+      if (!rect.leaf.item) { ctx.fillStyle = '#ffffff'; ctx.fillRect(x, y, w, h); continue; }
+      const item = rect.leaf.item;
+      ctx.drawImage(renderHQ(w, h, shrinks(item, w, h), (c, cw, ch) => renderItem(c, item, cw, ch)), x, y, w, h);
+    }
+    if (cutLines && Number(sheet.gap) === 0) {
+      ctx.fillStyle = '#000';
+      for (const line of PhotoSheet.sharedSegments(cellRects)) {
+        if (line.dir === 'row') ctx.fillRect(mm2px(line.x, dpi) - 1, mm2px(line.y, dpi), 2, mm2px(line.h, dpi));
+        else ctx.fillRect(mm2px(line.x, dpi), mm2px(line.y, dpi) - 1, mm2px(line.w, dpi), 2);
+      }
+    }
+    return canvas;
+  }
+
+  // Export a sheet: render it and save it as a JPEG; `name` and `folder` come from the page.
+  async function exportSheet(sheet, { name, folder, dpi = DPI, density = sheet.density, ...renderOptions }) {
+    return exportCanvas(renderSheet(sheet, { dpi, ...renderOptions }), { name, folder, dpi, density });
+  }
+
   // Export several items one after another; progress(i, total) before each. Returns saved paths.
   async function exportAll(items, save, progress = () => {}) {
     const saved = [];
@@ -337,6 +366,6 @@ const PhotoRender = (() => {
     drawRotated, blurredBackdrop, printBackground, textLines, overlayBox, drawOverlays, readyOverlays,
     renderItem, renderHQ, shrinks, renderToCanvas,
     densityFilter, applyDensity,
-    jpegBlob, saveFile, exportItem, exportCanvas, exportAll,
+    jpegBlob, saveFile, exportItem, exportCanvas, renderSheet, exportSheet, exportAll,
   };
 })();

@@ -12,7 +12,7 @@
 //                                           with the page prefix, e.g. canvas-rot-l, canvas-zoom)
 //   PhotoUI.wireAdjust                    ← prints.js #rot-l/#rot-r/#zoom/#reset, canvas.js equivalents
 //   PhotoUI.syncAdjust                    ← prints.js syncPrintControls (zoom, tilt, segments)
-//   PhotoUI.wireGuides                    ← shortcuts.js measurement and composition loops
+//   PhotoUI.wireGuides                    ← shortcuts.js measurement and composition loops (incl. Collage)
 //   PhotoUI.wireSave                      ← prints.js #save-one/#save-all, canvas.js, passport.js
 //   PhotoUI.renderQueue / photoGrid       ← prints.js renderQueue / photoGrid
 //   wireDrop, wireSeg, setSeg             ← reused from ui.js as they are
