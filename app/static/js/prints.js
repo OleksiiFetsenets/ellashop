@@ -11,55 +11,22 @@ const prints = {
   get item() { return this.items.find(i => i === this.sel) || null; },
 };
 
-// Map detected face coordinates into the photo rotation used by the crop.
-function rotatedFace(face, item) {
-  const w = item.img.naturalWidth, h = item.img.naturalHeight;
-  const { x, y, w: fw, h: fh } = face;
-  if (item.rot === 90) return { x: h - y - fh, y: x, w: fh, h: fw };
-  if (item.rot === 180) return { x: w - x - fw, y: h - y - fh, w: fw, h: fh };
-  if (item.rot === 270) return { x: y, y: w - x - fw, w: fh, h: fw };
-  return face;
+// Shared controls (drop zone, stage, orientation/fill/blur, guides, adjust row, save) come from PhotoUI;
+// editing from PhotoEditor; drawing and saving from PhotoRender.
+{
+  const view = $('#prints'), slot = name => view.querySelector(`[data-ui="${name}"]`);
+  PhotoUI.mount(slot('drop'), PhotoUI.dropZone('prints'));
+  PhotoUI.mount(slot('stage'), PhotoUI.stage('prints', 'page_add_photos_to_start_drag_the_photo_to_move_it_scroll_to_zoom'));
+  PhotoUI.mount(slot('orient-fill'), PhotoUI.orientSeg('prints'), PhotoUI.fillModeSeg('prints'), PhotoUI.blurControls('prints'));
+  PhotoUI.mount(slot('guides'), PhotoUI.guideChecks('prints'));
+  PhotoUI.mount(slot('adjust'), PhotoUI.adjustRow('prints'));
+  PhotoUI.mount(slot('save'), PhotoUI.saveActions('prints', { one: 'page_save_this_photo' }));
 }
 
-// Smart placement: always crop to fill, keeping every head in with a little room above
-// and letting legs/hands go off the edges. Blurred border only when the faces can't fit.
-function autoPlace(item) {
-  const mm = outMM(item), W = mm.w, H = mm.h, d = srcDims(item);
-  const s = Math.max(W / d.w, H / d.h);
-  const windowW = W / s, windowH = H / s;
-  const faces = (item.faces || []).map(f => rotatedFace(f, item));
-  item.zoom = 1; item.cx = item.cy = .5; item.mode = 'fill';
-  if (faces.length) {
-    // Whole head: hair above the detected face box, chin/neck below, ears to the sides.
-    const left = Math.max(0, Math.min(...faces.map(f => f.x - .3 * f.w)));
-    const right = Math.min(d.w, Math.max(...faces.map(f => f.x + 1.3 * f.w)));
-    const top = Math.max(0, Math.min(...faces.map(f => f.y - .6 * f.h)));
-    const bottom = Math.min(d.h, Math.max(...faces.map(f => f.y + 1.4 * f.h)));
-    if (right - left > windowW || bottom - top > windowH) {
-      item.mode = 'blur'; item.auto = "blur: faces don't fit";
-    } else {
-      item.auto = 'faces';
-      item.cx = (left + right) / 2 / d.w;
-      // Heads near the top: leave 8% of the frame above the highest head, crop the rest below.
-      const headroom = Math.min(.08 * windowH, windowH - (bottom - top));
-      item.cy = (top - headroom + windowH / 2) / d.h;
-    }
-  } else { item.auto = 'centre'; item.cy = .45; }
-  placement(item, W, H);
-}
+const autoPlace = item => PhotoEditor.smartPlace(item);
 
 function faceOverlay(ctx, item) {
-  if (!$('#prints-faces').checked || !item.faces?.length) return;
-  const W = ctx.canvas.width, H = ctx.canvas.height, { s, d } = placement(item, W, H);
-  ctx.save(); ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.clip();
-  ctx.translate(W / 2, H / 2); ctx.rotate(item.tilt * Math.PI / 180);
-  ctx.scale(s, s); ctx.translate(-item.cx * d.w, -item.cy * d.h);
-  ctx.strokeStyle = '#26c46a'; ctx.lineWidth = Math.max(1, devicePixelRatio) / s;
-  for (const f of item.faces) {
-    const box = rotatedFace(f, item);
-    ctx.strokeRect(box.x, box.y, box.w, box.h);
-  }
-  ctx.restore();
+  if ($('#prints-faces').checked) PhotoEditor.drawFaces(ctx, item);
 }
 
 // Detect faces one photo at a time, then update smart placement.
@@ -70,14 +37,9 @@ function runFaceQueue() {
     prints.faceRunning++;
     (async () => {
       try {
-        const image = await (await fetch(item.img.src)).blob();
-        const res = await fetch('/api/faces', { method: 'POST', body: image });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || t('prints_face_detection_failed'));
+        const faces = await PhotoEditor.detectFaces(item);
         if (epoch !== orderEpoch || !prints.items.includes(item)) return;
-        item.faces = data.faces.map(f => ({ ...f, x: f.x * item.img.naturalWidth / data.width,
-          y: f.y * item.img.naturalHeight / data.height, w: f.w * item.img.naturalWidth / data.width,
-          h: f.h * item.img.naturalHeight / data.height }));
+        item.faces = faces;
         if (item.smartPending) autoPlace(item);
       } catch (e) {
         if (epoch !== orderEpoch || !prints.items.includes(item)) return;
@@ -92,12 +54,14 @@ function runFaceQueue() {
   }
 }
 
-prints.preview = new Preview($('#prints-canvas'), $('#prints-stage'), {
+prints.preview = new PhotoEditor.Stage($('#prints-canvas'), $('#prints-stage'), {
   getItem: () => prints.item,
   onChange: () => { if (prints.item) { prints.item.auto = ''; prints.item.smartPending = false; } syncPrintControls(); queueSave('prints'); },
   overlay: faceOverlay,
+  render: PhotoRender.renderItem,
 });
-prints.preview.overlayEditor = textAndStickers($('#prints-overlays'), prints, refreshPrints, prints.preview);
+PhotoEditor.attachOverlays($('#prints-overlays'), prints, refreshPrints, prints.preview);
+PhotoUI.wireGuides('prints', prints.preview);
 
 $('#formats').innerHTML = FORMATS.map(f => `<button data-id="${f.id}">${fmtLabel(f)}</button>`).join('');
 
@@ -110,10 +74,7 @@ function syncPrintControls() {
   syncPrintsDensity();
   $$('#formats button[data-id]').forEach(b => b.classList.toggle('on', !!it && b.dataset.id === it.fmt.id));
   syncPrintCustom(it?.fmt);
-  if (it) { setSeg($('#orient'), it.orient); setSeg($('#mode'), it.mode); setSeg($('#prints-blur'), it.blur); $('#prints-strength').value = it.strength; $('#zoom').value = it.zoom; }
-  $('#prints-blur-controls').hidden = !it || it.mode !== 'blur';
-  $('#zoom').disabled = !it || it.mode === 'fit' || it.mode === 'blur';
-  $('#prints-tilt').textContent = tiltLabel(it);
+  PhotoUI.syncAdjust('prints', it);
   $('#prints-hint').textContent = it
     ? t('prints_hint_selected', it.name, fmtLabel(it.fmt))
     : t('prints_hint_empty');
@@ -229,11 +190,11 @@ function photoGrid(state, stage, grid, bar, hint, label, sizeMM, render, refresh
   return { update, choose, step, cardCanvas };
 }
 
-const printsGrid = photoGrid(prints, $('#prints-stage'), $('#prints-grid'), $('#prints-view-bar'),
-  $('#prints-hint'), printLabel, outMM, renderItem, refreshPrints);
+const printsGrid = PhotoUI.photoGrid(prints, $('#prints-stage'), $('#prints-grid'), $('#prints-view-bar'),
+  $('#prints-hint'), printLabel, PhotoEditor.outMM, PhotoRender.renderItem, refreshPrints, 'prints');
 
 function refreshPrints() {
-  renderQueue(prints, $('#queue'), refreshPrints, printLabel);
+  PhotoUI.renderQueue(prints, $('#prints-queue'), refreshPrints, printLabel);
   syncPrintControls(); prints.preview.draw(); printsGrid.update();
   queueSave('prints'); updateOrderPicker();
 }
@@ -274,42 +235,25 @@ function setPrintFormat(fmt) {
 $('#formats').addEventListener('click', e => {
   const b = e.target.closest('button[data-id]'); if (b) setPrintFormat(formatById(FORMATS, b.dataset.id));
 });
-wireSeg($('#orient'), v => { const it = prints.item; if (it) { it.orient = v; if (it.auto) autoPlace(it); refreshPrints(); } });
-wireSeg($('#mode'), v => { const it = prints.item; if (it) { it.mode = v; it.auto = ''; it.smartPending = false; refreshPrints(); } });
+wireSeg($('#prints-orient'), v => { const it = prints.item; if (it) { it.orient = v; if (it.auto) autoPlace(it); refreshPrints(); } });
+wireSeg($('#prints-mode'), v => { const it = prints.item; if (it) { PhotoEditor.setMode(it, v); refreshPrints(); } });
 wireSeg($('#prints-blur'), v => { const it = prints.item; if (it) { it.blur = v; refreshPrints(); } });
 $('#prints-strength').addEventListener('input', e => { const it = prints.item; if (it) { it.strength = +e.target.value; prints.preview.draw(); queueSave(); } });
 $('#prints-faces').addEventListener('change', () => prints.preview.draw());
 $('#prints-auto').addEventListener('click', () => { const it = prints.item; if (it) { autoPlace(it); refreshPrints(); } });
-$('#rot-l').addEventListener('click', () => { const it = prints.item; if (it) { it.rot = (it.rot + 270) % 360; if (it.auto) autoPlace(it); refreshPrints(); } });
-$('#rot-r').addEventListener('click', () => { const it = prints.item; if (it) { it.rot = (it.rot + 90) % 360; if (it.auto) autoPlace(it); refreshPrints(); } });
-$('#zoom').addEventListener('input', e => { const it = prints.item; if (it) { it.zoom = +e.target.value; it.auto = ''; it.smartPending = false; prints.preview.draw(); queueSave(); } });
-$('#reset').addEventListener('click', () => { const it = prints.item; if (it) { Object.assign(it, { zoom: 1, cx: .5, cy: .5, tilt: 0, auto: '', smartPending: false }); refreshPrints(); } });
+PhotoUI.wireAdjust('prints', { item: () => prints.item, changed: refreshPrints, redraw: () => { prints.preview.draw(); queueSave(); } });
 $('#apply-all').addEventListener('click', () => {
   const it = prints.item; if (!it) return;
   prints.items.forEach(x => { x.fmt = it.fmt; if (x.auto) autoPlace(x); else x.mode = it.mode; });
   refreshPrints();
 });
 
-async function savePrint(it) {
-  await readyOverlays(it);
-  const mm = outMM(it);
-  const name = `${baseName(it.name)}_${mm.w / 10}x${mm.h / 10}.jpg`;
-  return saveFile(await jpegBlob(renderToCanvas(it), 1, DPI, it.density), name, orderName());
+function savePrint(it) {
+  const mm = PhotoEditor.outMM(it);
+  return PhotoRender.exportItem(it, { name: `${baseName(it.name)}_${mm.w / 10}x${mm.h / 10}.jpg`, folder: orderName() });
 }
 
-$('#save-one').addEventListener('click', async () => {
-  const it = prints.item; if (!it) return;
-  const st = $('#prints-status');
-  try { setStatus(st, t('prints_saving')); setStatus(st, t('prints_saved_file', await savePrint(it))); }
-  catch (e) { setStatus(st, e.message, true); }
-});
-$('#save-all').addEventListener('click', async () => {
-  const st = $('#prints-status'), saved = [];
-  try {
-    for (const [i, it] of prints.items.entries()) {
-      setStatus(st, t('prints_saving_count', i + 1, prints.items.length));
-      saved.push(await savePrint(it));
-    }
-    setStatus(st, t('prints_saved_photos', saved.length, orderName()));
-  } catch (e) { setStatus(st, e.message, true); }
+PhotoUI.wireSave('prints', {
+  item: () => prints.item, items: () => prints.items, save: savePrint, folder: orderName,
+  msg: { saving: 'prints_saving', savedFile: 'prints_saved_file', savingCount: 'prints_saving_count', savedAll: 'prints_saved_photos' },
 });

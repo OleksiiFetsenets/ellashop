@@ -7,7 +7,7 @@
  {"op": "click", "sel": "dialog input[value='test0.jpg']"},
  {"op": "click", "sel": "dialog button[value=ok]"},
  {"op": "sleep", "ms": 2000},
- {"op": "click", "sel": "#save-all"},
+ {"op": "click", "sel": "#prints-save-all"},
  {"op": "sleep", "ms": 4000},
  {"op": "eval", "expr": "fetch('/api/storage').then(r => r.json()).then(d => { if (!d.print_ready.files || !d.orders.photos) throw Error('nothing to clean: ' + JSON.stringify([d.print_ready.files, d.orders.photos])); return JSON.stringify({finished: d.print_ready.files, orderPhotos: d.orders.photos, canvas: d.workspace.canvas.files, incoming: d.incoming.files}); })"},
  {"op": "click", "sel": "#open-storage"},

@@ -92,7 +92,7 @@ document.addEventListener('keydown', e => {
   if (passport) ppSyncItem(); else if (canvas) refreshCanvas(); else refreshPrints();
 });
 
-for (const [id, preview, key] of [['#prints-measure', prints.preview, 'prints'], ['#canvas-measure', canvasPrints.preview, 'canvas'], ['#pp-measure', pp.preview, 'passport']]) {
+for (const [id, preview, key] of [['#canvas-measure', canvasPrints.preview, 'canvas'], ['#pp-measure', pp.preview, 'passport']]) {
   const box = $(id);
   try { box.checked = localStorage.getItem('ellashop-measure-' + key) === 'on'; } catch (_) { /* storage may be unavailable */ }
   preview.showMeasure = box.checked;
@@ -103,7 +103,7 @@ for (const [id, preview, key] of [['#prints-measure', prints.preview, 'prints'],
 }
 
 // Composition guides: remembered per tab; ↻ or the O key turns them.
-for (const [tab, preview] of [['prints', prints.preview], ['canvas', canvasPrints.preview], ['collage', collage.preview]]) {
+for (const [tab, preview] of [['canvas', canvasPrints.preview], ['collage', collage.preview]]) {
   const select = $(`#${tab}-composition`), turn = $(`#${tab}-composition-turn`);
   try {
     select.value = localStorage.getItem('ellashop-composition-' + tab) || '';

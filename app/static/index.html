@@ -64,79 +64,30 @@
 
   <!-- ===================== PRINTS ===================== -->
   <section id="prints" class="view active">
+    <!-- Shared parts are built by PhotoUI (js/photo-ui.js) from the "prints" prefix. -->
     <aside class="left">
-      <label class="drop" id="prints-drop">
-        <input type="file" id="prints-file" accept="image/*,.zip" multiple hidden>
-        <strong data-i18n="page_drop_photos_here"></strong><br><span data-i18n="page_or_click_to_choose"></span>
-      </label>
-      <button class="ghost wide" data-incoming="prints" data-i18n="page_load_from_incoming_folder"></button>
-      <ul id="queue" class="queue"></ul>
+      <div data-ui="drop"></div>
     </aside>
 
-    <div class="stage" id="prints-stage">
-      <div class="view-bar" id="prints-view-bar" hidden>
-        <div class="seg"><button data-view="grid" data-i18n="page_grid"></button><button data-view="single" data-i18n="page_single"></button></div>
-        <button data-step="-1" data-i18n="page_prev"></button><span class="view-count"></span><button data-step="1" data-i18n="page_next"></button>
-      </div>
-      <div class="photo-grid" id="prints-grid" hidden></div>
-      <canvas id="prints-canvas"></canvas>
-      <p class="hint" id="prints-hint" data-i18n="page_add_photos_to_start_drag_the_photo_to_move_it_scroll_to_zoom"></p>
-    </div>
+    <div data-ui="stage"></div>
 
     <aside class="right">
       <h3 data-i18n="page_format_cm"></h3>
       <div class="grid" id="formats"></div>
 
-      <h3 data-i18n="page_orientation"></h3>
-      <div class="seg" id="orient">
-        <button data-v="auto" class="on" data-i18n="page_auto"></button>
-        <button data-v="portrait" data-i18n="page_portrait"></button>
-        <button data-v="landscape" data-i18n="page_landscape"></button>
-      </div>
-
-      <h3 data-i18n="page_fill"></h3>
-      <div class="seg" id="mode">
-        <button data-v="fill" class="on" data-i18n="page_crop_to_fill"></button>
-        <button data-v="fit" data-i18n="page_fit_white_border"></button>
-        <button data-v="blur" data-i18n="page_fit_blurred_border"></button>
-      </div>
-      <div id="prints-blur-controls" hidden>
-        <h3 data-i18n="page_blur_type"></h3>
-        <div class="seg" id="prints-blur">
-          <button data-v="motion" class="on" data-i18n="page_motion"></button>
-          <button data-v="gaussian" data-i18n="page_gaussian"></button>
-        </div>
-        <h3 data-i18n="page_strength"></h3>
-        <input type="range" id="prints-strength" min="1" max="100" value="50">
-      </div>
+      <div data-ui="orient-fill"></div>
       <label class="check"><input type="checkbox" id="prints-smart" checked> <span data-i18n="page_smart_placement_for_new_photos"></span></label>
       <label class="check"><input type="checkbox" id="prints-faces" checked> <span data-i18n="page_show_faces"></span></label>
-      <label class="check"><input type="checkbox" id="prints-measure"> <span data-i18n="page_show_measurements_cm"></span></label>
-      <label class="check composition-row"><span data-i18n="page_composition_guides"></span> <select id="prints-composition">
-        <option value="" data-i18n="page_none"></option><option value="thirds" data-i18n="page_rule_of_thirds"></option><option value="golden" data-i18n="page_golden_ratio"></option>
-        <option value="spiral" data-i18n="page_fibonacci_spiral"></option><option value="diagonals" data-i18n="page_diagonals"></option>
-        <option value="triangles" data-i18n="page_golden_triangles"></option><option value="perspective" data-i18n="page_perspective"></option>
-      </select><button type="button" id="prints-composition-turn" data-i18n-title="page_turn_flip_the_guide_key_o">↻</button></label>
+      <div data-ui="guides"></div>
       <button id="prints-auto" class="ghost wide" data-i18n="page_auto_place"></button>
 
-      <h3 data-i18n="page_adjust"></h3>
-      <div class="row">
-        <button id="rot-l" data-i18n-title="page_rotate_left">⟲</button>
-        <button id="rot-r" data-i18n-title="page_rotate_right">⟳</button>
-        <input type="range" id="zoom" min="1" max="6" step="0.01" value="1" data-i18n-title="page_zoom">
-        <span class="tilt-label" id="prints-tilt" data-i18n="page_tilt_0_0"></span>
-        <button id="reset" data-i18n-title="page_reset_crop" data-i18n="page_reset"></button>
-      </div>
+      <div data-ui="adjust"></div>
 
       <h3 data-i18n="page_density"></h3>
       <div id="prints-density"></div>
       <section id="prints-overlays"></section>
       <button id="apply-all" class="ghost wide" data-i18n="page_use_this_format_for_all_photos"></button>
-      <div class="actions">
-        <button id="save-one" class="primary" data-i18n="page_save_this_photo"></button>
-        <button id="save-all" class="primary" data-i18n="page_save_all"></button>
-      </div>
-      <p class="status" id="prints-status"></p>
+      <div data-ui="save"></div>
     </aside>
   </section>
 
@@ -395,6 +346,9 @@
   <script src="js/editor.js"></script>
   <script src="js/tabs.js"></script>
   <script src="js/settings.js"></script>
+  <script src="js/photo-editor.js"></script>
+  <script src="js/photo-render.js"></script>
+  <script src="js/photo-ui.js"></script>
   <script src="js/prints.js"></script>
   <script src="js/canvas.js"></script>
   <script src="js/passport.js"></script>
