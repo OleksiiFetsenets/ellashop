@@ -14,9 +14,11 @@ import zipfile
 from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parent.parent
+# The replaced files plus manifest.json (what was installed and what existed before), kept for rollback.
 BACKUP = ROOT / "app" / ".previous"
 
 
+# Imported on use: server.py imports this module, so a top-level import would be circular.
 def tr(id, *args):
     from server import tr as translate
     return translate(id, *args)
@@ -68,7 +70,9 @@ def check(repo):
     with urllib.request.urlopen(request, timeout=5, context=ssl.create_default_context()) as response:
         release = json.load(response)
     current = current_version()
+    # Tags look like v1.2.3; the code archive attached to the release must be named ellashop-app-<version>.zip.
     latest = str(release["tag_name"]).removeprefix("v")
+    # "1.10.0" -> (1, 10, 0), so versions compare numerically rather than as text.
     def version_parts(value):
         if not re.fullmatch(r"\d+(?:\.\d+)*", value):
             raise ValueError(tr('server_invalid_release_version', value))
@@ -86,12 +90,14 @@ def rollback():
     if not manifest.is_file():
         raise FileNotFoundError(tr('server_no_previous_version'))
     state = json.loads(manifest.read_text(encoding="utf-8"))
+    # Validate every manifest path before touching disk: the manifest is a file and could be altered.
     for name in state["installed"]:
         if not _allowed(name):
             raise ValueError(tr('server_invalid_backup_manifest'))
     for name in state["original"]:
         if not _allowed(name):
             raise ValueError(tr('server_invalid_backup_manifest'))
+    # Delete what the update installed (so files that did not exist before disappear), then copy the originals back.
     for name in state["installed"]:
         path = ROOT / name
         if path.is_file():
@@ -115,11 +121,15 @@ def apply(asset_url):
             for info in archive.infolist():
                 if info.is_dir() or not _allowed(info.filename):
                     continue
+                # Reject duplicate entries and symbolic links (Unix file type 0o120000 in the upper attribute bits).
                 if info.filename in names or (info.external_attr >> 16) & 0o170000 == 0o120000:
                     raise ValueError(tr('server_duplicate_release_file'))
                 names[info.filename] = info
+            # Sanity check that this really is an app archive before replacing anything.
             if not {"VERSION", "app/server.py"} <= names.keys():
                 raise ValueError(tr('server_missing_release_files'))
+            # Back up current code in a temp folder first, then swap it in as app/.previous, so a failed
+            # backup never destroys the previous backup.
             original = [p.relative_to(ROOT).as_posix() for p in _code_files()]
             staging = Path(temporary) / "previous"
             for name in original:
@@ -139,6 +149,7 @@ def apply(asset_url):
                     target.parent.mkdir(parents=True, exist_ok=True)
                     with archive.open(info) as source, target.open("wb") as destination:
                         shutil.copyfileobj(source, destination)
+                # Install Python dependencies only when requirements.txt actually changed.
                 if "app/requirements.txt" in names and (BACKUP / "app" / "requirements.txt").read_bytes() != (
                         ROOT / "app" / "requirements.txt").read_bytes():
                     subprocess.run([sys.executable, "-m", "pip", "install", "-r",

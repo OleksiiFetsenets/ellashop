@@ -31,6 +31,7 @@ ICON = ROOT / "windows" / "ellashop.ico" if os.name == "nt" else server.STATIC /
 # Start one local server, focus an existing window when present, and own shutdown.
 # Restart the process after an installed update requests a new code version.
 def main():
+    # Imported here so the window library is only needed when this launcher runs.
     import webview
 
     httpd, already_running = server.acquire_server()
@@ -39,6 +40,7 @@ def main():
     with httpd:
         server.prepare()
         url = f"http://127.0.0.1:{httpd.server_port}"
+        # Window opens at 1400x900 and cannot shrink below 1100x700 (the layout needs that width).
         window = webview.create_window(server.tr("server_window_title"), url, width=1400, height=900,
                                        min_size=(1100, 700))
 
@@ -46,14 +48,18 @@ def main():
             window.show()
             window.restore()
 
+        # Hooks used by server.py: focus when a second launch happens, close the window to restart after an update.
         httpd.focus_hook = focus
         httpd.restart_hook = window.destroy
         worker = threading.Thread(target=httpd.serve_forever, daemon=True)
         worker.start()
         try:
+            # Not private mode, with a fixed storage folder: the page's localStorage (last order, view
+            # settings) survives restarts.
             webview.start(private_mode=False, storage_path=str(server.DATA / ".webview"),
                           icon=str(ICON) if ICON.is_file() else None)
         finally:
+            # Window closed: stop the server thread and the background-removal helper.
             httpd.shutdown()
             worker.join()
             server.BACKGROUND_REMOVER.stop()

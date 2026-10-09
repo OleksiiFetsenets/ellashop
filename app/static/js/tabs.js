@@ -2,23 +2,27 @@
 // Handles incoming photos and navigation between the photo tabs.
 // Loads before settings.js and the tab scripts that add and edit photos.
 
+// Tilt is limited to +/-20 degrees.
 const clampTilt = tilt => Math.min(20, Math.max(-20, tilt));
 // Passport photos zoom 0.3–15 (close-up selfies shrink, distant faces grow); others 1–6.
 const clampZoom = (item, z) => item.free ? Math.min(15, Math.max(.3, z)) : Math.min(6, Math.max(1, z));
+// Text for the tilt readout next to the adjust controls.
 const tiltLabel = item => t('common_tilt', item ? item.tilt.toFixed(1) : '0.0');
 
+// Default edit state for a photo; `extra` overrides. Passport and measured custom formats start without an overlays list.
 function newItem(img, name, extra) {
   const overlayDefault = (PASSPORT.includes(extra?.fmt) || (extra?.fmt?.custom && extra.fmt.measure)) ? {} : { overlays: [] };
   return { img, name, rot: 0, tilt: 0, zoom: 1, cx: 0.5, cy: 0.5, orient: 'auto', mode: 'fill', bg: '#ffffff', density: 0, ...overlayDefault, ...extra };
 }
 
+// Names of the files in photos/incoming, or null (after telling the user) when it is empty.
 async function fetchIncoming() {
   const names = await (await fetch('/api/incoming')).json();
   if (!names.length) { alert(t('common_incoming_empty')); return null; }
   return names;
 }
 
-// Small picker dialog for photos/incoming.
+// Small picker dialog for photos/incoming; resolves with the chosen file names ([] if cancelled).
 async function pickIncoming(multiple) {
   const names = await fetchIncoming(); if (!names) return [];
   return new Promise(resolve => {
@@ -44,6 +48,7 @@ async function pickIncoming(multiple) {
 
 // ---------------------------------------------------------------- tabs
 
+// Switch tab: show its view and redraw every preview, since hidden canvases cannot be sized while display:none.
 $$('.tab').forEach(t => t.addEventListener('click', () => {
   prints.preview.overlayEditor.select(null); canvasPrints.preview.overlayEditor.select(null);
   $$('.tab').forEach(x => x.classList.toggle('active', x === t));
@@ -54,5 +59,6 @@ $$('.tab').forEach(t => t.addEventListener('click', () => {
   if (t.dataset.tab === 'collage') refreshCollage();
   updateUndoButtons();
 }));
+// Open the exports folder in the file manager: the current order's folder on Prints, the root elsewhere.
 $('#open-folder').addEventListener('click', () => fetch('/api/open-folder?folder=' + encodeURIComponent(
   document.querySelector('.tab.active')?.dataset.tab === 'prints' ? orderName() : ''), { method: 'POST' }));

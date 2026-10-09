@@ -8,10 +8,12 @@ document.addEventListener('keydown', e => {
   const isPrints = $('#prints').classList.contains('active');
   if (!isCanvas && !isPrints) return;
   const state = isCanvas ? canvasPrints : prints, grid = isCanvas ? canvasGrid : printsGrid;
+  // In grid view there is no single stage to edit overlays on.
   if (grid.cardCanvas(state.item)) return;
   const editor = state.preview.overlayEditor, o = editor.selected(); if (!o) return;
   const dir = ARROWS[e.key];
   if (dir) {
+    // Overlay arrows move 1 mm (Alt: 0.2 mm); o.x/o.y are fractions, so divide by the output size.
     const mm = outMM(state.item), step = e.altKey ? .2 : 1;
     o.x = Math.max(0, Math.min(1, o.x + dir[0] * step / mm.w));
     o.y = Math.max(0, Math.min(1, o.y + dir[1] * step / mm.h));
@@ -41,7 +43,9 @@ document.addEventListener('keydown', e => {
 });
 
 // Arrows move the photo (0.5 mm, Alt: 0.1 mm); Shift+←/→ tilt it (0.5°, Alt: 0.1°).
+// Direction vectors for the arrow keys (x right, y down).
 const ARROWS = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+// Escape returns to the grid/sheet; ] / PageDown and [ / PageUp step through photos.
 document.addEventListener('keydown', e => {
   if ($('#collage').classList.contains('active') && e.key === 'Escape') {
     if (collage.view === 'single') { collage.view = 'sheet'; refreshCollage(); queueSave('collage'); e.preventDefault(); }
@@ -57,6 +61,7 @@ document.addEventListener('keydown', e => {
   else return;
   e.preventDefault();
 });
+// Arrow keys move or tilt the active tab's selected photo; the Collage branch runs first, the other tabs share one path.
 document.addEventListener('keydown', e => {
   const dir = ARROWS[e.key];
   if (!dir || e.metaKey || e.ctrlKey ||
@@ -83,6 +88,8 @@ document.addEventListener('keydown', e => {
     if (!dir[0]) return;
     item.tilt = clampTilt(item.tilt + dir[0] * step);
   } else {
+    // Pan on the grid card when one is on screen (the key acts on what the user sees), else on the preview.
+    // cssPerMM converts the mm step to CSS pixels, which panOnCanvas expects.
     const target = (passport ? null : (canvas ? canvasGrid : printsGrid).cardCanvas(item)) || preview.canvas;
     const cssPerMM = target.getBoundingClientRect().width / preview.sizeMM(item).w;
     panOnCanvas(item, target, preview.frontRect, dir[0] * step * cssPerMM, dir[1] * step * cssPerMM);
@@ -92,6 +99,7 @@ document.addEventListener('keydown', e => {
   if (passport) ppSyncItem(); else if (canvas) refreshCanvas(); else refreshPrints();
 });
 
+// Passport measurement checkbox (the other tabs wire theirs through PhotoUI.wireGuides).
 for (const [id, preview, key] of [['#pp-measure', pp.preview, 'passport']]) {
   const box = $(id);
   try { box.checked = localStorage.getItem('ellashop-measure-' + key) === 'on'; } catch (_) { /* storage may be unavailable */ }
@@ -134,4 +142,5 @@ document.addEventListener('keydown', e => {
   if (key === 'y' || e.shiftKey) redo(); else undo();
 }, true);
 
+// Resolves when the server configuration has loaded; adding photos waits for it.
 const configReady = refreshConfig();

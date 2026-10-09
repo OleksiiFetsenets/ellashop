@@ -3,6 +3,7 @@
 // Loads after config.js; history, editors, and tab scripts use these helpers.
 // ---------------------------------------------------------------- helpers
 
+// Resolve with a decoded Image, or reject with a translated error.
 function loadImage(src) {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -12,6 +13,7 @@ function loadImage(src) {
   });
 }
 
+// Source size after the 90° rotation steps (item.rot).
 function srcDims(item) {
   const { naturalWidth: w, naturalHeight: h } = item.img;
   return item.rot % 180 ? { w: h, h: w } : { w, h };
@@ -53,6 +55,7 @@ function placement(item, W, H) {
   return { s, d };
 }
 
+// Sticker files in app/static/stickers; stickerImage() refuses any name not in this list.
 const STICKERS = ['heart.svg', 'crown.svg', 'thumbs-up.svg', 'smile.svg', 'rainbow.svg', 'teddy.svg',
   'dog.svg', 'sunflower.svg', 'kiss-mark.svg', 'cake.svg', 'blossom.svg', 'joy.svg', 'confetti.svg',
   'rose.svg', 'sparkles.svg', 'party.svg', 'baby-bottle.svg', 'butterfly.svg', 'bouquet.svg',
@@ -60,6 +63,7 @@ const STICKERS = ['heart.svg', 'crown.svg', 'thumbs-up.svg', 'smile.svg', 'rainb
   'two-hearts.svg', 'baby.svg', 'cat.svg', 'wink.svg', 'kiss.svg', 'balloon.svg',
   'sparkling-heart.svg', 'glowing-star.svg', 'ring.svg', 'smiling-hearts.svg', 'moon.svg'];
 const OVERLAY_FONTS = ['Ella', 'Mila', 'Janna', 'Regina', 'Idan', 'Oleksii', 'Liam'];
+// Fonts that ship no bold file: they are always drawn regular.
 const NO_BOLD = new Set(['Idan']);
 const fontWeight = (font, bold) => (bold && !NO_BOLD.has(font) ? 700 : 400);
 // Liam (Playpen Sans Hebrew) has no Cyrillic: Russian letters fall back to Ella (Rubik), not a system font.
@@ -79,22 +83,27 @@ const localFontsReady = fetch('/api/local-fonts').then(r => (r.ok ? r.json() : [
   if (list.length) setTimeout(assetsChanged);   // redraw overlays restored before the list arrived
   return list;
 });
+// CSS font-family list for an overlay font, with its fallback for missing letters; unknown names use Ella.
 const fontStack = font => { const name = OVERLAY_FONTS.includes(font) ? font : 'Ella';
   return FONT_FALLBACK[name] ? `"${name}", "${FONT_FALLBACK[name]}"` : `"${name}"`; };
+// fontLoads/fontReady are keyed "<weight> <name>"; fontReady is what drawOverlays checks before drawing text.
 const fontLoads = new Map(), fontReady = new Set(), stickerImages = new Map();
 const stickerStrokeCache = new Map();
+// Bumped whenever a font or sticker finishes loading; it is part of the preview cache keys so cached drawings are redone.
 let assetVersion = 0;
 function assetsChanged() {
   assetVersion++;
   if (typeof prints !== 'undefined') { prints.preview?.redraw(); printsGrid?.update(); }
   if (typeof canvasPrints !== 'undefined') { canvasPrints.preview?.redraw(); canvasGrid?.update(); }
 }
+// Start loading a font (and its fallback) once; the promise is cached and fontReady is filled when done.
 function ensureFont(font, bold) {
   const name = OVERLAY_FONTS.includes(font) ? font : 'Ella', weight = fontWeight(name, bold);
   const key = `${weight} ${name}`;
   if (!fontLoads.has(key)) fontLoads.set(key, Promise.all([name, FONT_FALLBACK[name]].filter(Boolean).map(f => document.fonts.load(`${weight} 40px "${f}"`))).then(() => { fontReady.add(key); assetsChanged(); }));
   return fontLoads.get(key);
 }
+// Cached Image for a sticker file (null if not in STICKERS); loading it triggers a redraw.
 function stickerImage(file) {
   if (!STICKERS.includes(file)) return null;
   if (!stickerImages.has(file)) {
@@ -105,6 +114,7 @@ function stickerImage(file) {
   }
   return stickerImages.get(file);
 }
+// Resolve once every font and sticker used by the item's overlays is loaded, so an export never draws them half-ready.
 async function readyOverlays(item) {
   await localFontsReady;
   await Promise.all((item.overlays || []).map(o => o.type === 'text' ? ensureFont(o.font, o.bold) : new Promise((resolve, reject) => {
@@ -115,6 +125,7 @@ async function readyOverlays(item) {
     img.addEventListener('error', () => reject(new Error(t('common_sticker_load_error'))), { once: true });
   })));
 }
+// Frame for drawOverlays: the photo's rectangle plus mmToPx (canvas px per mm of output width).
 function overlayFrame(item, front) {
   return { ...front, mmToPx: front.w / outMM(item).w };
 }
@@ -160,6 +171,7 @@ function drawSpacedText(ctx, line, y, spacing, stroke) {
   }
   const chars = graphemes(line), widths = chars.map(ch => ctx.measureText(ch).width);
   const total = widths.reduce((a, b) => a + b, 0) + Math.max(0, chars.length - 1) * spacing;
+  // Hebrew and Arabic blocks: lay glyphs out right to left.
   const rtl = /[\u0590-\u08ff]/u.test(line);
   let x = rtl ? total / 2 : -total / 2;
   chars.forEach((ch, i) => {
@@ -188,6 +200,7 @@ function stickerStroke(o, img, w, h, radius) {
   stickerStrokeCache.set(key, bitmap);
   return bitmap;
 }
+// Size of one overlay in canvas pixels (and its wrapped lines for text); o.size is its height in mm.
 function overlayBox(ctx, o, frame) {
   const h = o.size * frame.mmToPx;
   if (o.type === 'sticker') {
@@ -223,6 +236,7 @@ function drawOverlays(ctx, item, frame) {
         } else ctx.drawImage(img, -w / 2, -h / 2, w, h);
       }
     } else {
+      // 1.15 = line height relative to the font size.
       const lineH = o.size * frame.mmToPx * 1.15;
       ctx.font = `${fontWeight(o.font, o.bold)} ${o.size * frame.mmToPx}px ${fontStack(o.font)}`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -288,6 +302,7 @@ function applyDensity(canvas, d) {
   for (let i = 0; i < px.length; i += 4) { px[i] = lut[px[i]]; px[i + 1] = lut[px[i + 1]]; px[i + 2] = lut[px[i + 2]]; }
   ctx.putImageData(img, 0, 0);
 }
+// One hidden SVG gamma filter per density step, so previews match what applyDensity does to the saved file.
 document.body.insertAdjacentHTML('beforeend', `<svg width="0" height="0" style="position:absolute" aria-hidden="true">${
   [-5, -4, -3, -2, -1, 1, 2, 3, 4, 5].map(d => `<filter id="density-${d}" color-interpolation-filters="sRGB"><feComponentTransfer>${
     ['R', 'G', 'B'].map(c => `<feFunc${c} type="gamma" exponent="${densityGamma(d)}"/>`).join('')}</feComponentTransfer></filter>`).join('')}</svg>`);
@@ -331,16 +346,22 @@ async function jpegBlob(canvas, quality = 1, dpi = DPI, density = 0) { // qualit
   return new Blob([buf], { type: 'image/jpeg' });
 }
 
+// Store the file in the exported folder on the server; returns the saved path.
 async function saveFile(blob, name, folder) {
   const res = await fetch('/api/save?name=' + encodeURIComponent(name) + '&folder=' + encodeURIComponent(folder), { method: 'POST', body: blob });
   if (!res.ok) throw new Error(t('common_save_failed', res.status));
   return (await res.json()).saved;
 }
 
+// File name without its extension.
 const baseName = name => name.replace(/\.[^.]+$/, '');
 
 function setStatus(el, msg, err = false) { el.textContent = msg; el.classList.toggle('err', err); }
 
+// Order state. orderEpoch (and workspaces[tab].epoch for the Canvas/Passport/Collage workspaces) is bumped
+// whenever the open order or workspace is replaced; async work that started earlier compares the epoch it
+// captured and drops its result if it changed. saveTimer/saveChain debounce and serialise saves;
+// loading is true while a saved state is being restored (so restoring does not trigger a save).
 const orderInput = $('#order-name');
 const orderPicker = $('#order-picker');
 let currentOrder = null, orderEpoch = 0, saveTimer = 0, saveChain = Promise.resolve(), loadingOrder = false;
@@ -349,13 +370,16 @@ const workspaces = {
   passport: { epoch: 0, timer: 0, chain: Promise.resolve(), loading: false },
   collage: { epoch: 0, timer: 0, chain: Promise.resolve(), loading: false },
 };
+// Order ids start with YYYYMMDD and a time (HHMM at offsets 9-13); turned into "YYYY-MM-DD_HH-MM" for folder names.
 const dateFolder = id => `${id.slice(0, 4)}-${id.slice(4, 6)}-${id.slice(6, 8)}_${id.slice(9, 11)}-${id.slice(11, 13)}`;
+// Export folder name: the typed order name, else the date folder of the open order.
 const orderName = () => orderInput.value || (currentOrder ? dateFolder(currentOrder.id) : '');
 const orderUrl = (id, file) => `/orders/${encodeURIComponent(id)}/files/${encodeURIComponent(file)}`;
 const workspaceUrl = (tab, file) => `/workspace/${tab}/files/${encodeURIComponent(file)}`;
 const rememberOrder = id => { try { localStorage.setItem('ellashop-order-id', id); } catch (_) { /* storage may be unavailable */ } };
 const lastOrder = () => { try { return localStorage.getItem('ellashop-order-id'); } catch (_) { return null; } };
 
+// fetch + JSON; throws the server's error message on a non-2xx response.
 async function orderRequest(url, options) {
   const response = await fetch(url, options);
   const data = await response.json();
@@ -363,6 +387,8 @@ async function orderRequest(url, options) {
   return data;
 }
 
+// Store a photo on the server and return a source with a stable URL. `owner` is an order id, or a
+// workspace name (canvas/passport/collage), which stores outside any order.
 async function uploadPhoto(blob, name, owner = currentOrder?.id) {
   if (!owner) throw new Error(t('order_storage_not_ready'));
   const workspace = owner === 'canvas' || owner === 'passport' || owner === 'collage';
@@ -371,17 +397,20 @@ async function uploadPhoto(blob, name, owner = currentOrder?.id) {
   return { file, src: workspace ? workspaceUrl(owner, file) : orderUrl(owner, file), name };
 }
 
+// Make sure a picked photo is stored on the server (sources already carrying `file` are).
 async function storedSource(source, owner) {
   if (source.file) return source;
   const blob = source.blob || await (await fetch(source.src)).blob();
   return uploadPhoto(blob, source.name, owner);
 }
 
+// JSON-able copy of an item for saving: drops runtime-only fields and keeps just the format id.
 function itemState(item) {
   const { img, wrapCache, renderKey, faceError, ...settings } = item;
   return { ...settings, fmt: item.fmt?.id };
 }
 
+// Saved state of one tab (what the server stores and history snapshots).
 function tabState(tab) {
   if (tab === 'prints') return { items: prints.items.map(itemState), sel: prints.items.indexOf(prints.sel), view: prints.view || null };
   if (tab === 'canvas') return { items: canvasPrints.items.map(itemState), sel: canvasPrints.items.indexOf(canvasPrints.sel), view: canvasPrints.view || null };

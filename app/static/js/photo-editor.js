@@ -43,7 +43,9 @@ const PhotoEditor = (() => {
     const d = srcDims(item);
     const fit = item.mode === 'fit' || item.mode === 'blur';
     const s = (fit ? Math.min(W / d.w, H / d.h) : Math.max(W / d.w, H / d.h) * item.zoom);
+    // cx/cy are the crop centre as fractions of the rotated source.
     const vw = W / s / d.w, vh = H / s / d.h; // visible fraction of the source
+    // Keep the visible window inside the photo; if it is larger than the photo, centre it.
     const clamp = (c, v) => (v >= 1 ? 0.5 : Math.min(1 - v / 2, Math.max(v / 2, c)));
     if (fit) { item.cx = item.cy = 0.5; }
     else if (item.free) { /* passport: may move past the photo edge; bg colour fills the gap */ }
@@ -63,6 +65,7 @@ const PhotoEditor = (() => {
 
   // ------------------------------------------------------------ item
 
+  // Default edit state for a photo; `extra` overrides. Passport and measured custom formats start without an overlays list.
   function newItem(img, name, extra) {
     const overlayDefault = (PASSPORT.includes(extra?.fmt) || (extra?.fmt?.custom && extra.fmt.measure)) ? {} : { overlays: [] };
     return { img, name, rot: 0, tilt: 0, zoom: 1, cx: 0.5, cy: 0.5, orient: 'auto', mode: 'fill', bg: '#ffffff', density: 0, ...overlayDefault, ...extra };
@@ -73,6 +76,7 @@ const PhotoEditor = (() => {
 
   // ------------------------------------------------------------ rotate
 
+  // Tilt is limited to +/-20 degrees (straightening, not rotation).
   const clampTilt = tilt => Math.min(20, Math.max(-20, tilt));
   function setTilt(item, tilt) { item.tilt = clampTilt(tilt); }
 
@@ -92,6 +96,7 @@ const PhotoEditor = (() => {
   // Mouse wheel step; returns false when the current mode has no zoom.
   function wheelZoom(item, deltaY) {
     if (!canZoom(item)) return false;
+    // Exponential so equal wheel travel gives an equal zoom ratio; 0.0015 per wheel delta unit.
     item.zoom = clampZoom(item, item.zoom * Math.exp(-deltaY * 0.0015));
     return true;
   }
@@ -109,6 +114,7 @@ const PhotoEditor = (() => {
     if (!canZoom(item)) return;
     const k = canvas.width / canvas.getBoundingClientRect().width;
     const front = frontRect(item, canvas.width, canvas.height), { s, d } = placement(item, front.w, front.h);
+    // Undo the tilt so a screen-space drag maps onto the rotated source; k converts CSS px to canvas px.
     const a = -item.tilt * Math.PI / 180;
     item.cx -= (dx * Math.cos(a) - dy * Math.sin(a)) * k / s / d.w;
     item.cy -= (dx * Math.sin(a) + dy * Math.cos(a)) * k / s / d.h;
@@ -122,6 +128,7 @@ const PhotoEditor = (() => {
     const mm = sizeMM(item), W = mm.w, H = mm.h, d = srcDims(item);
     const s = Math.max(W / d.w, H / d.h);
     const windowW = W / s, windowH = H / s;
+    // windowW/windowH: the part of the source (in source px) visible at zoom 1 in fill mode.
     const faces = (item.faces || []).map(f => rotatedFace(f, item));
     item.zoom = 1; item.cx = item.cy = .5; item.mode = 'fill';
     if (faces.length) {
@@ -139,6 +146,7 @@ const PhotoEditor = (() => {
         const headroom = Math.min(.08 * windowH, windowH - (bottom - top));
         item.cy = (top - headroom + windowH / 2) / d.h;
       }
+    // No faces: centre horizontally and sit slightly above middle (.45) to favour the upper body.
     } else { item.auto = 'centre'; item.cy = .45; }
     placement(item, W, H);
   }
@@ -149,6 +157,7 @@ const PhotoEditor = (() => {
     const res = await fetch('/api/faces', { method: 'POST', body: image });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || t('prints_face_detection_failed'));
+    // The server may downscale before detecting; scale the boxes back to the full photo.
     const kx = item.img.naturalWidth / data.width, ky = item.img.naturalHeight / data.height;
     return data.faces.map(f => ({ ...f, x: f.x * kx, y: f.y * ky, w: f.w * kx, h: f.h * ky }));
   }
@@ -177,12 +186,14 @@ const PhotoEditor = (() => {
       Object.assign(this, { canvas, stage, getItem, onChange, overlay, sizeMM, render, frontRect, frameDraw });
       this.ctx = canvas.getContext('2d');
       let last = null, rotating = null, overlayDrag = null;
+      // Pointer is within 16 px of a corner handle (handles are drawn 10 px in from each corner).
       const corner = e => {
         const r = canvas.getBoundingClientRect();
         const x = e.clientX - r.left, y = e.clientY - r.top;
         return [[10, 10], [r.width - 10, 10], [10, r.height - 10], [r.width - 10, r.height - 10]]
           .some(([cx, cy]) => Math.hypot(x - cx, y - cy) <= 16);
       };
+      // Angle of the pointer around the canvas centre, used for corner-drag tilting.
       const angle = e => {
         const r = canvas.getBoundingClientRect();
         return Math.atan2(e.clientY - r.top - r.height / 2, e.clientX - r.left - r.width / 2);
@@ -202,6 +213,7 @@ const PhotoEditor = (() => {
         if (!item) return;
         if (overlayDrag) this.overlayEditor.pointerMove(e, overlayDrag, item, this);
         else if (rotating) {
+          // Wrap the change into -PI..PI so crossing the +/-180 degree seam does not jump.
           let delta = angle(e) - rotating.angle;
           if (delta > Math.PI) delta -= 2 * Math.PI;
           if (delta < -Math.PI) delta += 2 * Math.PI;
@@ -220,6 +232,7 @@ const PhotoEditor = (() => {
       }, { passive: false });
       new ResizeObserver(() => this.draw()).observe(stage);
     }
+    // With frameDraw, coalesce redraws into one per animation frame (for expensive renders).
     redraw() {
       if (!this.frameDraw) return this.draw();
       if (this.framePending) return;
@@ -234,6 +247,7 @@ const PhotoEditor = (() => {
       const mm = this.sizeMM(item);
       const r = this.stage.getBoundingClientRect();
       const cs = getComputedStyle(this.stage); // padding leaves room for the passport tab bar
+      // Fit the item's aspect ratio into the stage minus margins; canvas pixels = CSS size * devicePixelRatio.
       const maxW = r.width - 48, maxH = r.height - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - 8;
       const scale = Math.min(maxW / mm.w, maxH / mm.h);
       const cw = Math.max(50, mm.w * scale), ch = Math.max(50, mm.h * scale);
@@ -246,6 +260,7 @@ const PhotoEditor = (() => {
       if (this.composition) drawComposition(this.ctx, this.frontRect(item, this.canvas.width, this.canvas.height), this.composition, this.compositionTurn || 0);
       if (this.overlay) this.overlay(this.ctx, item, this.canvas.width / mm.w);
       this.overlayEditor?.drawSelection(this.ctx, item, this);
+      // Blue round handles in the four corners: drag one to tilt the photo.
       this.ctx.save();
       this.ctx.fillStyle = '#2f6fdf';
       this.ctx.strokeStyle = '#fff';
@@ -276,6 +291,7 @@ const PhotoEditor = (() => {
       Object.assign(this, { getState, applyState, busy, onChange, limit, delay });
       this.past = []; this.future = []; this.current = null; this.timer = 0; this.restoring = false;
     }
+    // restoring is true while an undo/redo is being applied, so the changes it makes are not recorded as new steps.
     snapshot() { return JSON.stringify(this.getState()); }
     record() {
       if (this.busy() || this.restoring) return;

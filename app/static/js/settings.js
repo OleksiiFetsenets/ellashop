@@ -5,12 +5,15 @@
 
 const storageDialog = $('#storage-dialog');
 let storageData = null;
+// Human-readable size (B, KB, MB, GB).
 const storageSize = bytes => {
   if (bytes < 1024) return t('settings_bytes', bytes);
   const unit = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), 3);
   return t(['settings_bytes', 'settings_kilobytes', 'settings_megabytes', 'settings_gigabytes'][unit], (bytes / 1024 ** unit).toFixed(1));
 };
+// Numbers are Unix seconds, strings are ISO dates.
 const storageDate = value => value ? new Date(typeof value === 'number' ? value * 1000 : value).toLocaleString() : '—';
+// Append a table row of plain-text cells.
 const storageCellRow = (body, cells) => {
   const row = document.createElement('tr');
   for (const cell of cells) {
@@ -18,6 +21,8 @@ const storageCellRow = (body, cells) => {
   }
   body.append(row);
 };
+// Read and validate a whole-number retention input (limit from the input's max, default 3650).
+// #auto-finished is in hours, the other inputs in days.
 const storageNumber = (selector, minimum = 0) => {
   const input = $(selector), value = Number(input.value);
   const maximum = Number(input.max) || 3650, unit = selector === '#auto-finished' || selector === '#storage-finished-days' ? t('settings_hours') : t('settings_days');
@@ -81,7 +86,10 @@ $$('[data-clean]').forEach(button => button.addEventListener('click', async () =
   try {
     if (!storageData) await refreshStorage();
     const target = button.dataset.clean;
+    // Incoming is cleaned entirely (0 days); finished files need at least 1.
     const days = target === 'incoming' ? 0 : storageNumber(target === 'orders' ? '#storage-orders-days' : '#storage-finished-days', target === 'print_ready' ? 1 : 0);
+    // Preview of what the server will delete: items older than the cutoff (86400000 ms = 1 day); the
+    // open order is always kept.
     const cutoff = Date.now() - days * 86400000;
     const keep = currentOrder?.id;
     let items;
@@ -135,6 +143,7 @@ for (const tab of ['canvas', 'passport', 'collage']) {
     clearTimeout(ws.timer); ws.timer = 0;
     try {
       await ws.chain;
+      // Block saves and invalidate any queued save or restore (see workspaces in render.js).
       ws.loading = true;
       ++ws.epoch;
       await orderRequest(`/api/workspace/${tab}/clear`, { method: 'POST' });
@@ -155,6 +164,7 @@ $('#full-clean').addEventListener('click', async () => {
     const total = d.incoming.bytes + d.orders.bytes + d.print_ready.bytes + Object.values(ws).reduce((sum, w) => sum + (w.bytes || 0), 0);
     if (!confirm(t('settings_full_clean_confirm', d.incoming.files, d.orders.items.length, d.orders.photos, workFiles, d.print_ready.files, storageSize(total)))) return;
     button.disabled = true;
+    // Freeze every writer first (timers, epochs, loading flags) so no autosave recreates files while they are deleted.
     clearTimeout(saveTimer); saveTimer = 0; ++orderEpoch; loadingOrder = true; currentOrder = null;
     for (const tab of ['canvas', 'passport', 'collage']) {
       const w = workspaces[tab];

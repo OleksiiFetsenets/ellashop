@@ -15,6 +15,7 @@ function formatString(text, args) {
   });
 }
 
+// Plural categories (one/few/other...) of the page language.
 const pluralRules = new Intl.PluralRules(LANG);
 // In right-to-left languages sizes, ranges and ratios (10 × 15, 32–36, 70–80%) must still read left to right:
 // wrap each such run in Unicode left-to-right isolates (LRI … PDI), which are invisible.
@@ -38,6 +39,7 @@ function applyStrings(root = document) {
   }
 }
 
+// Page language and direction are set once at start-up; the language picker reloads the page.
 document.documentElement.lang = LANG;
 document.documentElement.dir = STRINGS.language_direction === 'rtl' ? 'rtl' : 'ltr';
 applyStrings();

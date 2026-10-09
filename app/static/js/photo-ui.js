@@ -18,7 +18,9 @@
 //   wireDrop, wireSeg, setSeg             ← reused from ui.js as they are
 
 const PhotoUI = (() => {
+  // Parse an HTML string into a DocumentFragment.
   const html = s => { const tpl = document.createElement('template'); tpl.innerHTML = s.trim(); return tpl.content; };
+  // localStorage wrapper that never throws (private mode, blocked storage).
   const store = {
     get(key, fallback = '') { try { return localStorage.getItem(key) ?? fallback; } catch (_) { return fallback; } },
     set(key, value) { try { localStorage.setItem(key, value); } catch (_) { /* storage may be unavailable */ } },
@@ -34,6 +36,7 @@ const PhotoUI = (() => {
     placeholder.replaceWith(...box.childNodes);
   }
 
+  // `p` is the page prefix ("prints", "canvas"): every id built below is `${p}-...`.
   function dropZone(p) {
     return html(`
       <label class="drop" id="${p}-drop">
@@ -129,6 +132,7 @@ const PhotoUI = (() => {
 
   // Rotate, zoom slider and reset for the selected item. `changed` runs after every edit.
   function wireAdjust(p, { item, changed, redraw }) {
+    // Wrap an edit: run it on the selected item (if any), then let the page refresh.
     const act = fn => () => { const it = item(); if (it) { fn(it); changed(); } };
     $(`#${p}-rot-l`).addEventListener('click', act(it => PhotoEditor.rotate(it, -90)));
     $(`#${p}-rot-r`).addEventListener('click', act(it => PhotoEditor.rotate(it, 90)));
@@ -147,6 +151,7 @@ const PhotoUI = (() => {
       el('zoom').value = it.zoom;
     }
     if (el('blur-controls') && el('mode')) el('blur-controls').hidden = !it || it.mode !== 'blur';
+    // Zoom has no meaning in fit/blur modes, so the slider is disabled there.
     el('zoom').disabled = !it || !PhotoEditor.canZoom(it);
     el('tilt').textContent = tiltLabel(it);
   }
@@ -169,6 +174,7 @@ const PhotoUI = (() => {
     stageView.composition = select.value;
     const save = () => { store.set('ellashop-composition-' + key, select.value); store.set('ellashop-composition-turn-' + key, stageView.compositionTurn); };
     select.addEventListener('change', () => { stageView.composition = select.value; stageView.draw(); save(); });
+    // compositionTurn counts quarter turns (0-3) of the guide.
     stageView.turnComposition = () => { stageView.compositionTurn = ((stageView.compositionTurn || 0) + 1) % 4; stageView.draw(); save(); };
     turn.addEventListener('click', stageView.turnComposition);
   }
@@ -218,9 +224,12 @@ const PhotoUI = (() => {
   function photoGrid(state, stageEl, grid, bar, hint, label, sizeMM, render, refresh, kind) {
     const cards = new WeakMap();
     stageEl.classList.add('photo-stage');
+    // Cache key: a card is repainted only when something that affects its pixels changed.
     const cardKey = (it, mm) => [kind, it.img.src, mm.w, mm.h, it.rot, it.tilt, it.zoom, it.cx, it.cy,
       it.mode, it.bg, it.blur, it.strength, it.wrap, it.marks, JSON.stringify(it.overlays || []), assetVersion].join('|');
+    // Switch between 'grid' and 'single' view (does nothing with no photos).
     function choose(view) { if (state.items.length) { state.view = view; state.preview.overlayEditor?.select(null); update(); queueSave(); } }
+    // Select the previous (-1) or next (+1) photo in single view.
     function step(delta) {
       const i = state.items.indexOf(state.sel), next = i + delta;
       if (next < 0 || next >= state.items.length) return;
@@ -234,6 +243,7 @@ const PhotoUI = (() => {
     function paint(card, it) {
       const mm = sizeMM(it), key = cardKey(it, mm);
       if (card.renderKey === key) return;
+      // Thumbnails are drawn about 300 CSS px on the long side.
       const c = card.querySelector('canvas'), scale = 300 * devicePixelRatio / Math.max(mm.w, mm.h);
       c.width = Math.max(1, Math.round(mm.w * scale)); c.height = Math.max(1, Math.round(mm.h * scale));
       render(c.getContext('2d'), it, c.width, c.height);
@@ -245,6 +255,7 @@ const PhotoUI = (() => {
       card.innerHTML = `<button class="eye" title="${t('prints_open_single_view')}">👁</button><canvas></canvas><div class="name"></div><div class="fmt"></div>`;
       card.addEventListener('click', () => { if (state.sel !== it) { state.sel = it; refresh(); } });
       card.querySelector('.eye').addEventListener('click', e => { e.stopPropagation(); state.sel = it; state.view = 'single'; refresh(); });
+      // Dragging a thumbnail pans the crop; refresh() runs once on release, only if it moved.
       const c = card.querySelector('canvas');
       let last = null, moved = false;
       c.addEventListener('pointerdown', e => {
@@ -262,10 +273,12 @@ const PhotoUI = (() => {
       cards.set(it, card);
       return card;
     }
+    // The visible thumbnail canvas of a photo, or null when the grid is hidden or the card is not shown.
     function cardCanvas(it) {
       return !grid.hidden && cards.get(it)?.isConnected ? cards.get(it).querySelector('canvas') : null;
     }
     function update() {
+      // Default view: grid for several photos, single for one. Grid cards are rebuilt only for the active tab.
       const count = state.items.length, view = state.view || (count > 1 ? 'grid' : 'single');
       const single = view === 'single';
       bar.hidden = !count; grid.hidden = !count || single;

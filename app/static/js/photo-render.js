@@ -38,12 +38,15 @@ const PhotoRender = (() => {
 
   // Low-resolution, cached enlargement of `source`, blurred (gaussian or layered motion) so it can
   // fill a border or canvas wrap without stretching sharp detail. Cached on item.wrapCache by `key`.
+  // The cache holds one entry per item, so the key must cover everything that changes the result.
   function blurredBackdrop(item, source, W, H, key) {
     if (item.wrapCache?.key === key) return item.wrapCache.canvas;
     const scale = 600 / Math.max(W, H), w = Math.max(1, Math.round(W * scale));
     const h = Math.max(1, Math.round(H * scale));
     const blur = document.createElement('canvas'); blur.width = w; blur.height = h;
     const ctx = blur.getContext('2d');
+    // Blur/smear length in px: strength (0-100) scaled to the backdrop size; the source is drawn
+    // `length * 3` px oversize so blurred edges never show transparent borders.
     const length = Math.max(2, Math.round(item.strength * Math.max(w, h) / 750));
     const cover = Math.max(w / source.width, h / source.height);
     const dw = source.width * cover + length * 3, dh = source.height * cover + length * 3;
@@ -53,6 +56,7 @@ const PhotoRender = (() => {
       ctx.drawImage(source, x, y, dw, dh);
       ctx.filter = 'none';
     } else {
+      // Motion blur: 40 copies shifted diagonally; alpha 1/(i+1) makes the stack an even average.
       for (let i = 0; i < 40; i++) {
         const t = (i / 39 - .5) * length;
         ctx.globalAlpha = 1 / (i + 1);
@@ -85,8 +89,10 @@ const PhotoRender = (() => {
   const textSpacing = (o, h) => (o.letterSpacing || 0) * h / 100;
   const graphemes = s => typeof Intl.Segmenter === 'function'
     ? [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(s)].map(x => x.segment) : Array.from(s);
+  // Outlined sticker bitmaps, keyed by sticker/colour/size; small, oldest entry dropped first.
   const strokeCache = new Map();
 
+  // Width of a string with extra letter spacing; uses native ctx.letterSpacing when available, else sums graphemes.
   function textWidth(ctx, s, spacing) {
     if (!spacing) { if ('letterSpacing' in ctx) ctx.letterSpacing = '0px'; return ctx.measureText(s).width; }
     const parts = graphemes(s);
@@ -96,6 +102,7 @@ const PhotoRender = (() => {
 
   // Wrap text by measured grapheme width, including explicit line breaks.
   function textLines(ctx, o, frame, h) {
+    // Lines may use at most 92% of the frame width.
     const spacing = textSpacing(o, h), maxW = frame.w * .92, result = [];
     for (const explicit of String(o.text || '').split('\n')) {
       if (!explicit) { result.push(''); continue; }
@@ -126,6 +133,7 @@ const PhotoRender = (() => {
     }
     const chars = graphemes(line), widths = chars.map(ch => ctx.measureText(ch).width);
     const total = widths.reduce((a, b) => a + b, 0) + Math.max(0, chars.length - 1) * spacing;
+    // Hebrew and Arabic blocks: lay glyphs out right to left.
     const rtl = /[֐-ࣿ]/u.test(line);
     let x = rtl ? total / 2 : -total / 2;
     chars.forEach((ch, i) => {
@@ -146,6 +154,7 @@ const PhotoRender = (() => {
     mc.globalCompositeOperation = 'source-in'; mc.fillStyle = outlineColour(o); mc.fillRect(0, 0, W, H);
     const bitmap = document.createElement('canvas'); bitmap.width = W + 2 * px; bitmap.height = H + 2 * px;
     const bc = bitmap.getContext('2d');
+    // Outline = the silhouette stamped at 36 angles around a circle of radius px, then the sticker on top.
     for (let i = 0; i < 36; i++) {
       const angle = i * 2 * Math.PI / 36;
       bc.drawImage(mask, px + Math.cos(angle) * px, px + Math.sin(angle) * px);
@@ -158,6 +167,7 @@ const PhotoRender = (() => {
 
   // Size of one overlay in canvas pixels (and its wrapped lines for text).
   function overlayBox(ctx, o, frame) {
+    // o.size is the text/sticker height in mm; frame.mmToPx converts it to canvas pixels.
     const h = o.size * frame.mmToPx;
     if (o.type === 'sticker') {
       const img = stickerImage(o.sticker), ratio = img?.naturalHeight ? img.naturalWidth / img.naturalHeight : 1;
@@ -169,16 +179,19 @@ const PhotoRender = (() => {
     const lines = textLines(ctx, o, frame, h);
     const w = Math.max(h * .5, ...lines.map(line => textWidth(ctx, line || ' ', textSpacing(o, h))));
     ctx.restore();
+    // 1.15 = line height relative to the font size.
     return { w, h: h * 1.15 * lines.length, lines };
   }
 
   // Draw text and stickers in print-frame coordinates independent of the crop.
+  // o.x/o.y are the overlay centre as fractions of the frame; frame is {x, y, w, h, mmToPx} in canvas px.
   function drawOverlays(ctx, item, frame) {
     if (!item.overlays?.length) return;
     ctx.save(); ctx.beginPath(); ctx.rect(frame.x, frame.y, frame.w, frame.h); ctx.clip();
     for (const o of item.overlays) {
       if (o.type === 'text') {
         ensureFont(o.font, o.bold);
+        // Text whose font has not finished loading is skipped (ensureFont triggers the load).
         if (!fontReady.has(`${fontWeight(o.font, o.bold)} ${OVERLAY_FONTS.includes(o.font) ? o.font : 'Ella'}`)) continue;
       }
       const { w, h, lines, stroke } = overlayBox(ctx, o, frame);
@@ -198,6 +211,7 @@ const PhotoRender = (() => {
         ctx.lineJoin = 'round'; ctx.lineWidth = (o.strokeWidth ?? o.size * .12) * frame.mmToPx;
         ctx.strokeStyle = outlineColour(o);
         lines.forEach((line, i) => {
+          // Hebrew block only; Arabic text is handled in drawSpacedText.
           ctx.direction = /[֐-׿]/.test(line) ? 'rtl' : 'ltr';
           const y = (i - (lines.length - 1) / 2) * lineH;
           drawSpacedText(ctx, line, y, textSpacing(o, o.size * frame.mmToPx), o.outline && o.outline !== 'none' && ctx.lineWidth > 0);
@@ -229,7 +243,8 @@ const PhotoRender = (() => {
   }
 
   // Final-quality render. When the photo is shrunk, draw at 2× and shrink once with 'high'
-  // smoothing (matches a Lanczos resize on a 6000 px test chart). Skipped above 64 MP.
+  // smoothing (matches a Lanczos resize on a 6000 px test chart). Skipped above 64 MP
+  // (4*W*H is the pixel count of the 2x canvas) to stay within canvas memory limits.
   function renderHQ(W, H, shrinking, draw) {
     const out = document.createElement('canvas'); out.width = W; out.height = H;
     const ctx = out.getContext('2d');
@@ -240,6 +255,7 @@ const PhotoRender = (() => {
     ctx.drawImage(big, 0, 0, W, H);
     return out;
   }
+  // True when the source has more pixels than the output (scale below 1 output px per source px).
   const shrinks = (item, W, H) => placement(item, W, H).s < 1;
 
   // Print-size canvas for one item. Options let Canvas prints swap size, DPI, drawing and photo frame.
@@ -270,11 +286,14 @@ const PhotoRender = (() => {
     const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', quality));
     if (!blob) throw new Error(t('common_image_too_large'));
     let buf = new Uint8Array(await blob.arrayBuffer());
+    // JFIF header layout: bytes 2-3 APP0 marker, 6-9 "JFIF", 13 density units (1 = dots per inch),
+    // 14-15 X density, 16-17 Y density (big-endian).
     const hi = dpi >> 8, lo = dpi & 255;
     const isJfif = buf[2] === 0xFF && buf[3] === 0xE0 && buf[6] === 0x4A && buf[7] === 0x46 && buf[8] === 0x49 && buf[9] === 0x46;
     if (isJfif) {
       buf[13] = 1; buf[14] = hi; buf[15] = lo; buf[16] = hi; buf[17] = lo;
     } else {
+      // No JFIF header (e.g. an EXIF-first file): insert a new APP0 segment right after the SOI marker.
       const app0 = [0xFF, 0xE0, 0, 16, 0x4A, 0x46, 0x49, 0x46, 0, 1, 1, 1, hi, lo, hi, lo, 0, 0];
       const out = new Uint8Array(buf.length + app0.length);
       out.set(buf.subarray(0, 2)); out.set(app0, 2); out.set(buf.subarray(2), 2 + app0.length);

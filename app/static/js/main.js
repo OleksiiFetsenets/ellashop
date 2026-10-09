@@ -3,6 +3,7 @@
 // Loads last after every shared helper and photo tab has initialized.
 // Updates: the server checks GitHub Releases (app/update.json) and reports here; the button
 // only appears when a newer version exists. Installing replaces code files only, then restarts.
+// Show the update button only when the server reports a newer release.
 async function checkUpdate() {
   try {
     const { version, update } = await (await fetch('/api/version')).json();
@@ -22,6 +23,7 @@ $('#update-btn').addEventListener('click', async () => {
     if (!res.ok) throw new Error(data.error || t('common_update_failed'));
     btn.textContent = t('common_restarting');
     await flushOrder?.();
+    // Poll once a second for up to 60 s.
     for (let i = 0; i < 60; i++) {  // wait for the restarted server, then reload the page
       await new Promise(r => setTimeout(r, 1000));
       try { if ((await fetch('/api/version')).ok) { location.reload(); return; } } catch { /* still restarting */ }
@@ -35,6 +37,7 @@ syncPrintControls();
 // Start-up: when the last session left photos behind, ask whether to continue or start fresh.
 // Start fresh empties the independent workspaces and opens an empty Prints order;
 // earlier Prints orders stay in the Order list (delete them there or in ⚙ Settings).
+// Resolves after the user has chosen; the rest of start-up runs afterwards and loads whatever remains.
 async function askResume() {
   const [canvas, passport, collageState, orders] = await Promise.all(['/api/workspace/canvas', '/api/workspace/passport', '/api/workspace/collage', '/api/orders'].map(url => orderRequest(url)));
   const last = orders.find(x => x.id === lastOrder()) || orders[0];
@@ -63,6 +66,8 @@ async function askResume() {
   }
 }
 
+// Start-up order: resume prompt, restore the three workspaces (a failure in one does not stop the others),
+// then open the last used order, or create one when there are none.
 (async () => {
   try {
     try { await askResume(); } catch (e) { showOrderError(e); }

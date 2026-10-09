@@ -38,11 +38,14 @@ ORDERS = DATA / "orders"
 WORKSPACE = DATA / "workspace"
 if os.environ.get("ELLASHOP_MODELS"):
     os.environ["U2NET_HOME"] = os.environ["ELLASHOP_MODELS"]
+# Order ids look like 20260131-142530 (date-time), with -2, -3... added when two are created in one second.
 ORDER_ID = re.compile(r"\d{8}-\d{6}(?:-\d+)?\Z")
+# Held while creating orders/files and clearing workspaces so concurrent requests cannot interleave.
 ORDER_LOCK = threading.Lock()
 IMAGE_EXT = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".bmp", ".gif"}
 BG_IDLE_SECONDS = 120  # helper process exits after this long without work, freeing ~2–5 GB
 FACE_MODEL = APP / "models" / "face_detection_yunet_2023mar.onnx"
+# One shared detector, created on first use; FACE_LOCK because OpenCV's detector is not thread-safe.
 FACE_LOCK = threading.Lock()
 FACE_DETECTOR = None
 
@@ -63,9 +66,11 @@ def _yunet(image, longest, pad):
     global FACE_DETECTOR
     with FACE_LOCK:
         if FACE_DETECTOR is None:
+            # Arguments: score threshold 0.6, NMS (overlap) threshold 0.3, keep at most 50 candidates.
             FACE_DETECTOR = cv2.FaceDetectorYN.create(str(FACE_MODEL), "", (sw, sh), 0.6, 0.3, 50)
         FACE_DETECTOR.setInputSize((sw, sh))
         _, found = FACE_DETECTOR.detect(small)
+    # Each row has 15 values: x, y, w, h, five landmark (x, y) pairs, then the score.
     if found is None:
         return np.zeros((0, 15))
     rows = found.copy()
@@ -84,9 +89,11 @@ def detect_faces(image_bytes):
     if image is None:
         raise ValueError(tr('server_decode_image'))
     height, width = image.shape[:2]
+    # First pass: scaled to at most 1280 px, no padding.
     found = _yunet(image, 1280, 0)
     # YuNet misses faces that fill most of the frame (close-up passport selfies):
     # retry on a padded copy so the face looks smaller, and keep the more confident result.
+    # Column 14 is the confidence score; below 0.8 counts as weak. The retry pads 50% on each side.
     if not len(found) or found[:, 14].max() < 0.8:
         padded = _yunet(image, 800, 0.5)
         if len(padded) and (not len(found) or padded[:, 14].max() > found[:, 14].max()):
@@ -105,6 +112,7 @@ BG_MODEL = "birefnet-portrait"
 
 
 # Keep the removal model loaded in a child process and return each cutout over a pipe.
+# Messages over the pipe: bytes in; ("ok", png_bytes) or ("error", text) out.
 def _bg_worker(conn, model):
     """Helper process: load the background-removal model once, then cut out every image sent over the pipe."""
     import onnxruntime
@@ -141,6 +149,7 @@ class BackgroundRemover:
     # Reset the idle deadline after each job; a dead helper is recreated on the next request.
     def remove(self, data):
         with self.lock:
+            # generation counts requests; the idle timer only stops the helper if no newer request arrived.
             self.generation += 1
             if self.timer:
                 self.timer.cancel()
@@ -192,10 +201,12 @@ class BackgroundRemover:
 
 BACKGROUND_REMOVER = BackgroundRemover()
 
+# Cached result of the update check, refreshed in the background at most once an hour (see update_status).
 UPDATE_CACHE = {"value": {"enabled": False}, "checked": 0}
 UPDATE_LOCK = threading.Lock()
 
 
+# GitHub repo ("owner/name") from app/update.json; empty means update checks are off.
 def update_repo():
     config = APP / "update.json"
     if not config.is_file():
@@ -233,6 +244,7 @@ def open_folder(path):
         subprocess.Popen(["xdg-open", str(path)])
 
 
+# Stop the server shortly after the response is sent; main() then re-executes the process.
 def schedule_restart(server):
     server.restart_requested = True
     def stop():
@@ -249,6 +261,7 @@ AUTO_CLEAN_EVERY = 3600  # seconds between automatic clean-ups while the app is 
 CLEAN_LOG = DATA / "cleanup.log"
 
 
+# Accept only a whole number in range (bool and float are rejected); `unit` only picks the error text.
 def clean_days(value, minimum=0, maximum=3650, unit="days"):
     if type(value) is not int or not minimum <= value <= maximum:
         raise ValueError(tr('server_hours_integer_range' if unit == 'hours' else 'server_days_integer_range', minimum, maximum))
@@ -259,6 +272,7 @@ def auto_clean_value(key, value):
     return clean_days(value, 0, AUTO_CLEAN_LIMITS[key], "hours" if key.endswith("_hours") else "days")
 
 
+# Retention settings from app/settings.json, defaults for missing keys; 0 turns a rule off.
 def auto_clean_settings():
     path = APP / "settings.json"
     if path.is_symlink():
@@ -280,6 +294,7 @@ def read_settings():
 
 
 LANG_DIR = STATIC / "lang"
+# Language folder names such as "en" or "pt-BR".
 LANG_CODE = re.compile(r"[a-z]{2}(-[A-Za-z]{2,4})?")
 
 
@@ -374,6 +389,7 @@ def scanned_files(root):
                     yield Path(entry.path), stat.st_size, stat.st_mtime
 
 
+# Counts files, bytes and photos (by extension) under root.
 def file_stats(root):
     files = list(scanned_files(root))
     return {"files": len(files), "bytes": sum(size for _, size, _ in files),
@@ -392,6 +408,7 @@ def storage_data():
             except (ValueError, FileNotFoundError):
                 continue
             orders.append(order_summary(data) | file_stats(path))
+    # Newest first.
     orders.sort(key=lambda item: (datetime.fromisoformat(item["updated"]).timestamp(), item["id"]), reverse=True)
     workspace = {}
     for tab in ("canvas", "passport", "collage"):
@@ -419,6 +436,7 @@ def storage_data():
                 elif entry.is_file(follow_symlinks=False):
                     stat = entry.stat(follow_symlinks=False)
                     loose.append({"name": path.name, "bytes": stat.st_size, "mtime": stat.st_mtime})
+        # Files directly in print_ready (saved without an order folder) are shown as one pseudo-folder.
         if loose:
             folders.append({"name": "(loose files)", "files": len(loose),
                             "bytes": sum(item["bytes"] for item in loose),
@@ -437,6 +455,7 @@ def storage_data():
             "settings": {"auto_clean": auto_clean_settings()}}
 
 
+# Remove an order folder; returns its file stats for the totals.
 def delete_order(ident):
     path = order_path(ident)
     order_data(ident)
@@ -463,10 +482,12 @@ def log_cleanup(reason, target, path, size, mtime):
 def clean_storage(target, days=None, keep=None, hours=None, reason="manual"):
     if target not in ("orders", "incoming", "print_ready"):
         raise ValueError(tr('server_invalid_cleanup_target'))
+    # Automatic print_ready cleaning passes hours; everything else passes days. Cutoff is a Unix time.
     if hours is not None:
         clean_days(hours, 1, AUTO_CLEAN_LIMITS["print_ready_hours"], "hours")
         cutoff = time.time() - hours * 3600
     else:
+        # Defaults when no age is given.
         if days is None:
             days = {"orders": 14, "incoming": 0, "print_ready": 30}[target]
         clean_days(days, 1 if target == "print_ready" else 0)
@@ -486,6 +507,7 @@ def clean_storage(target, days=None, keep=None, hours=None, reason="manual"):
         return removed
     root = INCOMING if target == "incoming" else PRINT_READY
     for path, size, mtime in scanned_files(root):
+        # Incoming with days == 0 means delete everything regardless of age.
         if (target == "incoming" and days == 0) or mtime < cutoff:
             path.unlink()
             log_cleanup(reason, target, path.relative_to(root), size, mtime)
@@ -496,6 +518,7 @@ def clean_storage(target, days=None, keep=None, hours=None, reason="manual"):
     return removed
 
 
+# Remove folders left empty under root (deepest first); root itself stays.
 def remove_empty_folders(root):
     if root.is_dir() and not root.is_symlink():
         for folder, _, _ in os.walk(root, topdown=False, followlinks=False):
@@ -539,6 +562,7 @@ def full_clean():
 # Read current retention settings and keep the newest order during scheduled cleanup.
 def run_auto_clean():
     settings = auto_clean_settings()
+    # Items are sorted newest first, so the first one is the order in use: never auto-delete it.
     latest = next(iter(storage_data()["orders"]["items"]), None) if settings["orders_days"] else None
     removed = {"deleted_files": 0, "freed_bytes": 0}
     for target, key in (("incoming", "incoming_days"), ("orders", "orders_days"),
@@ -554,12 +578,14 @@ def run_auto_clean():
     return removed
 
 
+# Strip any directory part and replace unusual characters, so a client-supplied name stays inside its folder.
 def safe_name(name):
     name = Path(name).name
     name = re.sub(r"[^\w.\- ]+", "_", name, flags=re.UNICODE).strip() or "photo.jpg"
     return name
 
 
+# folder/name, or name_2, name_3... if it already exists, so nothing is overwritten.
 def unique_path(folder, name):
     path = folder / name
     stem, ext = path.stem, path.suffix
@@ -570,6 +596,7 @@ def unique_path(folder, name):
     return path
 
 
+# Safe folder name for an export (also used for names typed by the user).
 def order_folder(name):
     return safe_name(name).strip(". ") or "order"
 
@@ -594,6 +621,7 @@ def order_data(ident):
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+# List/response view of an order. `folder` is the name, or the date-time taken from the id when unnamed.
 def order_summary(data):
     state = data.get("state") or {}
     counts = {}
@@ -609,6 +637,7 @@ def order_summary(data):
 
 
 # Persist JSON state alongside its stored source photos.
+# Written to a temp file and renamed over the target, so a crash never leaves half a JSON file.
 def write_state(path, filename, data):
     with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=path, prefix=".state-", delete=False) as tmp:
         json.dump(data, tmp, ensure_ascii=False)
@@ -637,6 +666,7 @@ def workspace_path(tab):
     return path
 
 
+# Resolve a stored photo for download; the name must already be in its safe form.
 def stored_file(path, name):
     name = urllib.parse.unquote(name)
     if name != safe_name(name) or name in (".", ".."):
@@ -683,6 +713,7 @@ def local_fonts():
     return fonts
 
 
+# Saved state of a workspace tab, or the empty state of that tab when nothing was saved yet.
 def workspace_data(tab, path):
     state_file = path / "state.json"
     if state_file.is_symlink():
@@ -704,6 +735,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def log_message(self, fmt, *args):
         pass
 
+    # Sent with every response, including static files.
     def end_headers(self):
         # Always serve fresh files so updated scripts are never stale in the browser cache.
         self.send_header("Cache-Control", "no-store")
@@ -726,6 +758,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             raise ValueError(tr('server_expected_json_object'))
         return data
 
+    # 404 for a missing file/order, 400 for any other validation error.
     def order_error(self, error):
         return self.send_json({"error": str(error)}, 404 if isinstance(error, FileNotFoundError) else 400)
 
@@ -782,6 +815,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 return self.send_file(stored_file(workspace_path(match[1]), match[2]))
             except (ValueError, FileNotFoundError) as e:
                 return self.order_error(e)
+        # Language file generated on the fly: the chosen language's strings merged over English.
         if url.path == "/lang.js":
             lang = ui_language()
             body = f"'use strict';\nconst LANG = {json.dumps(lang)};\nconst STRINGS = {json.dumps(ui_strings(lang), ensure_ascii=False)};\n".encode()
@@ -792,6 +826,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self.wfile.write(body)
         if url.path == "/api/local-fonts":
             return self.send_json(local_fonts())
+        # Which optional features are installed (background removal, face detection).
         if url.path == "/api/config":
             return self.send_json({"localBg": importlib.util.find_spec("rembg") is not None,
                                    "faces": importlib.util.find_spec("cv2") is not None and FACE_MODEL.is_file()})
@@ -814,15 +849,18 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(data)
             return
+        # Anything under these prefixes that matched no route above is a malformed path, not a static file.
         if url.path.startswith(("/api/orders/", "/orders/", "/api/workspace/", "/workspace/")):
             return self.send_json({"error": tr('server_invalid_order_path')}, 400)
         return super().do_GET()
 
     # Handle uploads, edits, exports, cleanup, and update requests from the UI.
+    # Routes are tried in order: exact paths first, then pattern routes; unmatched requests end with 404.
     def do_POST(self):
         url = urllib.parse.urlparse(self.path)
         query = urllib.parse.parse_qs(url.query)
 
+        # Another launch of the app asks this instance to bring its window forward (see connect_existing).
         if url.path == "/api/focus":
             hook = getattr(self.server, "focus_hook", None)
             if hook:
@@ -839,6 +877,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except (ValueError, json.JSONDecodeError) as e:
                 return self.order_error(e)
 
+        # After a successful update or rollback the reply goes out first, then the server restarts itself.
         if url.path in ("/api/update", "/api/update/rollback"):
             try:
                 if url.path.endswith("/rollback"):
@@ -857,6 +896,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except Exception as error:
                 return self.send_json({"error": str(error)}, 500)
 
+        # Needs the exact confirmation body so a stray request cannot wipe everything.
         if url.path == "/api/storage/full-clean":
             try:
                 if self.read_json() != {"confirm": "everything"}:
@@ -878,6 +918,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except (ValueError, json.JSONDecodeError) as e:
                 return self.order_error(e)
 
+        # /api/workspace/<tab> saves state, /files uploads a photo, /clear deletes the whole workspace.
         match = re.fullmatch(r"/api/workspace/([^/]+)(?:/(files|clear))?", url.path)
         if match:
             try:
@@ -913,6 +954,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     raise ValueError(tr('server_invalid_order_name'))
                 with ORDER_LOCK:
                     ORDERS.mkdir(parents=True, exist_ok=True)
+                    # Same-second collisions get a -2, -3... suffix (see ORDER_ID).
                     base = datetime.now().strftime("%Y%m%d-%H%M%S")
                     ident = base
                     n = 2
@@ -926,6 +968,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 return self.send_json(data | order_summary(data), 201)
             except (ValueError, json.JSONDecodeError) as e:
                 return self.order_error(e)
+        # /api/orders/<id>/state saves the order, /files uploads a photo into it, /delete removes it.
         match = re.fullmatch(r"/api/orders/([^/]+)/(state|files|delete)", url.path)
         if match:
             ident, action = match.groups()
@@ -957,6 +1000,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 return self.send_json({"error": str(e)}, 500)
 
+        # Extract only image files from an uploaded zip into incoming, skipping folders, hidden files and
+        # macOS metadata; refuses archives over 2 GB unpacked or 2000 images (zip bomb guard).
         if url.path == "/api/unzip":
             try:
                 with zipfile.ZipFile(io.BytesIO(self.read_body())) as archive:
@@ -985,6 +1030,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except (zipfile.BadZipFile, EOFError, ValueError):
                 return self.send_json({"error": tr('server_invalid_zip')}, 400)
 
+        # Export: the body is the finished JPEG; with `folder` it goes to print_ready/<folder>, else loose.
         if url.path == "/api/save":
             folder = query.get("folder", [""])[0]
             target = PRINT_READY / order_folder(folder) if folder else PRINT_READY
@@ -993,6 +1039,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             path.write_bytes(self.read_body())
             return self.send_json({"saved": f"{target.name}/{path.name}" if folder else path.name})
 
+        # Opens the order's export folder in the file manager, or print_ready itself if it does not exist yet.
         if url.path == "/api/open-folder":
             PRINT_READY.mkdir(parents=True, exist_ok=True)
             folder = query.get("folder", [""])[0]
@@ -1015,6 +1062,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.send_error(404)
 
 
+# Startup: update check in the background, data folders, one clean-up now and an hourly loop.
 def prepare():
     """Initialize the data folders and run the existing startup cleanup."""
     threading.Thread(target=refresh_update, daemon=True).start()
@@ -1040,6 +1088,7 @@ def auto_clean_loop():
         auto_clean_once()
 
 
+# ThreadingHTTPServer: each request gets its own thread, so a slow cutout does not block the UI.
 def make_server(port):
     """Create a loopback-only server; port 0 asks the OS for a free port."""
     http.server.ThreadingHTTPServer.allow_reuse_address = True
@@ -1067,6 +1116,7 @@ def acquire_server(port=PORT):
     """Return (server, already_running), choosing a free port after a collision."""
     try:
         return make_server(port), False
+    # Port busy: if it is another Ellashop, just focus it; otherwise use any free port.
     except OSError:
         if connect_existing(port):
             return None, True
@@ -1089,6 +1139,7 @@ def main():
             httpd.serve_forever()
         finally:
             BACKGROUND_REMOVER.stop()
+    # Set by schedule_restart after an update: start the new code in place of this process.
     if getattr(httpd, "restart_requested", False):
         os.execv(sys.executable, [sys.executable] + sys.argv)
 

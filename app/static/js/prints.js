@@ -7,6 +7,7 @@ const prints = {
   items: [],
   sel: null,
   lastFmt: FORMATS[0],
+  // faceQueue holds photos waiting for face detection; at most 2 run at once (faceRunning).
   facesAvailable: false, faceQueue: [], faceRunning: 0,
   get item() { return this.items.find(i => i === this.sel) || null; },
 };
@@ -23,8 +24,10 @@ const prints = {
   PhotoUI.mount(slot('save'), PhotoUI.saveActions('prints', { one: 'page_save_this_photo' }));
 }
 
+// Smart placement: picks mode, zoom and centre from the detected faces and sets item.auto to the reason.
 const autoPlace = item => PhotoEditor.smartPlace(item);
 
+// Stage overlay: face boxes are drawn only when the "faces" checkbox is on.
 function faceOverlay(ctx, item) {
   if ($('#prints-faces').checked) PhotoEditor.drawFaces(ctx, item);
 }
@@ -32,6 +35,7 @@ function faceOverlay(ctx, item) {
 // Detect faces one photo at a time, then update smart placement.
 function runFaceQueue() {
   while (prints.faceRunning < 2 && prints.faceQueue.length) {
+    // epoch: if the order changed while detecting, the result belongs to a stale list and is dropped.
     const item = prints.faceQueue.shift(), epoch = orderEpoch;
     if (!prints.items.includes(item)) continue;
     prints.faceRunning++;
@@ -56,6 +60,7 @@ function runFaceQueue() {
 
 prints.preview = new PhotoEditor.Stage($('#prints-canvas'), $('#prints-stage'), {
   getItem: () => prints.item,
+  // Any manual move/zoom ends automatic placement for this photo.
   onChange: () => { if (prints.item) { prints.item.auto = ''; prints.item.smartPending = false; } syncPrintControls(); queueSave('prints'); },
   overlay: faceOverlay,
   render: PhotoRender.renderItem,
@@ -80,12 +85,14 @@ function syncPrintControls() {
     : t('prints_hint_empty');
 }
 
+// Queue caption: format, mode, face count and the reason for automatic placement.
 function printLabel(it) {
   return t('prints_label', fmtLabel(it.fmt), t(it.mode === 'blur' ? 'prints_blur' : it.mode === 'fit' ? 'prints_fit' : 'prints_crop')) + (it.faces === null ? t('prints_faces_pending') : it.faces ? t('prints_faces_count', it.faces.length) : '') + (it.auto ? t('prints_auto_detail', ({ 'blur: faces don\'t fit': t('prints_auto_blur'), faces: t('prints_auto_faces'), centre: t('prints_auto_centre') })[it.auto] || it.auto) : '') + densityLabel(it);
 }
 
 function canvasLabel(it) { return t('canvas_label', fmtLabel(it.fmt), it.wrap) + densityLabel(it); }
 
+// Cache key for the grid thumbnails: every field that changes the rendered pixels.
 function gridKey(it, mm, kind) {
   return [kind, it.img.src, mm.w, mm.h, it.rot, it.tilt, it.zoom, it.cx, it.cy,
     it.mode, it.bg, it.blur, it.strength, it.wrap, it.marks, JSON.stringify(it.overlays || []), assetVersion].join('|');
@@ -108,6 +115,7 @@ async function addPrints(sources) {
       const { src, name, file } = await storedSource(source, id);
       const img = await loadImage(src);
       if (epoch !== orderEpoch) return;
+      // faces: null = detection pending, undefined = detection unavailable. smartPending: auto-place once faces are known.
       const it = newItem(img, name, { fmt: prints.lastFmt, blur: 'motion', strength: 50,
         file, faces: prints.facesAvailable ? null : undefined, smartPending: $('#prints-smart').checked, auto: '' });
       prints.items.push(it);
@@ -145,6 +153,7 @@ $('#prints-auto').addEventListener('click', () => { const it = prints.item; if (
 PhotoUI.wireAdjust('prints', { item: () => prints.item, changed: refreshPrints, redraw: () => { prints.preview.draw(); queueSave(); } });
 $('#apply-all').addEventListener('click', () => {
   const it = prints.item; if (!it) return;
+  // Photos still on automatic placement are re-placed for the new format; the rest only take over the mode.
   prints.items.forEach(x => { x.fmt = it.fmt; if (x.auto) autoPlace(x); else x.mode = it.mode; });
   refreshPrints();
 });

@@ -2,6 +2,7 @@
 // Persists Prints orders and the independent Canvas, Passport, and Collage workspaces.
 // Loads after history.js; later tab scripts call its save and restore helpers.
 // Capture the edit before scheduling the matching order or workspace write.
+// `tab` defaults to the visible tab (Prints for any tab not listed).
 function queueSave(tab = ({ 'canvas-view': 'canvas', passport: 'passport', collage: 'collage' })[document.querySelector('.tab.active')?.dataset.tab] || 'prints') {
   recordHistory(tab);
   if (tab !== 'prints') {
@@ -16,10 +17,12 @@ function queueSave(tab = ({ 'canvas-view': 'canvas', passport: 'passport', colla
 
 // Save 600 ms after the last change, but never later than 2 s after the first unsaved one: views that
 // redraw continuously (e.g. while the background is being removed) must not postpone saving forever.
+// key -> time by which the pending save must run, set when the first unsaved change arrives.
 const saveDeadlines = new Map();
 // Delay writes while edits continue, with a deadline for sustained activity.
 function debounceSave(key, timer, save) {
   clearTimeout(timer);
+  // A timer still pending means a save is already waiting: keep its deadline, else start a new 2 s window.
   const deadline = timer && saveDeadlines.get(key) || Date.now() + 2000;
   saveDeadlines.set(key, deadline);
   return setTimeout(() => { saveDeadlines.delete(key); save(); }, Math.max(0, Math.min(600, deadline - Date.now())));
@@ -29,10 +32,12 @@ function debounceSave(key, timer, save) {
 function saveOrder() {
   if (!currentOrder || loadingOrder) return saveChain;
   const id = currentOrder.id, name = orderInput.value, state = { prints: tabState('prints') };
+  // Chained so writes run in order; one failed write must not block the next.
   saveChain = saveChain.catch(() => {}).then(async () => {
     const data = await orderRequest(`/api/orders/${id}/state`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, state }),
     });
+    // Apply the server's reply only if the user has not switched order or renamed it meanwhile.
     if (currentOrder?.id === id && orderInput.value === name) { currentOrder = data; updateOrderPicker(); }
   });
   return saveChain;
@@ -55,6 +60,7 @@ function saveWorkspace(tab) {
   if (ws.loading) return ws.chain;
   const state = tabState(tab), epoch = ws.epoch;
   ws.chain = ws.chain.catch(() => {}).then(async () => {
+    // The workspace was cleared or reloaded after this save was queued: its state is stale, skip it.
     if (epoch !== ws.epoch) return;
     await orderRequest(`/api/workspace/${tab}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(state),
@@ -63,6 +69,7 @@ function saveWorkspace(tab) {
   return ws.chain;
 }
 
+// Keep the dropdown entry of the open order in step with its name and photo count.
 function updateOrderPicker() {
   if (!currentOrder) return;
   let option = orderPicker.querySelector(`option[value="${currentOrder.id}"]`);
@@ -84,6 +91,7 @@ async function listOrders() {
   return orders;
 }
 
+// Empty the Prints tab (UI only; nothing is deleted from disk).
 function clearPrints() {
   prints.items = []; prints.sel = null; prints.view = null; prints.faceQueue = [];
   setStatus($('#prints-status'), '');
@@ -91,6 +99,7 @@ function clearPrints() {
   refreshPrints();
 }
 
+// Empty a Canvas/Passport/Collage tab in the UI only.
 function clearTab(tab) {
   if (tab === 'canvas') {
     canvasPrints.items = []; canvasPrints.sel = null; canvasPrints.view = null;
@@ -112,6 +121,8 @@ async function restoreItem(saved, owner, formats, file = saved.file) {
 }
 
 // Save the outgoing order, restore the selected one, and reset its history.
+// `flush` is false when the previous order was just saved or deleted. A newer switch bumps orderEpoch,
+// which makes this call stop after any await (and loadingOrder blocks saves until the order is loaded).
 async function switchOrder(id, flush = true) {
   if (flush) await flushOrder();
   const epoch = ++orderEpoch;
@@ -142,6 +153,8 @@ async function switchOrder(id, flush = true) {
 
 // Recreate a workspace from its separately persisted state.
 async function restoreWorkspace(tab) {
+  // ws.epoch is bumped per restore (and per clear) so a slower, older restore cannot overwrite a newer one;
+  // ws.loading blocks saves until the restore finishes.
   const ws = workspaces[tab], epoch = ++ws.epoch;
   ws.loading = true;
   try {
@@ -200,6 +213,7 @@ $('#delete-order').addEventListener('click', async () => {
     await switchOrder(next.id, false);
   } catch (e) { showOrderError(e); }
 });
+// On close/reload write the latest state synchronously-enough: sendBeacon, or a keepalive fetch if the beacon is refused.
 window.addEventListener('pagehide', () => {
   if (currentOrder) {
     clearTimeout(saveTimer);

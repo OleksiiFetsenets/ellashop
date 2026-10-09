@@ -6,12 +6,18 @@
 // the last change, so a drag, a slider move or a burst of typing is one step. Undo/redo rebuild the
 // tab from a step, reusing images already loaded (cached by file), so it is instant — and photos
 // removed from the tab come back.
+// Steps kept per tab; the oldest is dropped beyond this.
 const HISTORY_LIMIT = 60;
+// past/future hold JSON snapshots, current the latest recorded one, timer the pending debounce;
+// `restoring` (set during applySnapshot) pauses recording.
 const historyStore = Object.fromEntries(['prints', 'canvas', 'passport', 'collage'].map(t => [t, { past: [], future: [], current: null, timer: 0 }]));
 const historyImages = new Map();  // `${tab}|${file}` → loaded Image
+// Which history applies to the visible tab (Prints for any tab not listed).
 const activeTabName = () => ({ 'canvas-view': 'canvas', passport: 'passport', collage: 'collage' })[document.querySelector('.tab.active')?.dataset.tab] || 'prints';
+// True while the tab is loading or restoring, when changes must not become history steps.
 const tabBusy = tab => (tab === 'prints' ? loadingOrder || !currentOrder : workspaces[tab].loading) || historyStore[tab].restoring;
 
+// Keep loaded images by file so undo can rebuild items (even removed ones) without refetching.
 function rememberImages(tab) {
   const items = tab === 'passport' ? pp.jobs.map(j => [j.cutFile || j.file, j.item])
     : tab === 'collage' ? collage.photos.map(p => [p.file, p])
@@ -46,6 +52,7 @@ function resetHistory(tab) {
   updateUndoButtons();
 }
 
+// Cached image for a saved file, loading it from the order or workspace when not cached.
 async function historyImage(tab, file) {
   const key = `${tab}|${file}`;
   if (!historyImages.has(key)) historyImages.set(key, await loadImage(tab === 'prints' ? orderUrl(currentOrder.id, file) : workspaceUrl(tab, file)));
@@ -57,6 +64,7 @@ async function applySnapshot(tab, json) {
   const h = historyStore[tab], state = JSON.parse(json);
   h.restoring = true;
   try {
+    // Turn saved item state back into a live item; `formats` resolves the saved format id.
     const build = async (saved, formats, file = saved.file) => newItem(await historyImage(tab, file), saved.name || file,
       { ...saved, fmt: formatById(formats, saved.fmt) });
     if (tab === 'passport') {
@@ -89,6 +97,7 @@ async function applySnapshot(tab, json) {
     updateUndoButtons();
   }
 }
+// Undo/redo move one step; the current state goes onto the opposite stack.
 async function undo(tab = activeTabName()) {
   const h = historyStore[tab];
   if (h.timer) commitHistory(tab);  // a change still settling becomes the step we undo

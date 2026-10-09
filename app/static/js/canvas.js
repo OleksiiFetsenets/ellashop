@@ -20,7 +20,7 @@ const canvasPrints = {
   get item() { return this.items.find(i => i === this.sel) || null; },
 };
 
-// Whole canvas in mm: the front plus the wrap on every side.
+// Whole canvas in mm: the front plus the wrap on every side (item.wrap is cm per side, so *10 mm *2 sides).
 function canvasMM(item) {
   const front = PhotoEditor.outMM(item);
   return { w: front.w + item.wrap * 20, h: front.h + item.wrap * 20 };
@@ -33,6 +33,7 @@ function canvasFront(item, W, H) {
   return { x: (W - w) / 2, y: (H - h) / 2, w, h };
 }
 
+// Cache key for the wrap background: everything that changes the blurred image.
 function canvasKey(item, W, H) {
   return [W, H, item.img.src, item.fmt.id, item.orient, item.wrap, item.blur, item.strength,
     item.rot, item.tilt, item.zoom, item.cx, item.cy].join('|');
@@ -45,6 +46,7 @@ const printBackground = (...args) => PhotoRender.printBackground(...args);
 function canvasBackground(item, W, H) {
   const key = canvasKey(item, W, H);
   if (item.wrapCache?.key === key) return item.wrapCache.canvas;
+  // The wrap is blurred anyway, so it is built at about 600 px on the long side and scaled up.
   const scale = 600 / Math.max(W, H), w = Math.max(1, Math.round(W * scale));
   const h = Math.max(1, Math.round(H * scale));
   const front = canvasFront(item, w, h);
@@ -64,6 +66,7 @@ function renderCanvas(ctx, item, W, H, preview = false) {
   PhotoRender.renderItem(ctx, item, front.w, front.h, false);
   ctx.restore();
   PhotoRender.drawOverlays(ctx, item, overlayFrame(item, front));
+  // Crop marks: thin lines in the wrap area continuing the front's edges.
   if (item.marks) {
     ctx.strokeStyle = '#888'; ctx.lineWidth = Math.max(1, W / 2000);
     ctx.beginPath();
@@ -77,6 +80,7 @@ function renderCanvas(ctx, item, W, H, preview = false) {
     }
     ctx.stroke();
   }
+  // Dashed outline of the front, shown on screen only.
   if (preview) {
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 2 * devicePixelRatio;
     ctx.setLineDash([6 * devicePixelRatio, 5 * devicePixelRatio]);
@@ -124,6 +128,7 @@ const canvasGrid = PhotoUI.photoGrid(canvasPrints, $('#canvas-stage'), $('#canva
   $('#canvas-hint'), canvasLabel, canvasMM, renderCanvas, refreshCanvas, 'canvas');
 
 async function addCanvas(sources) {
+  // Drop the result if the Canvas workspace was reset or switched while the image was loading.
   const epoch = workspaces.canvas.epoch;
   for (const source of sources) {
     try {
@@ -159,6 +164,7 @@ wireSeg($('#canvas-blur'), v => canvasSetting('blur', v));
 $('#canvas-wrap').addEventListener('change', e => {
   const n = +e.target.value;
   if (!Number.isFinite(n)) return refreshCanvas();
+  // Wrap is clamped to 2-15 cm and rounded to 0.5 cm steps.
   canvasSetting('wrap', Math.min(15, Math.max(2, Math.round(n * 2) / 2)));
 });
 $('#canvas-strength').addEventListener('input', e => canvasSetting('strength', +e.target.value));

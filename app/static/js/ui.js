@@ -1,6 +1,8 @@
 'use strict';
 // Provides shared drop zones, previews, measurements, and composition guides.
 // Loads before editor.js and the photo-tab scripts that create previews.
+// Make a drop zone (label + hidden file input) accept images and .zip archives; zips are unpacked by the
+// server into the incoming folder and fetched back as Files. `onFiles` receives only the image files.
 function wireDrop(label, input, onFiles) {
   const status = label.closest('.view')?.querySelector('.status');
   const receive = async files => {
@@ -33,6 +35,7 @@ function wireDrop(label, input, onFiles) {
   });
 }
 
+// Segmented button group: highlights the clicked button and passes its data-v to `onPick`.
 function wireSeg(container, onPick) {
   container.addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
@@ -40,6 +43,7 @@ function wireSeg(container, onPick) {
     onPick(b.dataset.v);
   });
 }
+// Highlight the button whose data-v is `v` (without calling any handler).
 function setSeg(container, v) { [...container.children].forEach(x => x.classList.toggle('on', x.dataset.v === v)); }
 
 // Move the photo by (dx, dy) CSS pixels as drawn on `canvas` (the preview or a grid card),
@@ -59,6 +63,7 @@ function panOnCanvas(item, canvas, frontRect, dx, dy) {
 // Draw centimetre rulers and guides over the preview without affecting export.
 function drawMeasurements(ctx, mm, pxPerMM) {
   const k = devicePixelRatio, W = ctx.canvas.width, H = ctx.canvas.height, band = 18 * k;
+  // Smallest label spacing (1, 2, 5 or 10 cm, in mm) that leaves at least 34 CSS px between labels.
   const step = [10, 20, 50, 100].find(s => s * pxPerMM >= 34 * k) || 100;  // mm between labels
   const minor = step === 10 ? (pxPerMM >= 4 * k ? 1 : 5) : step / 5;    // mm between small ticks
   ctx.save();
@@ -69,6 +74,8 @@ function drawMeasurements(ctx, mm, pxPerMM) {
   ctx.fillStyle = 'rgba(255,255,255,.88)'; ctx.fillRect(0, 0, W, band); ctx.fillRect(0, band, band, H - band);
   ctx.strokeStyle = '#333'; ctx.fillStyle = '#222';
   ctx.font = `${10 * k}px -apple-system, system-ui, sans-serif`; ctx.textBaseline = 'top';
+  // Tick height: tall at label steps, medium at every 5 mm, short otherwise. Positions are compared in
+  // thousandths of a mm (x * 1000) to avoid float error from fractional steps.
   for (let x = minor; x < mm.w; x += minor) {
     const big = Math.round(x * 1000) % (step * 1000) === 0, mid = !big && Math.round(x * 1000) % 5000 === 0;
     const t = big ? band * .55 : mid ? band * .35 : band * .2, px = Math.round(x * pxPerMM) + .5;
@@ -87,6 +94,7 @@ function drawMeasurements(ctx, mm, pxPerMM) {
 
 // Composition guides over the photo frame (preview only). `turn` 0–3 flips the spiral/triangles
 // and moves the perspective vanishing point (centre → thirds points).
+// Golden ratio.
 const PHI = (1 + Math.sqrt(5)) / 2;
 // Draw the selected composition guide only over the on-screen preview.
 function drawComposition(ctx, r, type, turn) {
@@ -95,6 +103,7 @@ function drawComposition(ctx, r, type, turn) {
   ctx.beginPath(); ctx.rect(r.x, r.y, r.w, r.h); ctx.clip();
   ctx.beginPath();
   const line = (x0, y0, x1, y1) => { ctx.moveTo(r.x + x0 * r.w, r.y + y0 * r.h); ctx.lineTo(r.x + x1 * r.w, r.y + y1 * r.h); };
+  // turn bit 0 mirrors horizontally, bit 1 vertically.
   const flipX = turn & 1, flipY = turn & 2, fx = v => flipX ? 1 - v : v, fy = v => flipY ? 1 - v : v;
   if (type === 'thirds' || type === 'golden') {
     for (const v of type === 'thirds' ? [1 / 3, 2 / 3] : [1 - 1 / PHI, 1 / PHI]) { line(v, 0, v, 1); line(0, v, 1, v); }
@@ -113,6 +122,7 @@ function drawComposition(ctx, r, type, turn) {
   } else if (type === 'perspective') {
     const vp = [[.5, .5], [1 / 3, 1 / 3], [2 / 3, 1 / 3], [2 / 3, 2 / 3]][turn % 4];
     line(0, vp[1], 1, vp[1]);  // horizon
+    // 24 rays every 15 degrees; len = 3 frame heights is long enough to cross the frame from any vanishing point.
     for (let i = 0; i < 24; i++) {  // rays from the vanishing point
       const a = i * Math.PI / 12, len = 3;
       line(vp[0], vp[1], vp[0] + Math.cos(a) * len * r.h / r.w, vp[1] + Math.sin(a) * len);
@@ -125,6 +135,8 @@ function drawComposition(ctx, r, type, turn) {
     ctx.translate(r.x + r.w / 2, r.y + r.h / 2); ctx.scale(flipX ? -1 : 1, flipY ? -1 : 1); ctx.translate(-r.w / 2, -r.h / 2);
     if (r.h > r.w) { ctx.translate(r.w, 0); ctx.rotate(Math.PI / 2); ctx.scale(r.h / PHI, r.w); } else ctx.scale(r.w / PHI, r.h);
     let x = 0, y = 0, w = PHI, h = 1;
+    // Each step cuts a square off one side of the remaining rectangle (left, top, right, bottom in turn)
+    // and draws its dividing line plus a quarter-circle arc; 12 steps reach well below pixel size.
     for (let i = 0; i < 12; i++) {
       const side = i % 4;
       if (side === 0) { const s = h; ctx.moveTo(x + s, y); ctx.lineTo(x + s, y + s); ctx.moveTo(x, y + s); ctx.arc(x + s, y + s, s, Math.PI, 1.5 * Math.PI); x += s; w -= s; }
@@ -141,6 +153,8 @@ function drawComposition(ctx, r, type, turn) {
 }
 
 // Interactive preview: drag to pan, wheel to zoom, fits inside its stage.
+// Options: getItem, onChange(settled), overlay(ctx, item, pxPerMM), sizeMM, render, frontRect, frameDraw
+// (frameDraw: coalesce redraws to one per animation frame).
 class Preview {
   constructor(canvas, stage, { getItem, onChange, overlay, sizeMM = outMM, render = renderItem, frontRect = (item, W, H) => ({ x: 0, y: 0, w: W, h: H }), frameDraw = false }) {
     Object.assign(this, { canvas, stage, getItem, onChange, overlay, sizeMM, render, frontRect, frameDraw });
