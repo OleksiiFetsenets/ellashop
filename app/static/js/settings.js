@@ -25,7 +25,7 @@ const storageCellRow = (body, cells) => {
 // #auto-finished is in hours, the other inputs in days.
 const storageNumber = (selector, minimum = 0) => {
   const input = $(selector), value = Number(input.value);
-  const maximum = Number(input.max) || 3650, unit = selector === '#auto-finished' || selector === '#storage-finished-days' ? t('settings_hours') : t('settings_days');
+  const maximum = Number(input.max) || 3650, unit = selector === '#auto-finished' ? t('settings_hours') : t('settings_days');
   if (!input.checkValidity() || input.value === '' || !Number.isInteger(value) || value < minimum || value > maximum)
     throw new Error(t('settings_number_error', unit, minimum, maximum));
   return value;
