@@ -115,10 +115,36 @@ const run = {
     await send('Input.insertText', { text: String(value) });
     return `${sel} ← ${value}`;
   },
-  async press({ key }) {
-    const code = KEYS[key] || key.toUpperCase().charCodeAt(0);
-    for (const type of ['keyDown', 'keyUp']) await send('Input.dispatchKeyEvent', { type, key, code: key, windowsVirtualKeyCode: code });
-    return key;
+  // "Mod+Mod+Key": modifiers go down (cumulative bitmask), the key is sent with the bitmask, then all are released.
+  async press({ key: combo, repeat = 1 }) {
+    for (let n = 1; n < repeat; n++) await run.press({ key: combo });
+    const parts = combo.split('+'), key = parts.pop(), mods = parts;
+    const bit = { Alt: 1, Ctrl: 2, Control: 2, Meta: 4, Cmd: 4, Shift: 8 };
+    const info = { Alt: ['Alt', 'AltLeft', 18], Ctrl: ['Control', 'ControlLeft', 17], Control: ['Control', 'ControlLeft', 17],
+      Meta: ['Meta', 'MetaLeft', 91], Cmd: ['Meta', 'MetaLeft', 91], Shift: ['Shift', 'ShiftLeft', 16] };
+    for (const m of mods) if (!bit[m]) throw new Error(`unknown modifier ${m} in ${combo}`);
+    const shift = mods.includes('Shift');
+    let mask = 0;
+    for (const m of mods) {
+      mask |= bit[m];
+      const [k, code, vk] = info[m];
+      await send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: k, code, windowsVirtualKeyCode: vk, modifiers: mask });
+    }
+    const named = KEYS[key], single = key.length === 1;
+    const code = single ? (/[a-z]/i.test(key) ? `Key${key.toUpperCase()}` : /\d/.test(key) ? `Digit${key}` : { '=': 'Equal', '-': 'Minus', ' ': 'Space', '+': 'Equal' }[key] || key) : key;
+    const vk = named || (single ? key.toUpperCase().charCodeAt(0) : 0);
+    const shown = single && shift ? key.toUpperCase() : key;
+    // Text is only sent for a plain printable key (no Ctrl/Meta/Alt), like a real keyboard.
+    const text = single && !(mask & 7) ? shown : undefined;
+    const ev = { key: shown, code, windowsVirtualKeyCode: vk, modifiers: mask };
+    await send('Input.dispatchKeyEvent', { type: text ? 'keyDown' : 'rawKeyDown', ...ev, ...(text ? { text } : {}) });
+    await send('Input.dispatchKeyEvent', { type: 'keyUp', ...ev });
+    for (const m of mods.reverse()) {
+      const [k, c, v] = info[m];
+      mask &= ~bit[m];
+      await send('Input.dispatchKeyEvent', { type: 'keyUp', key: k, code: c, windowsVirtualKeyCode: v, modifiers: mask });
+    }
+    return combo;
   },
   async eval({ expr }) { return JSON.stringify(await evaluate(expr)) ?? 'undefined'; },
   async sleep({ ms }) { await sleep(ms); return `${ms} ms`; },

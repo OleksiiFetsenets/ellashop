@@ -34,6 +34,13 @@ SERVER=$!
 trap 'kill $SERVER 2>/dev/null; wait $SERVER 2>/dev/null' EXIT
 for _ in $(seq 1 40); do curl -s -m1 http://localhost:$PORT/api/version >/dev/null && break; sleep 0.25; done
 status=0
+# Unit tests for the pure maths (fast, no browser). A directory argument breaks on Node 24, hence the glob.
+echo "== unit tests ($(ls tests/unit/*.test.mjs | xargs -n1 basename | tr '\n' ' '))"
+if node --test "tests/unit/*.test.mjs" > "$DATA/unit.log" 2>&1; then
+  echo "   passed ($(grep -E '^ℹ (tests|pass|fail) ' "$DATA/unit.log" | tr '\n' ' '))"
+else
+  status=1; grep -E '^ℹ (tests|pass|fail) |^✖' "$DATA/unit.log" | sed 's/^/   /'; echo "   log: $DATA/unit.log"
+fi
 for flow in tests/ui/*.json; do
   make_photos
   echo "== $(basename "$flow")"
