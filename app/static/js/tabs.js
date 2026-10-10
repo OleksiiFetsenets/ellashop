@@ -1,10 +1,15 @@
-'use strict';
 // Handles incoming photos and navigation between the photo tabs. Switching a tab asks every registered
 // workspace to leave() and then activate() (workspaces.js); it names no page.
-// Loads before the page scripts that add and edit photos.
+// Used by the page modules that add and edit photos.
+
+import { t } from './i18n.js';
+import { $, $$ } from './dom.js';
+import { Workspaces } from './workspaces.js';
+import { updateUndoButtons } from './history.js';
+import { orderName } from './app-state.js';
 
 // Text for the tilt readout next to the adjust controls.
-const tiltLabel = item => t('common_tilt', item ? item.tilt.toFixed(1) : '0.0');
+export const tiltLabel = item => t('common_tilt', item ? item.tilt.toFixed(1) : '0.0');
 
 // Names of the files in photos/incoming, or null (after telling the user) when it is empty.
 async function fetchIncoming() {
@@ -14,7 +19,7 @@ async function fetchIncoming() {
 }
 
 // Small picker dialog for photos/incoming; resolves with the chosen file names ([] if cancelled).
-async function pickIncoming(multiple) {
+export async function pickIncoming(multiple) {
   const names = await fetchIncoming(); if (!names) return [];
   return new Promise(resolve => {
     const dlg = document.createElement('dialog');

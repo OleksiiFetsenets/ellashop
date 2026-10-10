@@ -1,6 +1,5 @@
-'use strict';
 // Manages passport cutouts, face alignment, sheet previews, and export.
-// Loads after Canvas and before shared keyboard controls. Registers itself as a workspace (workspaces.js).
+// Registers itself as a workspace (workspaces.js).
 // ---------------------------------------------------------------- passport
 //
 // Moved out of this file (the old copies are gone):
@@ -10,7 +9,22 @@
 //   Stage overlay (guide bands)            → PhotoEditor.passportRule(preset).guides
 //   ppAutoAlign maths / cutoutCrown        → PhotoEditor.passportRule(preset).align / crownFromCutout
 
-const pp = { jobs: [], active: null, guides: true, queue: [], running: false };
+import { $, $$, setStatus } from './dom.js';
+import { PASSPORT, customSizeControl, formatById } from './config.js';
+import { PhotoSheet } from './photo-sheet.js';
+import { t } from './i18n.js';
+import { PhotoEditor } from './photo-editor.js';
+import { pickIncoming, tiltLabel } from './tabs.js';
+import { queueSave } from './orders.js';
+import { PhotoUI } from './photo-ui.js';
+import { PhotoRender } from './photo-render.js';
+import { baseName, densityControl, loadImage } from './assets.js';
+import { setSeg, wireDrop, wireSeg } from './ui.js';
+import { itemState, uploadPhoto, workspaceUrl, workspaces } from './app-state.js';
+import { AppConfig } from './app-config.js';
+import { Workspaces } from './workspaces.js';
+
+export const pp = { jobs: [], active: null, guides: true, queue: [], running: false };
 let nextJobId = 1;
 
 $('#pp-size').innerHTML = PASSPORT.map(p => {
@@ -47,7 +61,7 @@ function passportSheet(job) {
 }
 
 // Draw the job's sheet at print quality; also called from tests/ui/*.json.
-function renderSheet(job) {
+export function renderSheet(job) {
   const sheet = passportSheet(job);
   return { sheet: PhotoRender.renderSheet(sheet), count: sheet.root.children.length };
 }

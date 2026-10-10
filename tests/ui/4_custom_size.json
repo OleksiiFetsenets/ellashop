@@ -43,7 +43,7 @@
  },
  {
   "op": "eval",
-  "expr": "(()=>{if (prints.item.fmt.id !== 'custom-125x175') throw Error('Custom prints size was not applied'); return 'ok'})()"
+  "expr": "(()=>{if (ellashop.prints.item.fmt.id !== 'custom-125x175') throw Error('Custom prints size was not applied'); return 'ok'})()"
  },
  {
   "op": "click",
@@ -85,7 +85,7 @@
  },
  {
   "op": "eval",
-  "expr": "(()=>{if (canvasPrints.item.fmt.id !== 'custom-350x450') throw Error('Custom canvas size was not applied'); return 'ok'})()"
+  "expr": "(()=>{if (ellashop.canvasPrints.item.fmt.id !== 'custom-350x450') throw Error('Custom canvas size was not applied'); return 'ok'})()"
  },
  {
   "op": "click",
@@ -127,7 +127,7 @@
  },
  {
   "op": "eval",
-  "expr": "(()=>{if (pp.active.size.id !== 'custom-40x60') throw Error('Custom passport size was not applied'); return 'ok'})()"
+  "expr": "(()=>{if (ellashop.pp.active.size.id !== 'custom-40x60') throw Error('Custom passport size was not applied'); return 'ok'})()"
  },
  {
   "op": "click",
@@ -167,7 +167,7 @@
  },
  {
   "op": "eval",
-  "expr": "(()=>{const ids=[prints.item?.fmt.id,canvasPrints.item?.fmt.id,pp.active?.size.id]; if(JSON.stringify(ids)!==JSON.stringify(['custom-125x175','custom-350x450','custom-40x60'])) throw Error('Custom sizes did not restore: '+ids); return ids.join(', ')})()"
+  "expr": "(()=>{const ids=[ellashop.prints.item?.fmt.id,ellashop.canvasPrints.item?.fmt.id,ellashop.pp.active?.size.id]; if(JSON.stringify(ids)!==JSON.stringify(['custom-125x175','custom-350x450','custom-40x60'])) throw Error('Custom sizes did not restore: '+ids); return ids.join(', ')})()"
  },
  {
   "op": "assertNoErrors"

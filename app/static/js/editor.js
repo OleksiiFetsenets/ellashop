@@ -1,11 +1,15 @@
-'use strict';
 // Builds the text and sticker editor used in Prints and Canvas single view.
-// Loads after ui.js and before the tab scripts that attach its controls.
+// Its controls are attached by the tab modules.
 // Overlay ids are `o<time>-<counter>`; the counter keeps ids unique within one millisecond.
+
+import { t } from './i18n.js';
+import { NO_BOLD, OVERLAY_FONTS, STICKERS, ensureFont, localFontsReady, stickerImage } from './assets.js';
+import { PhotoEditor } from './photo-editor.js';
+import { PhotoRender } from './photo-render.js';
 let nextOverlayId = 1;
 // Create overlay controls and drag handles for the selected print frame.
 // Keep overlays anchored to the frame while the underlying photo crop moves.
-function textAndStickers(root, state, refresh, preview) {
+export function textAndStickers(root, state, refresh, preview) {
   root.innerHTML = `<h3>${t('editor_heading')}</h3>
     <div class="row"><button data-action="text">${t('editor_add_text')}</button><button data-action="palette">${t('editor_add_sticker')}</button></div>
     <div class="sticker-palette" hidden></div><p class="small palette-credit" hidden>${t('editor_credit')}</p>

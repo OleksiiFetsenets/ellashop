@@ -1,8 +1,50 @@
-'use strict';
 // Starts the browser app, restores prior work, and checks for updates.
-// Loads last after every shared helper and photo tab has initialized.
+// The entry module: index.html loads only this file and the imports below pull in everything else.
+// The side-effect imports are listed in the order the pages used to load, so workspaces still register tab by tab.
 // Updates: the server checks GitHub Releases (app/update.json) and reports here; the button
 // only appears when a newer version exists. Installing replaces code files only, then restarts.
+
+import './dom.js';
+import './i18n.js';
+import './config.js';
+import './app-config.js';
+import './workspaces.js';
+import './assets.js';
+import './app-state.js';
+import './history.js';
+import './orders.js';
+import './ui.js';
+import './editor.js';
+import './tabs.js';
+import './photo-editor.js';
+import './photo-render.js';
+import './photo-ui.js';
+import './photo-sheet.js';
+import './prints.js';
+import './canvas.js';
+import './passport.js';
+import './collage.js';
+import './settings.js';
+import './shortcuts.js';
+import { $ } from './dom.js';
+import { t } from './i18n.js';
+import { FORMATS, mm2px } from './config.js';
+import { flushOrder, listOrders, queueSave, restoreWorkspace, showOrderError, showWorkspaceError, switchOrder } from './orders.js';
+import { lastOrder, orderPicker, orderRequest, rememberOrder } from './app-state.js';
+import { Workspaces } from './workspaces.js';
+import { redo, undo } from './history.js';
+import { prints } from './prints.js';
+import { canvasPrints } from './canvas.js';
+import { pp, renderSheet } from './passport.js';
+import { cellRects, collage, collageCells, collageDpi, collageFilledLeaves, collageFirstEmpty, collageLeaf, collagePlace, collageSelect, collageSetCellFormats, collageSharedSegments, collageSheet, collageSheetMM, collageTreeDividers, refreshCollage, renderCollage } from './collage.js';
+
+// The one debug handle: the UI test journeys (tests/ui/*.json) read and drive the app through it.
+window.ellashop = {
+  prints, canvasPrints, pp, collage, orderPicker, FORMATS, mm2px, queueSave, undo, redo, renderSheet, renderCollage,
+  cellRects, collageCells, collageDpi, collageFilledLeaves, collageFirstEmpty, collageLeaf, collagePlace, collageSelect,
+  collageSetCellFormats, collageSharedSegments, collageSheet, collageSheetMM, collageTreeDividers, refreshCollage,
+};
+
 // Show the update button only when the server reports a newer release.
 async function checkUpdate() {
   try {

@@ -53,7 +53,7 @@
  },
  {
   "op": "eval",
-  "expr": "JSON.stringify({prints: prints.items.length, options: [...orderPicker.options].map(o=>o.textContent)})"
+  "expr": "JSON.stringify({prints: ellashop.prints.items.length, options: [...ellashop.orderPicker.options].map(o=>o.textContent)})"
  },
  {
   "op": "assertNoErrors"

@@ -1,10 +1,12 @@
-'use strict';
 // Provides shared drop zones, segmented buttons, measurements, and composition guides.
 // The interactive preview is PhotoEditor.Stage (photo-editor.js), which calls the drawing helpers here.
-// Loads before editor.js and the photo-tab scripts that create previews.
+// Used by editor.js and the photo tabs that create previews.
 // Make a drop zone (label + hidden file input) accept images and .zip archives; zips are unpacked by the
 // server into the incoming folder and fetched back as Files. `onFiles` receives only the image files.
-function wireDrop(label, input, onFiles) {
+
+import { setStatus } from './dom.js';
+import { t } from './i18n.js';
+export function wireDrop(label, input, onFiles) {
   const status = label.closest('.view')?.querySelector('.status');
   const receive = async files => {
     const images = [];
@@ -37,7 +39,7 @@ function wireDrop(label, input, onFiles) {
 }
 
 // Segmented button group: highlights the clicked button and passes its data-v to `onPick`.
-function wireSeg(container, onPick) {
+export function wireSeg(container, onPick) {
   container.addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
     [...container.children].forEach(x => x.classList.toggle('on', x === b));
@@ -45,12 +47,12 @@ function wireSeg(container, onPick) {
   });
 }
 // Highlight the button whose data-v is `v` (without calling any handler).
-function setSeg(container, v) { [...container.children].forEach(x => x.classList.toggle('on', x.dataset.v === v)); }
+export function setSeg(container, v) { [...container.children].forEach(x => x.classList.toggle('on', x.dataset.v === v)); }
 
 // Centimetre rulers along the top and left edges plus a faint grid, in the single-view preview only
 // (never in saved files or grid cards). Tick spacing adapts so labels never crowd (1, 2, 5 or 10 cm).
 // Draw centimetre rulers and guides over the preview without affecting export.
-function drawMeasurements(ctx, mm, pxPerMM) {
+export function drawMeasurements(ctx, mm, pxPerMM) {
   const k = devicePixelRatio, W = ctx.canvas.width, H = ctx.canvas.height, band = 18 * k;
   // Smallest label spacing (1, 2, 5 or 10 cm, in mm) that leaves at least 34 CSS px between labels.
   const step = [10, 20, 50, 100].find(s => s * pxPerMM >= 34 * k) || 100;  // mm between labels
@@ -86,7 +88,7 @@ function drawMeasurements(ctx, mm, pxPerMM) {
 // Golden ratio.
 const PHI = (1 + Math.sqrt(5)) / 2;
 // Draw the selected composition guide only over the on-screen preview.
-function drawComposition(ctx, r, type, turn) {
+export function drawComposition(ctx, r, type, turn) {
   const k = devicePixelRatio;
   ctx.save();
   ctx.beginPath(); ctx.rect(r.x, r.y, r.w, r.h); ctx.clip();

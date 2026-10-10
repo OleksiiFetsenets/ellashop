@@ -1,11 +1,17 @@
-'use strict';
 // Persists the Prints order and the independent Canvas, Passport, and Collage workspaces: debounced saves,
 // the order picker, and restoring saved state. It knows no page: every workspace is reached through the
 // registry (workspaces.js) by its state(), restore() and clear().
-// Loads after history.js; the page scripts call its save helpers (queueSave).
+// The page modules call its save helpers (queueSave).
 // Capture the edit before scheduling the matching order or workspace write.
 // `tab` defaults to the visible tab.
-function queueSave(tab = Workspaces.active().id) {
+
+import { Workspaces } from './workspaces.js';
+import { recordHistory, resetHistory } from './history.js';
+import { orderInput, orderName, orderPicker, orderRequest, orderState, orderUrl, rememberOrder, workspaceUrl, workspaces } from './app-state.js';
+import { t } from './i18n.js';
+import { loadImage } from './assets.js';
+import { $ } from './dom.js';
+export function queueSave(tab = Workspaces.active().id) {
   recordHistory(tab);
   if (!Workspaces.get(tab).order) {
     const ws = workspaces[tab];
@@ -13,8 +19,8 @@ function queueSave(tab = Workspaces.active().id) {
     ws.timer = debounceSave(tab, ws.timer, () => { ws.timer = 0; saveWorkspace(tab).catch(e => showWorkspaceError(tab, e)); });
     return;
   }
-  if (loadingOrder || !currentOrder) return;
-  saveTimer = debounceSave('prints', saveTimer, () => { saveTimer = 0; saveOrder().catch(showOrderError); });
+  if (orderState.loading || !orderState.current) return;
+  orderState.timer = debounceSave('prints', orderState.timer, () => { orderState.timer = 0; saveOrder().catch(showOrderError); });
 }
 
 // Save 600 ms after the last change, but never later than 2 s after the first unsaved one: views that
@@ -32,27 +38,27 @@ function debounceSave(key, timer, save) {
 
 // Serialize writes so a slow request cannot overwrite a newer order state.
 function saveOrder() {
-  if (!currentOrder || loadingOrder) return saveChain;
-  const id = currentOrder.id, name = orderInput.value, state = { prints: Workspaces.get('prints').state() };
+  if (!orderState.current || orderState.loading) return orderState.chain;
+  const id = orderState.current.id, name = orderInput.value, state = { prints: Workspaces.get('prints').state() };
   // Chained so writes run in order; one failed write must not block the next.
-  saveChain = saveChain.catch(() => {}).then(async () => {
+  orderState.chain = orderState.chain.catch(() => {}).then(async () => {
     const data = await orderRequest(`/api/orders/${id}/state`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, state }),
     });
     // Apply the server's reply only if the user has not switched order or renamed it meanwhile.
-    if (currentOrder?.id === id && orderInput.value === name) { currentOrder = data; updateOrderPicker(); }
+    if (orderState.current?.id === id && orderInput.value === name) { orderState.current = data; updateOrderPicker(); }
   });
-  return saveChain;
+  return orderState.chain;
 }
 
 // Finish pending order writes before switching to another order.
-async function flushOrder() {
-  clearTimeout(saveTimer); saveTimer = 0;
+export async function flushOrder() {
+  clearTimeout(orderState.timer); orderState.timer = 0;
   await saveOrder();
 }
 
-function showOrderError(error) { Workspaces.get('prints').status(error.message, true); }
-function showWorkspaceError(tab, error) { Workspaces.get(tab).status(error.message, true); }
+export function showOrderError(error) { Workspaces.get('prints').status(error.message, true); }
+export function showWorkspaceError(tab, error) { Workspaces.get(tab).status(error.message, true); }
 
 // Persist Canvas, Passport, and Collage independently of the selected Prints order.
 function saveWorkspace(tab) {
@@ -70,16 +76,16 @@ function saveWorkspace(tab) {
 }
 
 // Keep the dropdown entry of the open order in step with its name and photo count.
-function updateOrderPicker() {
-  if (!currentOrder) return;
-  let option = orderPicker.querySelector(`option[value="${currentOrder.id}"]`);
-  if (!option) { option = document.createElement('option'); option.value = currentOrder.id; orderPicker.append(option); }
+export function updateOrderPicker() {
+  if (!orderState.current) return;
+  let option = orderPicker.querySelector(`option[value="${orderState.current.id}"]`);
+  if (!option) { option = document.createElement('option'); option.value = orderState.current.id; orderPicker.append(option); }
   const count = Workspaces.get('prints').count();
-  option.textContent = t('order_picker_count', count, currentOrder.name || currentOrder.folder);
-  orderPicker.value = currentOrder.id;
+  option.textContent = t('order_picker_count', count, orderState.current.name || orderState.current.folder);
+  orderPicker.value = orderState.current.id;
 }
 
-async function listOrders() {
+export async function listOrders() {
   const orders = await orderRequest('/api/orders');
   orderPicker.replaceChildren();
   for (const order of orders) {
@@ -92,31 +98,31 @@ async function listOrders() {
 }
 
 // Empty a Canvas/Passport/Collage tab in the UI only.
-function clearTab(tab) { Workspaces.get(tab).clear(); }
+export function clearTab(tab) { Workspaces.get(tab).clear(); }
 
 // Save the outgoing order, restore the selected one, and reset its history.
-// `flush` is false when the previous order was just saved or deleted. A newer switch bumps orderEpoch,
-// which makes this call stop after any await (and loadingOrder blocks saves until the order is loaded).
-async function switchOrder(id, flush = true) {
+// `flush` is false when the previous order was just saved or deleted. A newer switch bumps orderState.epoch,
+// which makes this call stop after any await (and orderState.loading blocks saves until the order is loaded).
+export async function switchOrder(id, flush = true) {
   if (flush) await flushOrder();
-  const epoch = ++orderEpoch, ws = Workspaces.get('prints');
-  loadingOrder = true;
-  currentOrder = null;
+  const epoch = ++orderState.epoch, ws = Workspaces.get('prints');
+  orderState.loading = true;
+  orderState.current = null;
   ws.clear();
   const order = await orderRequest(`/api/orders/${id}`);
-  if (epoch !== orderEpoch) return;
-  currentOrder = order;
+  if (epoch !== orderState.epoch) return;
+  orderState.current = order;
   orderInput.value = order.name;
   orderInput.placeholder = order.folder;
   await ws.restore(order.state?.prints || {}, { source: 'disk', imageFor: file => loadImage(orderUrl(id, file)) });
-  loadingOrder = false;
+  orderState.loading = false;
   rememberOrder(id); updateOrderPicker();
   queueSave(ws.id);
   resetHistory(ws.id);
 }
 
 // Recreate a workspace from its separately persisted state.
-async function restoreWorkspace(tab) {
+export async function restoreWorkspace(tab) {
   // ws.epoch is bumped per restore (and per clear) so a slower, older restore cannot overwrite a newer one;
   // ws.loading blocks saves until the restore finishes.
   const ws = workspaces[tab], epoch = ++ws.epoch;
@@ -129,7 +135,7 @@ async function restoreWorkspace(tab) {
   } finally { if (epoch === ws.epoch) { ws.loading = false; resetHistory(tab); } }
 }
 
-orderInput.addEventListener('input', () => { if (currentOrder) { currentOrder.name = orderInput.value; currentOrder.folder = orderName(); queueSave(); updateOrderPicker(); } });
+orderInput.addEventListener('input', () => { if (orderState.current) { orderState.current.name = orderInput.value; orderState.current.folder = orderName(); queueSave(); updateOrderPicker(); } });
 orderPicker.addEventListener('change', async () => {
   const id = orderPicker.value;
   try { await switchOrder(id); } catch (e) { showOrderError(e); }
@@ -142,11 +148,11 @@ $('#new-order').addEventListener('click', async () => {
   } catch (e) { showOrderError(e); }
 });
 $('#delete-order').addEventListener('click', async () => {
-  if (!currentOrder || !confirm(t('order_delete_confirm', currentOrder.name || currentOrder.folder))) return;
+  if (!orderState.current || !confirm(t('order_delete_confirm', orderState.current.name || orderState.current.folder))) return;
   try {
-    clearTimeout(saveTimer); await saveChain;
-    await orderRequest(`/api/orders/${currentOrder.id}/delete`, { method: 'POST' });
-    currentOrder = null;
+    clearTimeout(orderState.timer); await orderState.chain;
+    await orderRequest(`/api/orders/${orderState.current.id}/delete`, { method: 'POST' });
+    orderState.current = null;
     const orders = await listOrders();
     const next = orders[0] || await orderRequest('/api/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
     await switchOrder(next.id, false);
@@ -154,11 +160,11 @@ $('#delete-order').addEventListener('click', async () => {
 });
 // On close/reload write the latest state synchronously-enough: sendBeacon, or a keepalive fetch if the beacon is refused.
 window.addEventListener('pagehide', () => {
-  if (currentOrder) {
-    clearTimeout(saveTimer);
+  if (orderState.current) {
+    clearTimeout(orderState.timer);
     const body = JSON.stringify({ name: orderInput.value, state: { prints: Workspaces.get('prints').state() } });
-    if (!navigator.sendBeacon?.(`/api/orders/${currentOrder.id}/state`, new Blob([body], { type: 'application/json' })))
-      fetch(`/api/orders/${currentOrder.id}/state`, { method: 'POST', body, keepalive: true });
+    if (!navigator.sendBeacon?.(`/api/orders/${orderState.current.id}/state`, new Blob([body], { type: 'application/json' })))
+      fetch(`/api/orders/${orderState.current.id}/state`, { method: 'POST', body, keepalive: true });
   }
   for (const ws of Workspaces.standalone()) {
     clearTimeout(workspaces[ws.id].timer);

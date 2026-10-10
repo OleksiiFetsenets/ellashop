@@ -1,7 +1,6 @@
-'use strict';
 // The registry of workspaces (Prints, Canvas, Passport, Collage). Base scripts (history, orders, tabs, assets)
 // loop over it and never name a page; each page registers itself at the end of its own file.
-// Loads before the base scripts and the pages. A page only talks to another page through that page's `api`.
+// A page only talks to another page through that page's `api`.
 //
 // Contract of a workspace:
 //   id        'prints' | 'canvas' | 'passport' | 'collage'  (also the key of its history and saved state)
@@ -21,7 +20,7 @@
 //   count()   number of photos
 //   status(message, isError)  show a message in the workspace's status line
 //   api       the only functions other pages may call
-const Workspaces = (() => {
+export const Workspaces = (() => {
   const list = [];
   return {
     register(ws) { list.push(ws); return ws; },

@@ -1,10 +1,23 @@
-'use strict';
 // Manages Prints photos, face-aware crop placement, grids, and export.
-// Loads after shared UI and storage helpers, before Canvas and Passport. Registers itself as a workspace
+// Registers itself as a workspace
 // (workspaces.js): the base scripts reach it only through the registry.
 // ---------------------------------------------------------------- prints
 
-const prints = {
+import { FORMATS, customSizeControl, fmtLabel, formatById } from './config.js';
+import { $, $$, setStatus } from './dom.js';
+import { PhotoUI } from './photo-ui.js';
+import { AppConfig } from './app-config.js';
+import { PhotoEditor } from './photo-editor.js';
+import { itemState, orderName, orderState, storedSource } from './app-state.js';
+import { queueSave, updateOrderPicker } from './orders.js';
+import { PhotoRender } from './photo-render.js';
+import { baseName, densityControl, densityLabel, loadImage } from './assets.js';
+import { t } from './i18n.js';
+import { wireDrop, wireSeg } from './ui.js';
+import { pickIncoming } from './tabs.js';
+import { Workspaces } from './workspaces.js';
+
+export const prints = {
   items: [],
   sel: null,
   lastFmt: FORMATS[0],
@@ -40,22 +53,22 @@ function faceOverlay(ctx, item) {
 function runFaceQueue() {
   while (prints.faceRunning < 2 && prints.faceQueue.length) {
     // epoch: if the order changed while detecting, the result belongs to a stale list and is dropped.
-    const item = prints.faceQueue.shift(), epoch = orderEpoch;
+    const item = prints.faceQueue.shift(), epoch = orderState.epoch;
     if (!prints.items.includes(item)) continue;
     prints.faceRunning++;
     (async () => {
       try {
         const faces = await PhotoEditor.detectFaces(item);
-        if (epoch !== orderEpoch || !prints.items.includes(item)) return;
+        if (epoch !== orderState.epoch || !prints.items.includes(item)) return;
         item.faces = faces;
         if (item.smartPending) autoPlace(item);
       } catch (e) {
-        if (epoch !== orderEpoch || !prints.items.includes(item)) return;
+        if (epoch !== orderState.epoch || !prints.items.includes(item)) return;
         item.faces = []; item.faceError = e.message;
         if (item.smartPending) autoPlace(item);
       } finally {
         item.smartPending = false; prints.faceRunning--;
-        if (epoch === orderEpoch && prints.items.includes(item)) refreshPrints();
+        if (epoch === orderState.epoch && prints.items.includes(item)) refreshPrints();
         runFaceQueue();
       }
     })();
@@ -110,12 +123,12 @@ function refreshPrints() {
 
 async function addPrints(sources) {
   await AppConfig.ready;
-  const id = currentOrder?.id, epoch = orderEpoch;
+  const id = orderState.current?.id, epoch = orderState.epoch;
   for (const source of sources) {
     try {
       const { src, name, file } = await storedSource(source, id);
       const img = await loadImage(src);
-      if (epoch !== orderEpoch) return;
+      if (epoch !== orderState.epoch) return;
       // faces: null = detection pending, undefined = detection unavailable. smartPending: auto-place once faces are known.
       const it = PhotoEditor.newItem(img, name, { fmt: prints.lastFmt, blur: 'motion', strength: 50,
         file, faces: facesAvailable() ? null : undefined, smartPending: $('#prints-smart').checked, auto: '' });

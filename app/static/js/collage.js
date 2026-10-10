@@ -1,6 +1,5 @@
-'use strict';
 // Places different photos into the cells of printable sheets.
-// Loads after Passport and before shared keyboard controls.
+// Registers itself as a workspace (workspaces.js).
 // Collage = the shared photo editor + packing. Everything done to ONE photo in a cell (fill mode, rotate,
 // zoom, reset, tilt, pan, wheel zoom, painting the cell) comes from PhotoEditor / PhotoUI / PhotoRender;
 // this file keeps only the packing: sheets, layouts, cells, dividers and magnet, shapes, the photo pool,
@@ -20,7 +19,21 @@
 // Registers itself as a workspace (workspaces.js); "Move to Canvas" goes through the Canvas workspace's api.
 // ---------------------------------------------------------------- collage
 
-const collage ={ photos: [], sheets: [], active: 0, sel: null, view: 'sheet' };
+import { $, $$, setStatus } from './dom.js';
+import { PhotoUI } from './photo-ui.js';
+import { PhotoSheet } from './photo-sheet.js';
+import { CANVAS_DPI, CANVAS_FORMATS, COLLAGE_PAPERS, DPI, FORMATS, customFormatId, customSizeControl, fmtLabel, formatById } from './config.js';
+import { queueSave, showWorkspaceError } from './orders.js';
+import { t } from './i18n.js';
+import { PhotoEditor } from './photo-editor.js';
+import { PhotoRender } from './photo-render.js';
+import { densityControl, loadImage } from './assets.js';
+import { setSeg, wireDrop, wireSeg } from './ui.js';
+import { pickIncoming } from './tabs.js';
+import { itemState, storedSource, workspaceUrl } from './app-state.js';
+import { Workspaces } from './workspaces.js';
+
+export const collage ={ photos: [], sheets: [], active: 0, sel: null, view: 'sheet' };
 
 {
   const view = $('#collage'), slot = name => view.querySelector(`[data-ui="${name}"]`);
@@ -37,18 +50,18 @@ try { collageMagnet = localStorage.getItem('ellashop-collage-magnet') !== 'off';
 const COLLAGE_SMALL_SIZES = [
   { id: '5x7.5', w: 50, h: 75 }, { id: '6x9', w: 60, h: 90 }, { id: '7x10', w: 70, h: 100 },
 ];
-const collageCells = new WeakMap();
+export const collageCells = new WeakMap();
 let collageShownSheet = null, collageShownLeaves = [];
 
-const collageSheet = () => collage.sheets[collage.active] || null;
+export const collageSheet = () => collage.sheets[collage.active] || null;
 // Forwards to PhotoSheet that apply the active sheet by default (also called from tests/ui/*.json).
-const cellRects = (sheet = collageSheet()) => PhotoSheet.cellRects(sheet);
-const collageSetCellFormats = (sheet = collageSheet()) => PhotoSheet.setCellFormats(sheet);
+export const cellRects = (sheet = collageSheet()) => PhotoSheet.cellRects(sheet);
+export const collageSetCellFormats = (sheet = collageSheet()) => PhotoSheet.setCellFormats(sheet);
 // Forwards used only by tests/ui/*.json.
-const collageSheetMM = sheet => PhotoSheet.sheetMM(sheet);
-const collageLeaf = item => PhotoSheet.leaf(item);
-const collageSharedSegments = rects => PhotoSheet.sharedSegments(rects);
-const collageTreeDividers = sheet => PhotoSheet.treeDividers(sheet);
+export const collageSheetMM = sheet => PhotoSheet.sheetMM(sheet);
+export const collageLeaf = item => PhotoSheet.leaf(item);
+export const collageSharedSegments = rects => PhotoSheet.sharedSegments(rects);
+export const collageTreeDividers = sheet => PhotoSheet.treeDividers(sheet);
 function collageSavedId(id) {
   const match = /^sheet-(\d+)$/.exec(id || '');
   if (match) nextCollageSheetId = Math.max(nextCollageSheetId, Number(match[1]) + 1);
@@ -139,7 +152,7 @@ function collagePhotoForItem(item) {
   return item && collage.photos.find(photo => photo.file && photo.file === item.file);
 }
 
-function collagePlace(photo, leaf, sheet = collageSheet()) {
+export function collagePlace(photo, leaf, sheet = collageSheet()) {
   if (!photo || !leaf || !sheet) return;
   const rect = cellRects(sheet).find(r => r.leaf === leaf);
   if (!rect) return;
@@ -147,10 +160,10 @@ function collagePlace(photo, leaf, sheet = collageSheet()) {
   collage.sel = leaf;
 }
 
-function collageFirstEmpty(sheet = collageSheet()) { return cellRects(sheet).find(r => !r.leaf.item)?.leaf || null; }
-function collageFilledLeaves(sheet = collageSheet()) { return cellRects(sheet).filter(r => r.leaf.item).map(r => r.leaf); }
+export function collageFirstEmpty(sheet = collageSheet()) { return cellRects(sheet).find(r => !r.leaf.item)?.leaf || null; }
+export function collageFilledLeaves(sheet = collageSheet()) { return cellRects(sheet).filter(r => r.leaf.item).map(r => r.leaf); }
 
-function collageSelect(leaf) {
+export function collageSelect(leaf) {
   collage.sel = leaf;
   for (const node of $('#collage-sheet').querySelectorAll('.collage-cell'))
     node.classList.toggle('selected', node._leaf === leaf);
@@ -469,7 +482,7 @@ function renderCollageSizes() {
   $('#collage-sizes').innerHTML = buttons.join('') || `<span class="small">${t('collage_no_preset_fits')}</span>`;
 }
 
-function refreshCollage() {
+export function refreshCollage() {
   if (!collage.sheets.length) collage.sheets.push(collageDefaultSheet());
   collage.active = Math.max(0, Math.min(collage.active, collage.sheets.length - 1));
   if (!collage.sel || !PhotoSheet.treeLeaves(collageSheet().root).includes(collage.sel)) collage.sel = PhotoSheet.treeLeaves(collageSheet().root)[0] || null;
@@ -702,14 +715,14 @@ function confirmCollageEmpty(sheet, action = 'save') {
   return !empty || confirm(t(action === 'move' ? 'collage_empty_cells_move' : 'collage_empty_cells_save', empty));
 }
 
-function collageDpi(sheet) {
+export function collageDpi(sheet) {
   const paper = PhotoSheet.sheetMM(sheet);
   return Math.max(paper.w, paper.h) > 300 ? CANVAS_DPI : DPI;
 }
 
 // Cut lines help trim a printed sheet; a canvas is one print, so Move to Canvas leaves them out.
 // Also called from tests/ui/*.json.
-async function renderCollage(sheet, { cutLines = sheet.cutLines } = {}) {
+export async function renderCollage(sheet, { cutLines = sheet.cutLines } = {}) {
   return PhotoRender.renderSheet(sheet, { dpi: collageDpi(sheet), cutLines, cellRects: cellRects(sheet) });
 }
 

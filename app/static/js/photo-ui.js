@@ -1,4 +1,3 @@
-'use strict';
 // Shared page UI: the controls every photo page repeats (drop zone, photo list, grid/single view bar,
 // stage, orientation, fill mode, blur, adjust row, measurements, composition guides, save buttons,
 // status) built once from a page prefix, plus the wiring that connects them to the Photo Editor
@@ -21,7 +20,16 @@
 //   PhotoUI.tabs                          ← collage.js renderCollageTabs and passport.js ppTabs
 //   wireDrop, wireSeg, setSeg             ← reused from ui.js as they are
 
-const PhotoUI = (() => {
+import { applyStrings, t } from './i18n.js';
+import { $, setStatus } from './dom.js';
+import { PhotoEditor } from './photo-editor.js';
+import { setSeg } from './ui.js';
+import { tiltLabel } from './tabs.js';
+import { PhotoRender } from './photo-render.js';
+import { assetVersion } from './assets.js';
+import { queueSave } from './orders.js';
+
+export const PhotoUI = (() => {
   // Parse an HTML string into a DocumentFragment.
   const html = s => { const tpl = document.createElement('template'); tpl.innerHTML = s.trim(); return tpl.content; };
   // localStorage wrapper that never throws (private mode, blocked storage).

@@ -1,9 +1,8 @@
-'use strict';
 // Server capabilities (/api/config): which optional features are installed (face detection, offline
 // background removal). Pages read AppConfig.data and subscribe with onChange; nobody writes into a page.
-// Loads before the pages; adding photos waits for AppConfig.ready.
+// Imported by the pages; adding photos waits for AppConfig.ready.
 
-const AppConfig = (() => {
+export const AppConfig = (() => {
   const listeners = [];
   let loaded = false;
   const self = {

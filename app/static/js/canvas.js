@@ -1,8 +1,20 @@
-'use strict';
 // Manages Canvas crops, blurred wrap previews, and printed output.
 // Shared controls come from PhotoUI; editing from PhotoEditor; drawing and saving from PhotoRender.
 // Registers itself as a workspace (workspaces.js); other pages use only its `api` (addRendered).
 // ---------------------------------------------------------------- canvas
+
+import { $, $$, setStatus } from './dom.js';
+import { PhotoUI } from './photo-ui.js';
+import { CANVAS_DPI, CANVAS_FORMATS, customSizeControl, fmtLabel, formatById } from './config.js';
+import { t } from './i18n.js';
+import { baseName, densityControl, densityLabel, loadImage } from './assets.js';
+import { PhotoEditor } from './photo-editor.js';
+import { PhotoRender } from './photo-render.js';
+import { queueSave } from './orders.js';
+import { itemState, storedSource, uploadPhoto, workspaces } from './app-state.js';
+import { wireDrop, wireSeg } from './ui.js';
+import { pickIncoming } from './tabs.js';
+import { Workspaces } from './workspaces.js';
 
 {
   const view = $('#canvas-view'), slot = name => view.querySelector(`[data-ui="${name}"]`);
@@ -15,7 +27,7 @@
   PhotoUI.mount(slot('save'), PhotoUI.saveActions('canvas', { one: 'page_save_this_canvas' }));
 }
 
-const canvasPrints = {
+export const canvasPrints = {
   items: [], sel: null,
   last: { fmt: CANVAS_FORMATS[0], orient: 'auto', wrap: 5, blur: 'motion', strength: 50, marks: false },
   get item() { return this.items.find(i => i === this.sel) || null; },

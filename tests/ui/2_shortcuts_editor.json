@@ -78,7 +78,7 @@
  },
  {
   "op": "eval",
-  "expr": "JSON.stringify({undoDisabled: document.querySelector('#undo').disabled, prints: prints.items.length, overlays: (prints.item && prints.item.overlays || []).length, pp: pp.jobs.length})"
+  "expr": "JSON.stringify({undoDisabled: document.querySelector('#undo').disabled, prints: ellashop.prints.items.length, overlays: (ellashop.prints.item && ellashop.prints.item.overlays || []).length, pp: ellashop.pp.jobs.length})"
  },
  {
   "op": "assertNoErrors"

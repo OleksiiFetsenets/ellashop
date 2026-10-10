@@ -1,7 +1,6 @@
-'use strict';
 // Render engine and export: draws an edited item (photo, background, overlays) at preview or print
 // quality and saves it as a JPEG with the real DPI. Pages and the Photo Editor call this; it never
-// touches page controls. Loads after photo-editor.js (coordinates) and assets.js (font/sticker loaders).
+// touches page controls. Uses photo-editor.js (coordinates) and assets.js (font/sticker loaders).
 //
 // Moved here from (the old copies are gone):
 //   PhotoRender.drawRotated                     ← render.js drawRotated
@@ -19,8 +18,16 @@
 //                                                 savePassport (linked cells, 'full' cut lines)
 //   PhotoRender.exportAll                       ← prints.js #save-all, canvas.js / passport.js save-all loops
 
-const PhotoRender = (() => {
-  const { srcDims, outMM, placement } = PhotoEditor;
+import { PhotoEditor } from './photo-editor.js';
+import { OVERLAY_FONTS, ensureFont, fontReady, fontStack, fontWeight, readyOverlays, stickerImage } from './assets.js';
+import { DPI, mm2px } from './config.js';
+import { t } from './i18n.js';
+import { PhotoSheet } from './photo-sheet.js';
+
+export const PhotoRender = (() => {
+  // photo-editor.js and this file import each other; resolve at call time so load order does not matter.
+  const srcDims = (...a) => PhotoEditor.srcDims(...a), outMM = (...a) => PhotoEditor.outMM(...a),
+    placement = (...a) => PhotoEditor.placement(...a);
 
   // ------------------------------------------------------------ photo
 

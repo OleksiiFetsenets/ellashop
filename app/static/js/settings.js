@@ -1,7 +1,13 @@
-'use strict';
 // Builds the storage, cleanup, and background-helper settings panel.
-// Loads after the page scripts have registered their workspaces (workspaces.js): the Clear buttons are built from the registry.
+// The Clear buttons are built from the workspace registry (workspaces.js), so main.js imports it after the pages.
 // ---------------------------------------------------------------- storage
+
+import { $, $$, setStatus } from './dom.js';
+import { t } from './i18n.js';
+import { orderRequest, orderState, workspaces } from './app-state.js';
+import { clearTab, flushOrder, listOrders, showWorkspaceError, switchOrder, updateOrderPicker } from './orders.js';
+import { Workspaces } from './workspaces.js';
+import { resetHistory } from './history.js';
 
 const storageDialog = $('#storage-dialog');
 let storageData = null;
@@ -91,7 +97,7 @@ $$('[data-clean]').forEach(button => button.addEventListener('click', async () =
     // Preview of what the server will delete: items older than the cutoff (86400000 ms = 1 day); the
     // open order is always kept.
     const cutoff = Date.now() - days * 86400000;
-    const keep = currentOrder?.id;
+    const keep = orderState.current?.id;
     let items;
     if (target === 'orders') {
       items = storageData.orders.items.filter(order => order.id !== keep && new Date(order.updated).getTime() < cutoff);
@@ -165,7 +171,7 @@ $('#full-clean').addEventListener('click', async () => {
     if (!confirm(t('settings_full_clean_confirm', d.incoming.files, d.orders.items.length, d.orders.photos, workFiles, d.print_ready.files, storageSize(total)))) return;
     button.disabled = true;
     // Freeze every writer first (timers, epochs, loading flags) so no autosave recreates files while they are deleted.
-    clearTimeout(saveTimer); saveTimer = 0; ++orderEpoch; loadingOrder = true; currentOrder = null;
+    clearTimeout(orderState.timer); orderState.timer = 0; ++orderState.epoch; orderState.loading = true; orderState.current = null;
     for (const { id: tab } of Workspaces.standalone()) {
       const w = workspaces[tab];
       clearTimeout(w.timer); w.timer = 0;

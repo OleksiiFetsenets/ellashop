@@ -1,4 +1,3 @@
-'use strict';
 // Shared photo editor: crop, fit, zoom, pan, rotate, coordinates, overlays and history for one item.
 // Pages (Prints, Canvas, Passport, Collage) call this instead of keeping their own copies.
 // Loaded by index.html after assets.js, ui.js, editor.js and tabs.js.
@@ -19,7 +18,13 @@
 //   PhotoEditor.attachOverlays                   ← editor.js textAndStickers (as used by prints.js)
 //   PhotoEditor.History                          ← history.js recordHistory / commitHistory / undo / redo
 
-const PhotoEditor = (() => {
+import { PASSPORT } from './config.js';
+import { t } from './i18n.js';
+import { PhotoRender } from './photo-render.js';
+import { drawComposition, drawMeasurements } from './ui.js';
+import { textAndStickers } from './editor.js';
+
+export const PhotoEditor = (() => {
   // ------------------------------------------------------------ coordinates
 
   // Source size after the 90° rotation steps.

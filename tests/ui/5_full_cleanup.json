@@ -15,6 +15,6 @@
  {"op": "eval", "expr": "window.confirm = () => true; 'confirm auto-accepted'"},
  {"op": "click", "sel": "#full-clean"},
  {"op": "sleep", "ms": 3000},
- {"op": "eval", "expr": "fetch('/api/storage').then(r => r.json()).then(d => { const left = {finished: d.print_ready.files, orders: d.orders.items.length, orderPhotos: d.orders.photos, canvas: d.workspace.canvas.files, passport: d.workspace.passport.files, incoming: d.incoming.files}; if (left.finished || left.orderPhotos || left.canvas || left.passport || left.incoming || left.orders !== 1 || prints.items.length || canvasPrints.items.length || pp.jobs.length) throw Error('left: ' + JSON.stringify(left)); return document.querySelector('#storage-status').textContent; })"},
+ {"op": "eval", "expr": "fetch('/api/storage').then(r => r.json()).then(d => { const left = {finished: d.print_ready.files, orders: d.orders.items.length, orderPhotos: d.orders.photos, canvas: d.workspace.canvas.files, passport: d.workspace.passport.files, incoming: d.incoming.files}; if (left.finished || left.orderPhotos || left.canvas || left.passport || left.incoming || left.orders !== 1 || ellashop.prints.items.length || ellashop.canvasPrints.items.length || ellashop.pp.jobs.length) throw Error('left: ' + JSON.stringify(left)); return document.querySelector('#storage-status').textContent; })"},
  {"op": "assertNoErrors"}
 ]

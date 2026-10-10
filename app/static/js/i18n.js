@@ -1,6 +1,5 @@
-'use strict';
 // Looks up UI text from the language files (app/static/lang/<lang>/*.json, served merged as lang.js).
-// Loads right after lang.js and dom.js, so every later script can call t().
+// Every module imports t() from here; lang.js (a classic script) defines LANG and STRINGS first.
 // ---------------------------------------------------------------- i18n
 
 // Android-style placeholders: %1$s, %2$d, %3$.1f; %% is a literal percent.
@@ -22,7 +21,7 @@ const pluralRules = new Intl.PluralRules(LANG);
 const MATH_RUN = /\d+(?:\.\d+)?%?(?:\s*[×–:\/-]\s*\d+(?:\.\d+)?%?)+/g;
 const isolateMath = text => STRINGS.language_direction === 'rtl' ? text.replace(MATH_RUN, m => `\u2066${m}\u2069`) : text;
 // t('id', ...args). A plural string ({one, other, ...}) picks its form from the first argument.
-function t(id, ...args) {
+export function t(id, ...args) {
   let s = STRINGS[id];
   if (s === undefined) { console.error(`Missing string: ${id}`); return id; }
   if (typeof s === 'object') s = s[pluralRules.select(Number(args[0]))] ?? s.other;
@@ -30,7 +29,7 @@ function t(id, ...args) {
 }
 
 // Fill elements marked data-i18n (text), data-i18n-html, data-i18n-title, data-i18n-placeholder, data-i18n-aria-label.
-function applyStrings(root = document) {
+export function applyStrings(root = document) {
   const attrs = { title: 'title', placeholder: 'placeholder', 'aria-label': 'ariaLabel' };
   root.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
   root.querySelectorAll('[data-i18n-html]').forEach(el => { el.innerHTML = t(el.dataset.i18nHtml); });

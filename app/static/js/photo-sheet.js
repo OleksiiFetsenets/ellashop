@@ -1,4 +1,3 @@
-'use strict';
 // Shared sheet layout maths: paper size, cell trees, cell rectangles, templates, dividers and snapping.
 // Pure functions: no DOM, no page state. The sheet (or tree) is always passed in.
 // Loaded by index.html after photo-ui.js and before collage.js.
@@ -12,7 +11,9 @@
 //   PhotoSheet.passportLayout / passportOffsets / fromPassport
 //                                  ← passport.js sheetLayout / passportOffsets (the grid the old passport renderSheet drew)
 
-const PhotoSheet = (() => {
+import { FORMATS, SHEET } from './config.js';
+
+export const PhotoSheet = (() => {
   const sheetMM = sheet => {
     const w = sheet?.fmt?.w || FORMATS[0].w, h = sheet?.fmt?.h || FORMATS[0].h;
     return sheet?.orient === 'landscape' ? { w: h, h: w } : { w, h };

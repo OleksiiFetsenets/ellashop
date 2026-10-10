@@ -37,7 +37,7 @@
  },
  {
   "op": "eval",
-  "expr": "(()=>{for(const [id,n] of [['35x45',8],['visa',6],['ca-passport',4],['cn-visa',8]]) if(!document.querySelector('#pp-size button[data-v=\"'+id+'\"]').textContent.includes(n+' per sheet')) throw Error(id+' count'); if(pp.active.right!==5||pp.active.down!==5) throw Error('35x45 defaults'); return true})()"
+  "expr": "(()=>{for(const [id,n] of [['35x45',8],['visa',6],['ca-passport',4],['cn-visa',8]]) if(!document.querySelector('#pp-size button[data-v=\"'+id+'\"]').textContent.includes(n+' per sheet')) throw Error(id+' count'); if(ellashop.pp.active.right!==5||ellashop.pp.active.down!==5) throw Error('35x45 defaults'); return true})()"
  },
  {
   "op": "click",
@@ -45,7 +45,7 @@
  },
  {
   "op": "eval",
-  "expr": "(()=>{if(pp.active.right!==9||pp.active.down!==4||renderSheet(pp.active).count!==8) throw Error('China defaults/count'); return true})()"
+  "expr": "(()=>{if(ellashop.pp.active.right!==9||ellashop.pp.active.down!==4||ellashop.renderSheet(ellashop.pp.active).count!==8) throw Error('China defaults/count'); return true})()"
  },
  {
   "op": "type",
@@ -58,7 +58,7 @@
  },
  {
   "op": "eval",
-  "expr": "(()=>{if(pp.active.down!==4||!document.querySelector('#pp-status').textContent.includes('Down 5 mm doesn')) throw Error('China Down rejection'); return true})()"
+  "expr": "(()=>{if(ellashop.pp.active.down!==4||!document.querySelector('#pp-status').textContent.includes('Down 5 mm doesn')) throw Error('China Down rejection'); return true})()"
  },
  {
   "op": "click",
@@ -66,7 +66,7 @@
  },
  {
   "op": "eval",
-  "expr": "(()=>{if(pp.active.right!==0||pp.active.down!==5) throw Error('Canada defaults'); return true})()"
+  "expr": "(()=>{if(ellashop.pp.active.right!==0||ellashop.pp.active.down!==5) throw Error('Canada defaults'); return true})()"
  },
  {
   "op": "type",
@@ -79,7 +79,7 @@
  },
  {
   "op": "eval",
-  "expr": "(()=>{if(pp.active.down!==10) throw Error('Canada Down'); return true})()"
+  "expr": "(()=>{if(ellashop.pp.active.down!==10) throw Error('Canada Down'); return true})()"
  },
  {
   "op": "type",
@@ -92,7 +92,7 @@
  },
  {
   "op": "eval",
-  "expr": "(()=>{if(pp.active.right!==0||!document.querySelector('#pp-status').textContent.includes('Right 5 mm doesn')) throw Error('Canada Right rejection'); return true})()"
+  "expr": "(()=>{if(ellashop.pp.active.right!==0||!document.querySelector('#pp-status').textContent.includes('Right 5 mm doesn')) throw Error('Canada Right rejection'); return true})()"
  },
  {
   "op": "click",
@@ -100,7 +100,7 @@
  },
  {
   "op": "eval",
-  "expr": "(()=>{if(pp.active.right!==0||pp.active.down!==0) throw Error('VISA defaults'); return true})()"
+  "expr": "(()=>{if(ellashop.pp.active.right!==0||ellashop.pp.active.down!==0) throw Error('VISA defaults'); return true})()"
  },
  {
   "op": "type",
@@ -113,7 +113,7 @@
  },
  {
   "op": "eval",
-  "expr": "(()=>{if(pp.active.right!==0||!document.querySelector('#pp-status').textContent.includes('Right 0.5 mm doesn')) throw Error('VISA Right rejection'); return true})()"
+  "expr": "(()=>{if(ellashop.pp.active.right!==0||!document.querySelector('#pp-status').textContent.includes('Right 0.5 mm doesn')) throw Error('VISA Right rejection'); return true})()"
  },
  {
   "op": "click",
@@ -130,7 +130,7 @@
  },
  {
   "op": "eval",
-  "expr": "(async()=>{await undo('passport'); if(pp.active.right!==5) throw Error('Undo Right'); await redo('passport'); if(pp.active.right!==7) throw Error('Redo Right'); return true})()"
+  "expr": "(async()=>{await ellashop.undo('passport'); if(ellashop.pp.active.right!==5) throw Error('Undo Right'); await ellashop.redo('passport'); if(ellashop.pp.active.right!==7) throw Error('Redo Right'); return true})()"
  },
  {
   "op": "sleep",
@@ -154,7 +154,7 @@
  },
  {
   "op": "eval",
-  "expr": "(()=>{if(pp.active.right!==7||pp.active.down!==5||document.querySelector('#pp-right').value!=='7') throw Error('Reload offsets'); return true})()"
+  "expr": "(()=>{if(ellashop.pp.active.right!==7||ellashop.pp.active.down!==5||document.querySelector('#pp-right').value!=='7') throw Error('Reload offsets'); return true})()"
  },
  {
   "op": "assertNoErrors"
