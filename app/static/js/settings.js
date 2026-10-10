@@ -1,6 +1,6 @@
 'use strict';
 // Builds the storage, cleanup, and background-helper settings panel.
-// Loads before the photo-tab scripts and uses the server storage API.
+// Loads after the page scripts have registered their workspaces (workspaces.js): the Clear buttons are built from the registry.
 // ---------------------------------------------------------------- storage
 
 const storageDialog = $('#storage-dialog');
@@ -135,7 +135,7 @@ $('#storage-save').addEventListener('click', async () => {
   finally { button.disabled = false; }
 });
 
-for (const tab of ['canvas', 'passport', 'collage']) {
+for (const { id: tab } of Workspaces.standalone()) {
   $(`#${tab}-clear`).addEventListener('click', async () => {
     const label = tab === 'canvas' ? t('settings_canvas') : tab === 'collage' ? t('settings_collage') : t('settings_passport');
     if (!confirm(t('settings_clear_tab', label))) return;
@@ -143,7 +143,7 @@ for (const tab of ['canvas', 'passport', 'collage']) {
     clearTimeout(ws.timer); ws.timer = 0;
     try {
       await ws.chain;
-      // Block saves and invalidate any queued save or restore (see workspaces in render.js).
+      // Block saves and invalidate any queued save or restore (see workspaces in app-state.js).
       ws.loading = true;
       ++ws.epoch;
       await orderRequest(`/api/workspace/${tab}/clear`, { method: 'POST' });
@@ -166,7 +166,7 @@ $('#full-clean').addEventListener('click', async () => {
     button.disabled = true;
     // Freeze every writer first (timers, epochs, loading flags) so no autosave recreates files while they are deleted.
     clearTimeout(saveTimer); saveTimer = 0; ++orderEpoch; loadingOrder = true; currentOrder = null;
-    for (const tab of ['canvas', 'passport', 'collage']) {
+    for (const { id: tab } of Workspaces.standalone()) {
       const w = workspaces[tab];
       clearTimeout(w.timer); w.timer = 0;
       await w.chain.catch(() => {});
@@ -175,7 +175,7 @@ $('#full-clean').addEventListener('click', async () => {
     const result = await orderRequest('/api/storage/full-clean', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirm: 'everything' }),
     });
-    for (const tab of ['canvas', 'passport', 'collage']) { clearTab(tab); workspaces[tab].loading = false; resetHistory(tab); }
+    for (const { id: tab } of Workspaces.standalone()) { clearTab(tab); workspaces[tab].loading = false; resetHistory(tab); }
     const order = await orderRequest('/api/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
     await listOrders(); await switchOrder(order.id, false);
     await refreshStorage(false);

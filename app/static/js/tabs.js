@@ -1,6 +1,7 @@
 'use strict';
-// Handles incoming photos and navigation between the photo tabs.
-// Loads before settings.js and the tab scripts that add and edit photos.
+// Handles incoming photos and navigation between the photo tabs. Switching a tab asks every registered
+// workspace to leave() and then activate() (workspaces.js); it names no page.
+// Loads before the page scripts that add and edit photos.
 
 // Text for the tilt readout next to the adjust controls.
 const tiltLabel = item => t('common_tilt', item ? item.tilt.toFixed(1) : '0.0');
@@ -40,13 +41,11 @@ async function pickIncoming(multiple) {
 
 // Switch tab: show its view and redraw every preview, since hidden canvases cannot be sized while display:none.
 $$('.tab').forEach(t => t.addEventListener('click', () => {
-  prints.preview.overlayEditor.select(null); canvasPrints.preview.overlayEditor.select(null);
+  Workspaces.all().forEach(ws => ws.leave?.());
   $$('.tab').forEach(x => x.classList.toggle('active', x === t));
   $$('.view').forEach(v => v.classList.toggle('active', v.id === t.dataset.tab));
   $$('.prints-order-control').forEach(x => { x.hidden = t.dataset.tab !== 'prints'; });
-  prints.preview.draw(); canvasPrints.preview.draw(); pp.preview.draw(); pp.drawSheet();
-  printsGrid.update(); canvasGrid.update();
-  if (t.dataset.tab === 'collage') refreshCollage();
+  Workspaces.all().forEach(ws => ws.activate());
   updateUndoButtons();
 }));
 // Open the exports folder in the file manager: the current order's folder on Prints, the root elsewhere.

@@ -1,12 +1,13 @@
 'use strict';
-// Persists Prints orders and the independent Canvas, Passport, and Collage workspaces.
-// Loads after history.js; later tab scripts call its save and restore helpers.
-// Derived from: the Passport default offsets now come from PhotoSheet.passportOffsets (was passport.js passportOffsets).
+// Persists the Prints order and the independent Canvas, Passport, and Collage workspaces: debounced saves,
+// the order picker, and restoring saved state. It knows no page: every workspace is reached through the
+// registry (workspaces.js) by its state(), restore() and clear().
+// Loads after history.js; the page scripts call its save helpers (queueSave).
 // Capture the edit before scheduling the matching order or workspace write.
-// `tab` defaults to the visible tab (Prints for any tab not listed).
-function queueSave(tab = ({ 'canvas-view': 'canvas', passport: 'passport', collage: 'collage' })[document.querySelector('.tab.active')?.dataset.tab] || 'prints') {
+// `tab` defaults to the visible tab.
+function queueSave(tab = Workspaces.active().id) {
   recordHistory(tab);
-  if (tab !== 'prints') {
+  if (!Workspaces.get(tab).order) {
     const ws = workspaces[tab];
     if (ws.loading) return;
     ws.timer = debounceSave(tab, ws.timer, () => { ws.timer = 0; saveWorkspace(tab).catch(e => showWorkspaceError(tab, e)); });
@@ -32,7 +33,7 @@ function debounceSave(key, timer, save) {
 // Serialize writes so a slow request cannot overwrite a newer order state.
 function saveOrder() {
   if (!currentOrder || loadingOrder) return saveChain;
-  const id = currentOrder.id, name = orderInput.value, state = { prints: tabState('prints') };
+  const id = currentOrder.id, name = orderInput.value, state = { prints: Workspaces.get('prints').state() };
   // Chained so writes run in order; one failed write must not block the next.
   saveChain = saveChain.catch(() => {}).then(async () => {
     const data = await orderRequest(`/api/orders/${id}/state`, {
@@ -50,16 +51,14 @@ async function flushOrder() {
   await saveOrder();
 }
 
-function showOrderError(error) { setStatus($('#prints-status'), error.message, true); }
-function showWorkspaceError(tab, error) {
-  setStatus($(tab === 'canvas' ? '#canvas-status' : tab === 'collage' ? '#collage-status' : '#pp-status'), error.message, true);
-}
+function showOrderError(error) { Workspaces.get('prints').status(error.message, true); }
+function showWorkspaceError(tab, error) { Workspaces.get(tab).status(error.message, true); }
 
 // Persist Canvas, Passport, and Collage independently of the selected Prints order.
 function saveWorkspace(tab) {
   const ws = workspaces[tab];
   if (ws.loading) return ws.chain;
-  const state = tabState(tab), epoch = ws.epoch;
+  const state = Workspaces.get(tab).state(), epoch = ws.epoch;
   ws.chain = ws.chain.catch(() => {}).then(async () => {
     // The workspace was cleared or reloaded after this save was queued: its state is stale, skip it.
     if (epoch !== ws.epoch) return;
@@ -75,7 +74,7 @@ function updateOrderPicker() {
   if (!currentOrder) return;
   let option = orderPicker.querySelector(`option[value="${currentOrder.id}"]`);
   if (!option) { option = document.createElement('option'); option.value = currentOrder.id; orderPicker.append(option); }
-  const count = prints.items.length;
+  const count = Workspaces.get('prints').count();
   option.textContent = t('order_picker_count', count, currentOrder.name || currentOrder.folder);
   orderPicker.value = currentOrder.id;
 }
@@ -92,64 +91,28 @@ async function listOrders() {
   return orders;
 }
 
-// Empty the Prints tab (UI only; nothing is deleted from disk).
-function clearPrints() {
-  prints.items = []; prints.sel = null; prints.view = null; prints.faceQueue = [];
-  setStatus($('#prints-status'), '');
-  $('#prints-grid').replaceChildren();
-  refreshPrints();
-}
-
 // Empty a Canvas/Passport/Collage tab in the UI only.
-function clearTab(tab) {
-  if (tab === 'canvas') {
-    canvasPrints.items = []; canvasPrints.sel = null; canvasPrints.view = null;
-    setStatus($('#canvas-status'), ''); $('#canvas-grid').replaceChildren(); refreshCanvas();
-    return;
-  }
-  if (tab === 'collage') { clearCollage(); return; }
-  pp.jobs = []; pp.active = null; pp.queue = [];
-  clearTimeout(sheetTimer);
-  setStatus($('#pp-status'), ''); $('#pp-tabs').replaceChildren(); ppSyncItem();
-}
-
-// Rehydrate saved photo metadata with its stored image and format.
-async function restoreItem(saved, owner, formats, file = saved.file) {
-  if (!file) return null;
-  const img = await loadImage(owner === 'canvas' || owner === 'passport' || owner === 'collage' ? workspaceUrl(owner, file) : orderUrl(owner, file));
-  const fmt = formatById(formats, saved.fmt);
-  return PhotoEditor.newItem(img, saved.name || file, { ...saved, file: saved.file, fmt });
-}
+function clearTab(tab) { Workspaces.get(tab).clear(); }
 
 // Save the outgoing order, restore the selected one, and reset its history.
 // `flush` is false when the previous order was just saved or deleted. A newer switch bumps orderEpoch,
 // which makes this call stop after any await (and loadingOrder blocks saves until the order is loaded).
 async function switchOrder(id, flush = true) {
   if (flush) await flushOrder();
-  const epoch = ++orderEpoch;
+  const epoch = ++orderEpoch, ws = Workspaces.get('prints');
   loadingOrder = true;
   currentOrder = null;
-  clearPrints();
+  ws.clear();
   const order = await orderRequest(`/api/orders/${id}`);
   if (epoch !== orderEpoch) return;
   currentOrder = order;
   orderInput.value = order.name;
   orderInput.placeholder = order.folder;
-  const state = order.state || {};
-  for (const saved of state.prints?.items || []) {
-    try { const item = await restoreItem(saved, id, FORMATS); if (item) prints.items.push(item); }
-    catch (e) { setStatus($('#prints-status'), `${saved.name}: ${e.message}`, true); }
-  }
-  prints.sel = prints.items[state.prints?.sel] || prints.items[0] || null;
-  prints.view = state.prints?.view;
+  await ws.restore(order.state?.prints || {}, { source: 'disk', imageFor: file => loadImage(orderUrl(id, file)) });
   loadingOrder = false;
   rememberOrder(id); updateOrderPicker();
-  refreshPrints();
-  resetHistory('prints');
-  if (prints.facesAvailable) {
-    prints.faceQueue.push(...prints.items.filter(item => item.faces === null));
-    runFaceQueue();
-  }
+  queueSave(ws.id);
+  resetHistory(ws.id);
 }
 
 // Recreate a workspace from its separately persisted state.
@@ -162,32 +125,7 @@ async function restoreWorkspace(tab) {
     clearTab(tab);
     const state = await orderRequest(`/api/workspace/${tab}`);
     if (epoch !== ws.epoch) return;
-    if (tab === 'canvas') {
-      for (const saved of state.items || []) {
-        try { const item = await restoreItem(saved, tab, CANVAS_FORMATS); if (item) canvasPrints.items.push(item); }
-        catch (e) { showWorkspaceError(tab, new Error(`${saved.name}: ${e.message}`)); }
-      }
-      canvasPrints.sel = canvasPrints.items[state.sel] || canvasPrints.items[0] || null;
-      canvasPrints.view = state.view;
-      refreshCanvas();
-    } else if (tab === 'passport') {
-      for (const saved of state.jobs || []) {
-        try {
-          const size = formatById(PASSPORT, saved.size);
-          const item = await restoreItem(saved.item || {}, tab, PASSPORT, saved.cutFile || saved.file);
-          if (item) pp.jobs.push({ id: nextJobId++, file: saved.file, cutFile: saved.cutFile,
-            name: saved.name, size,
-            right: saved.right ?? PhotoSheet.passportOffsets(size).right, down: saved.down ?? PhotoSheet.passportOffsets(size).down,
-            status: saved.status === 'done' ? 'done' : 'new', face: saved.face,
-            item, error: '' });
-        } catch (e) { showWorkspaceError(tab, new Error(`${saved.name}: ${e.message}`)); }
-      }
-      pp.active = pp.jobs[state.active] || pp.jobs[0] || null;
-      ppSyncItem();
-      if (pp.config.faces) pp.jobs.filter(job => job.face === null).forEach(ppDetectFace);
-    } else {
-      await restoreCollageWorkspace(state);
-    }
+    await Workspaces.get(tab).restore(state, { source: 'disk', imageFor: file => loadImage(workspaceUrl(tab, file)) });
   } finally { if (epoch === ws.epoch) { ws.loading = false; resetHistory(tab); } }
 }
 
@@ -218,14 +156,14 @@ $('#delete-order').addEventListener('click', async () => {
 window.addEventListener('pagehide', () => {
   if (currentOrder) {
     clearTimeout(saveTimer);
-    const body = JSON.stringify({ name: orderInput.value, state: { prints: tabState('prints') } });
+    const body = JSON.stringify({ name: orderInput.value, state: { prints: Workspaces.get('prints').state() } });
     if (!navigator.sendBeacon?.(`/api/orders/${currentOrder.id}/state`, new Blob([body], { type: 'application/json' })))
       fetch(`/api/orders/${currentOrder.id}/state`, { method: 'POST', body, keepalive: true });
   }
-  for (const tab of ['canvas', 'passport', 'collage']) {
-    clearTimeout(workspaces[tab].timer);
-    const body = JSON.stringify(tabState(tab));
-    if (!navigator.sendBeacon?.(`/api/workspace/${tab}`, new Blob([body], { type: 'application/json' })))
-      fetch(`/api/workspace/${tab}`, { method: 'POST', body, keepalive: true });
+  for (const ws of Workspaces.standalone()) {
+    clearTimeout(workspaces[ws.id].timer);
+    const body = JSON.stringify(ws.state());
+    if (!navigator.sendBeacon?.(`/api/workspace/${ws.id}`, new Blob([body], { type: 'application/json' })))
+      fetch(`/api/workspace/${ws.id}`, { method: 'POST', body, keepalive: true });
   }
 });

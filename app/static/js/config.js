@@ -1,7 +1,7 @@
 // Ellashop — crop photos to print formats and make passport-photo sheets.
 'use strict';
 // Defines print, canvas, and passport sizes shared by the later UI scripts.
-// Loads first so rendering and every tab can use the same format rules.
+// Loads right after dom.js and i18n.js so rendering and every tab can use the same format rules.
 
 // Print resolution for normal photos; Canvas prints use CANVAS_DPI (they are large and viewed from afar).
 const DPI = 300;
@@ -106,6 +106,3 @@ function customSizeControl(selector, list, limits, selected, apply, status) {
     if (fmt?.custom) { width.value = fmt.w / 10; height.value = fmt.h / 10; }
   };
 }
-
-const $ = sel => document.querySelector(sel);
-const $$ = sel => [...document.querySelectorAll(sel)];

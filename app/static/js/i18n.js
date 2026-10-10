@@ -1,6 +1,6 @@
 'use strict';
 // Looks up UI text from the language files (app/static/lang/<lang>/*.json, served merged as lang.js).
-// Loads first, right after lang.js, so every later script can call t().
+// Loads right after lang.js and dom.js, so every later script can call t().
 // ---------------------------------------------------------------- i18n
 
 // Android-style placeholders: %1$s, %2$d, %3$.1f; %% is a literal percent.

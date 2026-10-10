@@ -1,7 +1,7 @@
 'use strict';
 // Shared photo editor: crop, fit, zoom, pan, rotate, coordinates, overlays and history for one item.
 // Pages (Prints, Canvas, Passport, Collage) call this instead of keeping their own copies.
-// Loaded by index.html after render.js, ui.js, editor.js and tabs.js.
+// Loaded by index.html after assets.js, ui.js, editor.js and tabs.js.
 //
 // Moved here from (the old copies are gone):
 //   PhotoEditor.srcDims / outMM / placement      ← render.js srcDims / outMM / placement
@@ -37,6 +37,11 @@ const PhotoEditor = (() => {
       if (o === 'landscape') [w, h] = [h, w];
     }
     return { w, h };
+  }
+
+  // Frame for drawOverlays: the photo's rectangle plus mmToPx (canvas px per mm of output width).
+  function overlayFrame(item, front) {
+    return { ...front, mmToPx: front.w / outMM(item).w };
   }
 
   // Scale (output px per source px) and clamp the crop centre.
@@ -411,7 +416,7 @@ const PhotoEditor = (() => {
   }
 
   return {
-    srcDims, outMM, placement, rotatedFace, newItem,
+    srcDims, outMM, overlayFrame, placement, rotatedFace, newItem,
     clampTilt, setTilt, rotate,
     clampZoom, canZoom, setZoom, wheelZoom, setMode, reset,
     pan, smartPlace, detectFaces, drawFaces, passportRule,

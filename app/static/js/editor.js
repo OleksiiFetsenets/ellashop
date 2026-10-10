@@ -129,7 +129,7 @@ function textAndStickers(root, state, refresh, preview) {
   });
   root.addEventListener('change', e => { if (e.target.dataset.field) changed(); });
   // The photo rectangle on the canvas (the front crop on Canvas), with mm-to-px scale.
-  function frame(item, pv) { return overlayFrame(item, pv.frontRect(item, pv.canvas.width, pv.canvas.height)); }
+  function frame(item, pv) { return PhotoEditor.overlayFrame(item, pv.frontRect(item, pv.canvas.width, pv.canvas.height)); }
   // Pointer position in canvas pixels (CSS size differs from canvas size).
   function point(e, pv) { const r = pv.canvas.getBoundingClientRect(); return { x: (e.clientX - r.left) * pv.canvas.width / r.width, y: (e.clientY - r.top) * pv.canvas.height / r.height }; }
   // Overlay box in canvas px: centre (cx, cy), size, and rotation in radians.

@@ -1,6 +1,7 @@
 'use strict';
 // Manages Prints photos, face-aware crop placement, grids, and export.
-// Loads after shared UI and storage helpers, before Canvas and Passport.
+// Loads after shared UI and storage helpers, before Canvas and Passport. Registers itself as a workspace
+// (workspaces.js): the base scripts reach it only through the registry.
 // ---------------------------------------------------------------- prints
 
 const prints = {
@@ -8,7 +9,7 @@ const prints = {
   sel: null,
   lastFmt: FORMATS[0],
   // faceQueue holds photos waiting for face detection; at most 2 run at once (faceRunning).
-  facesAvailable: false, faceQueue: [], faceRunning: 0,
+  faceQueue: [], faceRunning: 0,
   get item() { return this.items.find(i => i === this.sel) || null; },
 };
 
@@ -23,6 +24,9 @@ const prints = {
   PhotoUI.mount(slot('adjust'), PhotoUI.adjustRow('prints'));
   PhotoUI.mount(slot('save'), PhotoUI.saveActions('prints', { one: 'page_save_this_photo' }));
 }
+
+// Face detection is offered when the server has it installed (AppConfig, app-config.js).
+const facesAvailable = () => !!AppConfig.data.faces;
 
 // Smart placement: picks mode, zoom and centre from the detected faces and sets item.auto to the reason.
 const autoPlace = item => PhotoEditor.smartPlace(item);
@@ -90,8 +94,6 @@ function printLabel(it) {
   return t('prints_label', fmtLabel(it.fmt), t(it.mode === 'blur' ? 'prints_blur' : it.mode === 'fit' ? 'prints_fit' : 'prints_crop')) + (it.faces === null ? t('prints_faces_pending') : it.faces ? t('prints_faces_count', it.faces.length) : '') + (it.auto ? t('prints_auto_detail', ({ 'blur: faces don\'t fit': t('prints_auto_blur'), faces: t('prints_auto_faces'), centre: t('prints_auto_centre') })[it.auto] || it.auto) : '') + densityLabel(it);
 }
 
-function canvasLabel(it) { return t('canvas_label', fmtLabel(it.fmt), it.wrap) + densityLabel(it); }
-
 const printsGrid = PhotoUI.photoGrid(prints, $('#prints-stage'), $('#prints-grid'), $('#prints-view-bar'),
   $('#prints-hint'), printLabel, PhotoEditor.outMM, PhotoRender.renderItem, refreshPrints, 'prints');
 
@@ -107,7 +109,7 @@ function refreshPrints() {
 }
 
 async function addPrints(sources) {
-  await configReady;
+  await AppConfig.ready;
   const id = currentOrder?.id, epoch = orderEpoch;
   for (const source of sources) {
     try {
@@ -116,10 +118,10 @@ async function addPrints(sources) {
       if (epoch !== orderEpoch) return;
       // faces: null = detection pending, undefined = detection unavailable. smartPending: auto-place once faces are known.
       const it = PhotoEditor.newItem(img, name, { fmt: prints.lastFmt, blur: 'motion', strength: 50,
-        file, faces: prints.facesAvailable ? null : undefined, smartPending: $('#prints-smart').checked, auto: '' });
+        file, faces: facesAvailable() ? null : undefined, smartPending: $('#prints-smart').checked, auto: '' });
       prints.items.push(it);
       if (!prints.sel) prints.sel = it;
-      if (prints.facesAvailable) { prints.faceQueue.push(it); runFaceQueue(); }
+      if (facesAvailable()) { prints.faceQueue.push(it); runFaceQueue(); }
       else if (it.smartPending) { autoPlace(it); it.smartPending = false; }
     } catch (e) { setStatus($('#prints-status'), t('prints_source_error', source.name, e.message), true); }
   }
@@ -166,3 +168,44 @@ PhotoUI.wireSave('prints', {
   item: () => prints.item, items: () => prints.items, save: savePrint, folder: orderName,
   msg: { saving: 'prints_saving', savedFile: 'prints_saved_file', savingCount: 'prints_saving_count', savedAll: 'prints_saved_photos' },
 });
+
+// Rebuild the photos from saved state. A saved photo that fails to load is reported and skipped when opening
+// a saved order ('disk'); an undo step ('undo') throws instead.
+async function restorePrints(state, { imageFor, source }) {
+  const items = [];
+  for (const saved of state.items || []) {
+    if (!saved.file) continue;
+    try {
+      items.push(PhotoEditor.newItem(await imageFor(saved.file), saved.name || saved.file, { ...saved, fmt: formatById(FORMATS, saved.fmt) }));
+    } catch (e) {
+      if (source !== 'disk') throw e;
+      setStatus($('#prints-status'), `${saved.name}: ${e.message}`, true);
+    }
+  }
+  prints.items = items; prints.sel = items[state.sel] || items[0] || null; prints.view = state.view;
+  refreshPrints();
+  if (facesAvailable()) {  // detections that were still running get re-queued
+    prints.faceQueue.push(...items.filter(item => item.faces === null)); runFaceQueue();
+  }
+}
+
+Workspaces.register({
+  id: 'prints', tab: 'prints', order: true,
+  state: () => ({ items: prints.items.map(itemState), sel: prints.items.indexOf(prints.sel), view: prints.view || null }),
+  restore: restorePrints,
+  clear() {
+    prints.items = []; prints.sel = null; prints.view = null; prints.faceQueue = [];
+    setStatus($('#prints-status'), '');
+    $('#prints-grid').replaceChildren();
+    refreshPrints();
+  },
+  refresh: refreshPrints,
+  leave() { prints.preview.overlayEditor.select(null); },
+  activate() { prints.preview.draw(); printsGrid.update(); },
+  redraw() { prints.preview.redraw(); printsGrid.update(); },
+  images: () => prints.items.map(item => [item.file, item.img]),
+  count: () => prints.items.length,
+  status: (message, isError) => setStatus($('#prints-status'), message, isError),
+  api: {},
+});
+syncPrintControls();

@@ -31,8 +31,6 @@ $('#update-btn').addEventListener('click', async () => {
   } catch (e) { btn.disabled = false; btn.textContent = t('common_update_failed_detail', e.message); }
 });
 checkUpdate();
-pp.drawSheet();
-syncPrintControls();
 
 // Start-up: when the last session left photos behind, ask whether to continue or start fresh.
 // Start fresh empties the independent workspaces and opens an empty Prints order;
@@ -59,7 +57,7 @@ async function askResume() {
   });
   dlg.close(); dlg.remove();
   if (choice !== 'fresh') return;
-  await Promise.all(['canvas', 'passport', 'collage'].map(tab => orderRequest(`/api/workspace/${tab}/clear`, { method: 'POST' })));
+  await Promise.all(Workspaces.standalone().map(({ id: tab }) => orderRequest(`/api/workspace/${tab}/clear`, { method: 'POST' })));
   if (last?.counts.prints) {
     const order = await orderRequest('/api/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
     rememberOrder(order.id);
@@ -71,7 +69,7 @@ async function askResume() {
 (async () => {
   try {
     try { await askResume(); } catch (e) { showOrderError(e); }
-    const workspaceTabs = ['canvas', 'passport', 'collage'];
+    const workspaceTabs = Workspaces.standalone().map(ws => ws.id);
     const restored = await Promise.allSettled(workspaceTabs.map(restoreWorkspace));
     restored.forEach((result, index) => {
       if (result.status === 'rejected') showWorkspaceError(workspaceTabs[index], result.reason);

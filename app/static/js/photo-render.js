@@ -1,7 +1,7 @@
 'use strict';
 // Render engine and export: draws an edited item (photo, background, overlays) at preview or print
 // quality and saves it as a JPEG with the real DPI. Pages and the Photo Editor call this; it never
-// touches page controls. Loads after photo-editor.js (coordinates) and render.js (font/sticker loaders).
+// touches page controls. Loads after photo-editor.js (coordinates) and assets.js (font/sticker loaders).
 //
 // Moved here from (the old copies are gone):
 //   PhotoRender.drawRotated                     ← render.js drawRotated
@@ -85,7 +85,7 @@ const PhotoRender = (() => {
   }
 
   // ------------------------------------------------------------ overlays (text & stickers)
-  // Fonts and sticker images are loaded and cached by render.js (ensureFont, stickerImage, fontReady).
+  // Fonts and sticker images are loaded and cached by assets.js (ensureFont, stickerImage, fontReady).
 
   const outlineColour = o => o.outline === 'white' ? '#ffffff' : o.outline === 'custom' ? (o.outlineColor || '#000000') : '#000000';
   const textSpacing = (o, h) => (o.letterSpacing || 0) * h / 100;

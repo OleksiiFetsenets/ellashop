@@ -1,6 +1,7 @@
 'use strict';
 // Manages Canvas crops, blurred wrap previews, and printed output.
 // Shared controls come from PhotoUI; editing from PhotoEditor; drawing and saving from PhotoRender.
+// Registers itself as a workspace (workspaces.js); other pages use only its `api` (addRendered).
 // ---------------------------------------------------------------- canvas
 
 {
@@ -19,6 +20,9 @@ const canvasPrints = {
   last: { fmt: CANVAS_FORMATS[0], orient: 'auto', wrap: 5, blur: 'motion', strength: 50, marks: false },
   get item() { return this.items.find(i => i === this.sel) || null; },
 };
+
+// Queue caption: format, wrap and density.
+function canvasLabel(it) { return t('canvas_label', fmtLabel(it.fmt), it.wrap) + densityLabel(it); }
 
 // Whole canvas in mm: the front plus the wrap on every side (item.wrap is cm per side, so *10 mm *2 sides).
 function canvasMM(item) {
@@ -62,7 +66,7 @@ function renderCanvas(ctx, item, W, H, preview = false) {
   ctx.save(); ctx.translate(front.x, front.y);
   PhotoRender.renderItem(ctx, item, front.w, front.h, false);
   ctx.restore();
-  PhotoRender.drawOverlays(ctx, item, overlayFrame(item, front));
+  PhotoRender.drawOverlays(ctx, item, PhotoEditor.overlayFrame(item, front));
   // Crop marks: thin lines in the wrap area continuing the front's edges.
   if (item.marks) {
     ctx.strokeStyle = '#888'; ctx.lineWidth = Math.max(1, W / 2000);
@@ -191,4 +195,54 @@ function saveCanvas(it) {
 PhotoUI.wireSave('canvas', {
   item: () => canvasPrints.item, items: () => canvasPrints.items, save: saveCanvas,
   msg: { saving: 'canvas_saving', savedFile: 'canvas_saved_file', savingCount: 'canvas_saving_count', savedAll: 'canvas_saved_canvases' },
+});
+
+// Add a picture another page rendered (the Collage's "Move to Canvas"): { name, fmt, orient, render }, where
+// render() resolves with the image file. It is stored in the Canvas workspace, selected in single view, and
+// the Canvas tab is shown. Resolves true when added, false when the workspace was reset meanwhile.
+async function addRendered({ name, fmt, orient, render }) {
+  const epoch = workspaces.canvas.epoch;
+  const { file, src } = await uploadPhoto(await render(), name, 'canvas');
+  const img = await loadImage(src);
+  if (epoch !== workspaces.canvas.epoch) return false;
+  canvasPrints.last.fmt = fmt; canvasPrints.last.orient = orient;
+  const item = PhotoEditor.newItem(img, name, { ...canvasPrints.last, file, fmt, orient, density: 0 });
+  canvasPrints.items.push(item); canvasPrints.sel = item; canvasPrints.view = 'single';
+  refreshCanvas(); queueSave('canvas');
+  $('.tab[data-tab=canvas-view]').click();
+  return true;
+}
+
+// Rebuild the photos from saved state (see restorePrints for 'disk' and 'undo').
+async function restoreCanvas(state, { imageFor, source }) {
+  const items = [];
+  for (const saved of state.items || []) {
+    if (!saved.file) continue;
+    try {
+      items.push(PhotoEditor.newItem(await imageFor(saved.file), saved.name || saved.file, { ...saved, fmt: formatById(CANVAS_FORMATS, saved.fmt) }));
+    } catch (e) {
+      if (source !== 'disk') throw e;
+      setStatus($('#canvas-status'), `${saved.name}: ${e.message}`, true);
+    }
+  }
+  canvasPrints.items = items; canvasPrints.sel = items[state.sel] || items[0] || null; canvasPrints.view = state.view;
+  refreshCanvas();
+}
+
+Workspaces.register({
+  id: 'canvas', tab: 'canvas-view', order: false,
+  state: () => ({ items: canvasPrints.items.map(itemState), sel: canvasPrints.items.indexOf(canvasPrints.sel), view: canvasPrints.view || null }),
+  restore: restoreCanvas,
+  clear() {
+    canvasPrints.items = []; canvasPrints.sel = null; canvasPrints.view = null;
+    setStatus($('#canvas-status'), ''); $('#canvas-grid').replaceChildren(); refreshCanvas();
+  },
+  refresh: refreshCanvas,
+  leave() { canvasPrints.preview.overlayEditor.select(null); },
+  activate() { canvasPrints.preview.draw(); canvasGrid.update(); },
+  redraw() { canvasPrints.preview.redraw(); canvasGrid.update(); },
+  images: () => canvasPrints.items.map(item => [item.file, item.img]),
+  count: () => canvasPrints.items.length,
+  status: (message, isError) => setStatus($('#canvas-status'), message, isError),
+  api: { addRendered },
 });

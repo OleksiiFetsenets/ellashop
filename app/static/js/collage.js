@@ -17,9 +17,10 @@
 //                                       undoes the 90° turn or the fill mode, like the other pages)
 //   sheet tabs, Prev/Next/count       → PhotoUI.tabs, PhotoUI.stepBar / neighbour
 //   composition guides                → PhotoUI.wireGuides (was the collage loop in shortcuts.js)
+// Registers itself as a workspace (workspaces.js); "Move to Canvas" goes through the Canvas workspace's api.
 // ---------------------------------------------------------------- collage
 
-const collage = { photos: [], sheets: [], active: 0, sel: null, view: 'sheet' };
+const collage ={ photos: [], sheets: [], active: 0, sel: null, view: 'sheet' };
 
 {
   const view = $('#collage'), slot = name => view.querySelector(`[data-ui="${name}"]`);
@@ -731,20 +732,17 @@ $('#collage-to-canvas').addEventListener('click', async () => {
   if (!fmt) {
     setStatus($('#collage-status'), t('collage_canvas_size_error'), true); return;
   }
-  const epoch = workspaces.canvas.epoch;
   try {
     setStatus($('#collage-status'), t('collage_moving'));
-    const canvas = PhotoRender.renderSheet(sheet, { dpi: collageDpi(sheet), cutLines: false, cellRects: cellRects(sheet) });
     const name = `collage_${collage.active + 1}_${paper.w}x${paper.h}.jpg`;
-    const { file, src } = await uploadPhoto(await PhotoRender.jpegBlob(canvas, 1, collageDpi(sheet), sheet.density), name, 'canvas');
-    const img = await loadImage(src);
-    if (epoch !== workspaces.canvas.epoch) return;
-    canvasPrints.last.fmt = fmt; canvasPrints.last.orient = sheet.orient;
-    const item = PhotoEditor.newItem(img, name, { ...canvasPrints.last, file, fmt, orient: sheet.orient, density: 0 });
-    canvasPrints.items.push(item); canvasPrints.sel = item; canvasPrints.view = 'single';
-    refreshCanvas(); queueSave('canvas');
-    $('.tab[data-tab=canvas-view]').click();
-    setStatus($('#collage-status'), t('collage_moved_to_canvas'));
+    const added = await Workspaces.get('canvas').api.addRendered({
+      name, fmt, orient: sheet.orient,
+      render: () => {
+        const canvas = PhotoRender.renderSheet(sheet, { dpi: collageDpi(sheet), cutLines: false, cellRects: cellRects(sheet) });
+        return PhotoRender.jpegBlob(canvas, 1, collageDpi(sheet), sheet.density);
+      },
+    });
+    if (added) setStatus($('#collage-status'), t('collage_moved_to_canvas'));
   } catch (e) { setStatus($('#collage-status'), e.message, true); }
 });
 
@@ -820,13 +818,23 @@ async function collageRestore(state, imageFor) {
   refreshCollage();
 }
 
-const restoreCollageWorkspace = state => collageRestore(state, file => loadImage(workspaceUrl('collage', file)));
-const restoreCollageSnapshot = state => collageRestore(state, file => historyImage('collage', file));
-
 function clearCollage() {
   collage.photos = []; collage.sheets = [collageDefaultSheet()]; collage.active = 0; collage.sel = PhotoSheet.treeLeaves(collageSheet().root)[0]; collage.view = 'sheet';
   setStatus($('#collage-status'), ''); refreshCollage();
 }
+
+Workspaces.register({
+  id: 'collage', tab: 'collage', order: false,
+  state: collageState,
+  restore: (state, { imageFor }) => collageRestore(state, imageFor),
+  clear: clearCollage,
+  refresh: refreshCollage,
+  activate() { if ($('#collage').classList.contains('active')) refreshCollage(); },
+  images: () => collage.photos.map(photo => [photo.file, photo.img]),
+  count: () => collage.photos.length,
+  status: (message, isError) => setStatus($('#collage-status'), message, isError),
+  api: {},
+});
 
 // Keep the first sheet available before startup restores the saved workspace.
 collage.sheets.push(collageDefaultSheet()); collage.sel = PhotoSheet.treeLeaves(collageSheet().root)[0];

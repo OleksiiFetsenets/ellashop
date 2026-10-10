@@ -1,16 +1,16 @@
 'use strict';
 // Manages passport cutouts, face alignment, sheet previews, and export.
-// Loads after Canvas and before shared keyboard controls.
+// Loads after Canvas and before shared keyboard controls. Registers itself as a workspace (workspaces.js).
 // ---------------------------------------------------------------- passport
 //
 // Moved out of this file (the old copies are gone):
-//   sheetLayout / passportOffsets          → PhotoSheet.passportLayout / passportOffsets (history.js and orders.js call it too)
+//   sheetLayout / passportOffsets          → PhotoSheet.passportLayout / passportOffsets (restorePassport below calls it too)
 //   renderSheet (grid, cut lines, tiles)   → PhotoSheet.fromPassport + PhotoRender.renderSheet
 //   savePassport's JPEG save               → PhotoRender.exportSheet
 //   Stage overlay (guide bands)            → PhotoEditor.passportRule(preset).guides
 //   ppAutoAlign maths / cutoutCrown        → PhotoEditor.passportRule(preset).align / crownFromCutout
 
-const pp ={ jobs: [], active: null, guides: true, queue: [], running: false, config: {} };
+const pp = { jobs: [], active: null, guides: true, queue: [], running: false };
 let nextJobId = 1;
 
 $('#pp-size').innerHTML = PASSPORT.map(p => {
@@ -122,8 +122,8 @@ async function ppAdd(files) {
         size: PASSPORT[0], ...PhotoSheet.passportOffsets(PASSPORT[0]), status: 'new', error: '' };
       pp.jobs.push(job); pp.active = job;
       ppSyncItem();
-      if ($('#pp-auto').checked && pp.config.localBg) ppEnqueue(job, '/api/remove-bg-local');
-      if (pp.config.faces) ppDetectFace(job);
+      if ($('#pp-auto').checked && AppConfig.data.localBg) ppEnqueue(job, '/api/remove-bg-local');
+      if (AppConfig.data.faces) ppDetectFace(job);
     } catch (e) { setStatus($('#pp-status'), t('passport_source_error', name, e.message), true); }
   }
 }
@@ -230,19 +230,17 @@ async function ppRunQueue() {
 
 $('#pp-remove-local').addEventListener('click', () => ppEnqueue(pp.active, '/api/remove-bg-local'));
 $('#pp-remove-all').addEventListener('click', () => {
-  if (!pp.config.localBg) { setStatus($('#pp-status'), t('passport_offline_not_installed'), true); return; }
+  if (!AppConfig.data.localBg) { setStatus($('#pp-status'), t('passport_offline_not_installed'), true); return; }
   pp.jobs.filter(j => j.status === 'new' || j.status === 'error').forEach(j => ppEnqueue(j, '/api/remove-bg-local'));
 });
 
-async function refreshConfig() {
-  const cfg = await (await fetch('/api/config')).json();
-  const wasLocal = pp.config.localBg;
-  pp.config = cfg;
-  prints.facesAvailable = !!cfg.faces;
-  if (wasLocal === undefined) $('#pp-auto').checked = !!cfg.localBg;
+// Show the optional offline background removal only when the server has it; the first load also sets the
+// "remove automatically" checkbox. (AppConfig.data holds the server's capabilities, app-config.js.)
+AppConfig.onChange((cfg, previous) => {
+  if (previous.localBg === undefined) $('#pp-auto').checked = !!cfg.localBg;
   $('#pp-remove-local').hidden = !cfg.localBg;
   $('#pp-local-note').hidden = !!cfg.localBg;
-}
+});
 
 wireSeg($('#pp-bg'), v => { const job = pp.active; if (job) { job.item.bg = v; ppSyncItem(); } });
 function setPassportSize(size) {
@@ -274,7 +272,7 @@ $('#pp-align').addEventListener('click', () => {
   const job = pp.active; if (!job) return;
   const st = $('#pp-status');
   if (job.face === null) setStatus(st, t('passport_looking_for_face'));
-  else if (!ppAutoAlign(job)) setStatus(st, t(pp.config.faces ? 'passport_no_face' : 'passport_face_detection_not_installed'), true);
+  else if (!ppAutoAlign(job)) setStatus(st, t(AppConfig.data.faces ? 'passport_no_face' : 'passport_face_detection_not_installed'), true);
   else { ppSyncItem(); setStatus(st, t('passport_aligned_to_face')); }
 });
 $('#pp-guides').addEventListener('change', e => { pp.guides = e.target.checked; pp.preview.draw(); });
@@ -303,3 +301,56 @@ $('#pp-save-all').addEventListener('click', async () => {
     setStatus(st, t('passport_saved_sheets', saved));
   } catch (e) { setStatus(st, t('passport_saved_sheets_error', saved, e.message), true); }
 });
+
+// Measurement checkbox (the other pages wire theirs through PhotoUI.wireGuides); remembered in localStorage.
+{
+  const box = $('#pp-measure');
+  try { box.checked = localStorage.getItem('ellashop-measure-passport') === 'on'; } catch (_) { /* storage may be unavailable */ }
+  pp.preview.showMeasure = box.checked;
+  box.addEventListener('change', () => {
+    pp.preview.showMeasure = box.checked; pp.preview.draw();
+    try { localStorage.setItem('ellashop-measure-passport', box.checked ? 'on' : 'off'); } catch (_) { /* storage may be unavailable */ }
+  });
+}
+
+// Rebuild the photos from saved state (see restorePrints for 'disk' and 'undo'). Opening saved work also
+// restarts face detection for photos whose detection had not finished.
+async function restorePassport(state, { imageFor, source }) {
+  const jobs = [];
+  for (const saved of state.jobs || []) {
+    const size = formatById(PASSPORT, saved.size), file = saved.cutFile || saved.file, savedItem = saved.item || {};
+    if (!file) continue;
+    try {
+      const item = PhotoEditor.newItem(await imageFor(file), savedItem.name || file, { ...savedItem, fmt: formatById(PASSPORT, savedItem.fmt) });
+      jobs.push({ id: nextJobId++, file: saved.file, cutFile: saved.cutFile, name: saved.name, error: '', size,
+        right: saved.right ?? PhotoSheet.passportOffsets(size).right, down: saved.down ?? PhotoSheet.passportOffsets(size).down,
+        status: saved.status === 'done' ? 'done' : 'new', face: saved.face, item });
+    } catch (e) {
+      if (source !== 'disk') throw e;
+      setStatus($('#pp-status'), `${saved.name}: ${e.message}`, true);
+    }
+  }
+  pp.jobs = jobs; pp.active = jobs[state.active] || jobs[0] || null;
+  ppSyncItem();
+  if (source === 'disk' && AppConfig.data.faces) pp.jobs.filter(job => job.face === null).forEach(ppDetectFace);
+}
+
+Workspaces.register({
+  id: 'passport', tab: 'passport', order: false,
+  state: () => ({ jobs: pp.jobs.map(job => ({ file: job.file, cutFile: job.cutFile || null,
+      name: job.name, size: job.size.id, right: job.right, down: job.down, status: job.status === 'done' ? 'done' : 'new',
+      face: job.face, item: itemState(job.item) })), active: pp.jobs.indexOf(pp.active) }),
+  restore: restorePassport,
+  clear() {
+    pp.jobs = []; pp.active = null; pp.queue = [];
+    clearTimeout(sheetTimer);
+    setStatus($('#pp-status'), ''); $('#pp-tabs').replaceChildren(); ppSyncItem();
+  },
+  refresh: ppSyncItem,
+  activate() { pp.preview.draw(); pp.drawSheet(); },
+  images: () => pp.jobs.map(job => [job.cutFile || job.file, job.item.img]),
+  count: () => pp.jobs.length,
+  status: (message, isError) => setStatus($('#pp-status'), message, isError),
+  api: {},
+});
+pp.drawSheet();
