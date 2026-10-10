@@ -20,8 +20,16 @@
   "sel": ".photo-card, #prints-grid canvas"
  },
  {
+  "op": "eval",
+  "expr": "(()=>{const i=ellashop.prints.item; window.__a={z:i.zoom,cx:i.cx,t:i.tilt}; return JSON.stringify(window.__a)})()"
+ },
+ {
   "op": "press",
   "key": "="
+ },
+ {
+  "op": "eval",
+  "expr": "(()=>{const i=ellashop.prints.item, a=window.__a, b=window.__b; if(!(i.zoom>a.z)) throw Error('= zoom in: '+JSON.stringify({z:i.zoom,cx:i.cx,t:i.tilt})); return '= zoom in ok'})()"
  },
  {
   "op": "press",
@@ -29,20 +37,48 @@
   "repeat": 2
  },
  {
+  "op": "eval",
+  "expr": "(()=>{const i=ellashop.prints.item, a=window.__a, b=window.__b; if(!(i.cx>a.cx)) throw Error('ArrowLeft moves the photo left (crop centre right): '+JSON.stringify({z:i.zoom,cx:i.cx,t:i.tilt})); return 'ArrowLeft moves the photo left (crop centre right) ok'})()"
+ },
+ {
   "op": "press",
   "key": "Shift+ArrowRight"
+ },
+ {
+  "op": "eval",
+  "expr": "(()=>{const i=ellashop.prints.item, a=window.__a, b=window.__b; if(!(Math.abs(i.tilt-a.t-0.5)<1e-9)) throw Error('Shift+ArrowRight tilts 0.5: '+JSON.stringify({z:i.zoom,cx:i.cx,t:i.tilt})); return 'Shift+ArrowRight tilts 0.5 ok'})()"
  },
  {
   "op": "sleep",
   "ms": 600
  },
  {
+  "op": "eval",
+  "expr": "(()=>{const i=ellashop.prints.item; window.__b={z:i.zoom,cx:i.cx,t:i.tilt}; return JSON.stringify(window.__b)})()"
+ },
+ {
   "op": "press",
   "key": "Meta+z"
  },
  {
+  "op": "sleep",
+  "ms": 400
+ },
+ {
+  "op": "eval",
+  "expr": "(()=>{const i=ellashop.prints.item, a=window.__a, b=window.__b; if(!(i.zoom===a.z&&i.cx===a.cx&&i.tilt===a.t)) throw Error('Meta+z undoes: '+JSON.stringify({z:i.zoom,cx:i.cx,t:i.tilt})); return 'Meta+z undoes ok'})()"
+ },
+ {
   "op": "press",
   "key": "Meta+Shift+z"
+ },
+ {
+  "op": "sleep",
+  "ms": 400
+ },
+ {
+  "op": "eval",
+  "expr": "(()=>{const i=ellashop.prints.item, a=window.__a, b=window.__b; if(!(i.zoom===b.z&&i.cx===b.cx&&i.tilt===b.t)) throw Error('Meta+Shift+z redoes: '+JSON.stringify({z:i.zoom,cx:i.cx,t:i.tilt})); return 'Meta+Shift+z redoes ok'})()"
  },
  {
   "op": "click",
