@@ -729,6 +729,10 @@ def workspace_data(tab, path):
 
 # Routes the local HTTP API while serving index.html and other static assets.
 class Handler(http.server.SimpleHTTPRequestHandler):
+    # The UI loads as ES modules, which browsers refuse unless served as JavaScript; Windows
+    # registry MIME entries can say text/plain, so .js is fixed here instead of guessed.
+    extensions_map = {**http.server.SimpleHTTPRequestHandler.extensions_map, ".js": "text/javascript"}
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(STATIC), **kwargs)
 
