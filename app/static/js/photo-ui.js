@@ -263,12 +263,14 @@ export const PhotoUI = (() => {
     return true;
   }
 
-  // Dragging on a photo canvas pans its crop (and the wheel zooms, when onWheel is given).
+  // Every small photo canvas (grid card, collage cell) edits the same way: drag pans the crop,
+  // the wheel zooms. Pages only say how to repaint and what to do once the change settles.
   //   frontRect  where the crop sits on the canvas (default: all of it)
-  //   onSelect   pointer went down on it;  onMove  after each pan step;  onDone  after a drag that moved
-  //   onWheel    after a wheel zoom; the page's own scrolling is blocked only when the mode can zoom
-  function photoCanvas(canvas, item, { frontRect = (it, W, H) => ({ x: 0, y: 0, w: W, h: H }), onSelect, onMove, onDone, onWheel }) {
-    let last = null, moved = false;
+  //   onSelect   pointer went down on it;  onMove  repaint after each pan or zoom step
+  //   onDone     after a drag that moved, or 250 ms after the last wheel step (one save per burst)
+  // The page's own scrolling is blocked only while the photo can zoom (not in fit / blurred-border mode).
+  function photoCanvas(canvas, item, { frontRect = (it, W, H) => ({ x: 0, y: 0, w: W, h: H }), onSelect, onMove, onDone }) {
+    let last = null, moved = false, wheelTimer = 0;
     canvas.addEventListener('pointerdown', e => {
       onSelect?.();
       last = [e.clientX, e.clientY]; moved = false; canvas.setPointerCapture(e.pointerId);
@@ -282,9 +284,12 @@ export const PhotoUI = (() => {
     });
     canvas.addEventListener('pointerup', () => { last = null; if (moved) onDone?.(); });
     canvas.addEventListener('pointercancel', () => { last = null; });
-    if (onWheel) canvas.addEventListener('wheel', e => {
+    canvas.addEventListener('wheel', e => {
       if (!PhotoEditor.wheelZoom(item, e.deltaY)) return;
-      e.preventDefault(); onWheel();
+      e.preventDefault();
+      item.auto = ''; item.smartPending = false;
+      onMove?.();
+      clearTimeout(wheelTimer); wheelTimer = setTimeout(() => onDone?.(), 250);
     }, { passive: false });
   }
 

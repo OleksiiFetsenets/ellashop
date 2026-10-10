@@ -120,8 +120,7 @@ function collagePopulateCell(cell, leaf, sheet) {
     PhotoUI.photoCanvas(canvas, item, {
       onSelect: () => collageSelect(leaf),
       onMove: () => collagePaintCell(cell, leaf, item, sheet),
-      onDone: () => queueSave('collage'),
-      onWheel: () => { collagePaintCell(cell, leaf, item, sheet); syncCollageControls(); queueSave('collage'); },
+      onDone: () => { syncCollageControls(); queueSave('collage'); },
     });
     cell.append(eye, handle, canvas); cell._item = item;
   }
