@@ -5,7 +5,7 @@
   --panel: #ffffff;
   --line: #dddad2;
   --text: #222;
-  --muted: #777;
+  --muted: #666;  /* 5.7:1 on white, 5.2:1 on the stage background (WCAG AA needs 4.5) */
   --accent: #2f6fdf;
   --accent-text: #fff;
 }
@@ -181,7 +181,7 @@ code { font-size: 11px; }
 .collage-sheet { position: relative; flex: none; overflow: hidden; background: #fff; box-shadow: 0 2px 14px rgba(0,0,0,.18); }
 .collage-cell { position: absolute; overflow: hidden; touch-action: none; }
 .collage-cell canvas { display: block; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; box-shadow: none; cursor: grab; }
-.collage-cell.empty { display: flex; align-items: center; justify-content: center; padding: 5px; background: #f1f1f1; border: 1px dashed #aaa; color: #777; font-size: 12px; text-align: center; }
+.collage-cell.empty { display: flex; align-items: center; justify-content: center; padding: 5px; background: #f1f1f1; border: 1px dashed #aaa; color: var(--muted); font-size: 12px; text-align: center; }
 .collage-cell.selected { outline: 2px solid var(--accent); outline-offset: -2px; z-index: 1; }
 .collage-cell .eye, .collage-cell .collage-handle { position: absolute; top: 4px; z-index: 2; padding: 1px 5px; font-size: 13px; background: rgba(255,255,255,.9); }
 .collage-cell .eye { inset-inline-end: 4px; }
