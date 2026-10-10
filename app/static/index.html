@@ -94,12 +94,7 @@
   <!-- ===================== COLLAGE ===================== -->
   <section id="collage" class="view">
     <aside class="left">
-      <label class="drop" id="collage-drop">
-        <input type="file" id="collage-file" accept="image/*,.zip" multiple hidden>
-        <strong data-i18n="page_drop_photos_here"></strong><br><span data-i18n="page_or_click_to_choose"></span>
-      </label>
-      <button class="ghost wide" data-incoming="collage" data-i18n="page_load_from_incoming_folder"></button>
-      <ul id="collage-pool" class="queue"></ul>
+      <div data-ui="drop"></div>
       <button id="collage-clear" class="ghost wide clear-all" data-i18n="page_clear_all"></button>
     </aside>
 
@@ -183,19 +178,11 @@
         <input type="range" id="collage-zoom" min="1" max="6" step="0.01" value="1" data-i18n-title="page_zoom">
         <button id="collage-reset" data-i18n-title="page_reset_crop" data-i18n="page_reset"></button>
       </div>
-      <label class="check composition-row" id="collage-composition-row" hidden><span data-i18n="page_composition_guides"></span> <select id="collage-composition">
-        <option value="" data-i18n="page_none"></option><option value="thirds" data-i18n="page_rule_of_thirds"></option><option value="golden" data-i18n="page_golden_ratio"></option>
-        <option value="spiral" data-i18n="page_fibonacci_spiral"></option><option value="diagonals" data-i18n="page_diagonals"></option>
-        <option value="triangles" data-i18n="page_golden_triangles"></option><option value="perspective" data-i18n="page_perspective"></option>
-      </select><button type="button" id="collage-composition-turn" data-i18n-title="page_turn_flip_the_guide_key_o">↻</button></label>
+      <div data-ui="guides"></div>
       <button id="collage-empty" class="ghost wide" data-i18n="page_empty_cell"></button>
       <button id="collage-to-canvas" class="wide" data-i18n-title="page_open_this_sheet_in_the_canvas_tab_to_add_wrap_and_print_it_as_a_canv" data-i18n="page_move_to_canvas"></button>
 
-      <div class="actions">
-        <button id="collage-save-one" class="primary" data-i18n="page_save_sheet"></button>
-        <button id="collage-save-all" class="primary" data-i18n="page_save_all_sheets"></button>
-      </div>
-      <p class="status" id="collage-status" role="status"></p>
+      <div data-ui="save"></div>
     </aside>
   </section>
 

@@ -104,7 +104,7 @@
  },
  {
   "op": "waitFor",
-  "sel": "#collage-pool li:nth-child(4)"
+  "sel": "#collage-queue li:nth-child(4)"
  },
  {
   "op": "eval",

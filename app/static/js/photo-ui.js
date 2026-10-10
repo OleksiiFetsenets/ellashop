@@ -14,7 +14,7 @@
 //   PhotoUI.syncAdjust                    ← prints.js syncPrintControls (zoom, tilt, segments)
 //   PhotoUI.wireGuides                    ← shortcuts.js measurement and composition loops (incl. Collage)
 //   PhotoUI.keys                          ← shortcuts.js overlay, zoom, pan/tilt, view and O key handlers
-//   PhotoUI.wireSave                      ← prints.js #save-one/#save-all, canvas.js, passport.js
+//   PhotoUI.wireSave                      ← prints.js #save-one/#save-all, canvas.js, passport.js, collage.js
 //   PhotoUI.renderQueue / photoGrid       ← prints.js renderQueue / photoGrid
 //   wireDrop, wireSeg, setSeg             ← reused from ui.js as they are
 
@@ -109,24 +109,27 @@ const PhotoUI = (() => {
   }
 
   // Measurements checkbox and composition guide picker with its ↻ button.
-  function guideChecks(p, { composition = true } = {}) {
+  // measure: false leaves the checkbox out (Collage); hiddenRow gives the picker row the id `${p}-composition-row`
+  // and starts it hidden, so the page can show it only in single view (Collage).
+  function guideChecks(p, { composition = true, measure = true, hiddenRow = false } = {}) {
     return html(`
-      <label class="check"><input type="checkbox" id="${p}-measure"> <span data-i18n="page_show_measurements_cm"></span></label>
-      ${composition ? `<label class="check composition-row"><span data-i18n="page_composition_guides"></span> <select id="${p}-composition">
+      ${measure ? `<label class="check"><input type="checkbox" id="${p}-measure"> <span data-i18n="page_show_measurements_cm"></span></label>` : ''}
+      ${composition ? `<label class="check composition-row"${hiddenRow ? ` id="${p}-composition-row" hidden` : ''}><span data-i18n="page_composition_guides"></span> <select id="${p}-composition">
         <option value="" data-i18n="page_none"></option><option value="thirds" data-i18n="page_rule_of_thirds"></option><option value="golden" data-i18n="page_golden_ratio"></option>
         <option value="spiral" data-i18n="page_fibonacci_spiral"></option><option value="diagonals" data-i18n="page_diagonals"></option>
         <option value="triangles" data-i18n="page_golden_triangles"></option><option value="perspective" data-i18n="page_perspective"></option>
       </select><button type="button" id="${p}-composition-turn" data-i18n-title="page_turn_flip_the_guide_key_o">↻</button></label>` : ''}`);
   }
 
-  // Save one / Save all buttons and the status line. Label ids differ per page.
-  function saveActions(p, { one, all = 'page_save_all' }) {
+  // Save one / Save all buttons and the status line. Label ids differ per page; announce: true adds
+  // role="status" to the status line (Collage).
+  function saveActions(p, { one, all = 'page_save_all', announce = false }) {
     return html(`
       <div class="actions">
         <button id="${p}-save-one" class="primary" data-i18n="${one}"></button>
         ${all ? `<button id="${p}-save-all" class="primary" data-i18n="${all}"></button>` : ''}
       </div>
-      <p class="status" id="${p}-status"></p>`);
+      <p class="status" id="${p}-status"${announce ? ' role="status"' : ''}></p>`);
   }
 
   // ------------------------------------------------------------ wiring
@@ -180,13 +183,14 @@ const PhotoUI = (() => {
     turn.addEventListener('click', stageView.turnComposition);
   }
 
-  // Save one / Save all with status messages. `save(it)` returns the saved path (PhotoRender.exportItem).
+  // Save one / Save all with status messages. `save(it)` returns the saved path (PhotoRender.exportItem),
+  // or null when the user cancelled: nothing is reported or counted then (Collage's empty-cell confirm).
   // msg: { saving, savedFile, savingCount, savedAll } translation ids for this page.
   function wireSave(p, { item, items, save, msg, folder = () => '' }) {
     const st = $(`#${p}-status`);
     $(`#${p}-save-one`).addEventListener('click', async () => {
       const it = item(); if (!it) return;
-      try { setStatus(st, t(msg.saving)); setStatus(st, t(msg.savedFile, await save(it))); }
+      try { setStatus(st, t(msg.saving)); const path = await save(it); if (path) setStatus(st, t(msg.savedFile, path)); }
       catch (e) { setStatus(st, e.message, true); }
     });
     $(`#${p}-save-all`)?.addEventListener('click', async () => {

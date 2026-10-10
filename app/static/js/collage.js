@@ -3,6 +3,10 @@
 // Loads after Passport and before shared keyboard controls.
 // Cell editing, drawing and export use PhotoEditor, PhotoRender and PhotoUI; sheet maths is in PhotoSheet.
 //
+// The drop zone and photo list, composition guides, save buttons and status line are built by PhotoUI
+// (data-ui slots in index.html); the stage with its sheet tabs and view bar stays hand-written because
+// the hint moves between the bar and the stage and the sheet replaces the photo grid.
+//
 // Moved from (the old copies are gone):
 //   renderCollage / saveCollageSheet  → PhotoRender.renderSheet / exportSheet (renderCollage stays as a wrapper for tests)
 //   cell pan, wheel zoom, preview     → PhotoEditor.pan / wheelZoom / clampZoom / Stage (was ui.js Preview)
@@ -10,6 +14,13 @@
 // ---------------------------------------------------------------- collage
 
 const collage = { photos: [], sheets: [], active: 0, sel: null, view: 'sheet' };
+
+{
+  const view = $('#collage'), slot = name => view.querySelector(`[data-ui="${name}"]`);
+  PhotoUI.mount(slot('drop'), PhotoUI.dropZone('collage'));
+  PhotoUI.mount(slot('guides'), PhotoUI.guideChecks('collage', { measure: false, hiddenRow: true }));
+  PhotoUI.mount(slot('save'), PhotoUI.saveActions('collage', { one: 'page_save_sheet', all: 'page_save_all_sheets', announce: true }));
+}
 let nextCollageSheetId = 1;
 let collageMagnet = true, collageMagnetGuide = null;
 try { collageMagnet = localStorage.getItem('ellashop-collage-magnet') !== 'off'; } catch (_) { /* Storage may be unavailable. */ }
@@ -131,7 +142,7 @@ function collageUsageCounts() {
 }
 
 function renderCollagePool() {
-  const list = $('#collage-pool'), usage = collageUsageCounts(); list.replaceChildren();
+  const list = $('#collage-queue'), usage = collageUsageCounts(); list.replaceChildren();
   collage.photos.forEach((photo, index) => {
     const used = usage.get(photo.file) || 0, li = document.createElement('li');
     li.className = `${photo === collagePhotoForItem(collage.sel?.item) ? 'sel' : ''}${used ? ' used' : ''}`.trim();
@@ -760,23 +771,11 @@ $('#collage-to-canvas').addEventListener('click', async () => {
   } catch (e) { setStatus($('#collage-status'), e.message, true); }
 });
 
-$('#collage-save-one').addEventListener('click', async () => {
-  const sheet = collageSheet(); if (!sheet) return;
-  try {
-    setStatus($('#collage-status'), t('collage_saving'));
-    const saved = await saveCollageSheet(sheet, collage.active);
-    if (saved) setStatus($('#collage-status'), t('collage_saved_file', saved));
-  } catch (e) { setStatus($('#collage-status'), e.message, true); }
-});
-$('#collage-save-all').addEventListener('click', async () => {
-  const saved = [];
-  try {
-    for (const [i, sheet] of collage.sheets.entries()) {
-      setStatus($('#collage-status'), t('collage_saving_sheet', i + 1, collage.sheets.length));
-      const name = await saveCollageSheet(sheet, i); if (name) saved.push(name);
-    }
-    setStatus($('#collage-status'), t('collage_saved_sheets', saved.length));
-  } catch (e) { setStatus($('#collage-status'), e.message, true); }
+// A cancelled save (empty-cell confirm) returns null, which wireSave neither reports nor counts.
+PhotoUI.wireSave('collage', {
+  item: collageSheet, items: () => collage.sheets,
+  save: sheet => saveCollageSheet(sheet, collage.sheets.indexOf(sheet)),
+  msg: { saving: 'collage_saving', savedFile: 'collage_saved_file', savingCount: 'collage_saving_sheet', savedAll: 'collage_saved_sheets' },
 });
 
 function collageState() {
