@@ -1,15 +1,21 @@
 'use strict';
 // Places different photos into the cells of printable sheets.
 // Loads after Passport and before shared keyboard controls.
-// Cell editing, drawing and export use PhotoEditor, PhotoRender and PhotoUI; sheet maths is in PhotoSheet.
+// Collage = the shared photo editor + packing. Everything done to ONE photo in a cell (fill mode, rotate,
+// zoom, reset, tilt, pan, wheel zoom, painting the cell) comes from PhotoEditor / PhotoUI / PhotoRender;
+// this file keeps only the packing: sheets, layouts, cells, dividers and magnet, shapes, the photo pool,
+// Move to Canvas and saved state. Sheet maths is in PhotoSheet.
 //
-// The drop zone and photo list, composition guides, save buttons and status line are built by PhotoUI
-// (data-ui slots in index.html); the stage with its sheet tabs and view bar stays hand-written because
-// the hint moves between the bar and the stage and the sheet replaces the photo grid.
+// The drop zone and photo list, the selected-cell controls, composition guides, save buttons and status
+// line are built by PhotoUI (data-ui slots in index.html); the stage with its view bar stays hand-written
+// because the hint moves between the bar and the stage and the sheet replaces the photo grid.
 //
 // Moved from (the old copies are gone):
 //   renderCollage / saveCollageSheet  → PhotoRender.renderSheet / exportSheet (renderCollage stays as a wrapper for tests)
-//   cell pan, wheel zoom, preview     → PhotoEditor.pan / wheelZoom / clampZoom / Stage (was ui.js Preview)
+//   cell pan, wheel zoom, cell paint  → PhotoUI.photoCanvas / paintCached (shared with the photo grid cards)
+//   fill mode, rotate, zoom, reset    → PhotoUI.fillModeSeg / adjustRow / wireAdjust / syncAdjust (Reset no longer
+//                                       undoes the 90° turn or the fill mode, like the other pages)
+//   sheet tabs, Prev/Next/count       → PhotoUI.tabs, PhotoUI.stepBar / neighbour
 //   composition guides                → PhotoUI.wireGuides (was the collage loop in shortcuts.js)
 // ---------------------------------------------------------------- collage
 
@@ -18,6 +24,9 @@ const collage = { photos: [], sheets: [], active: 0, sel: null, view: 'sheet' };
 {
   const view = $('#collage'), slot = name => view.querySelector(`[data-ui="${name}"]`);
   PhotoUI.mount(slot('drop'), PhotoUI.dropZone('collage'));
+  PhotoUI.mount(slot('adjust'),
+    PhotoUI.fillModeSeg('collage', { heading: 'page_selected_cell', labels: ['page_crop', 'page_fit_white', 'page_fit_blurred'] }),
+    PhotoUI.adjustRow('collage', { heading: false }));
   PhotoUI.mount(slot('guides'), PhotoUI.guideChecks('collage', { measure: false, hiddenRow: true }));
   PhotoUI.mount(slot('save'), PhotoUI.saveActions('collage', { one: 'page_save_sheet', all: 'page_save_all_sheets', announce: true }));
 }
@@ -59,27 +68,46 @@ function collageDefaultSheet(copy = null) {
   return sheet;
 }
 
-function collageRepackSize(sheet, priorItems = null, selectedIndex = 0) {
+// Refresh the page and save after a change to the sheets.
+function collageChanged() { refreshCollage(); queueSave('collage'); }
+
+// The photos on a sheet in cell order and the index of the selected cell, taken before the cells change.
+function collageHeld(sheet) {
+  const rects = cellRects(sheet);
+  return { items: rects.map(r => r.leaf.item).filter(Boolean), index: Math.max(0, rects.findIndex(r => r.leaf === collage.sel)) };
+}
+
+// Put the held photos into new cells in order and keep the selection at the same index.
+function collageFill(leaves, { items, index }) {
+  leaves.forEach((leaf, i) => { leaf.item = items[i] || null; });
+  collage.sel = leaves[Math.min(index, Math.max(0, leaves.length - 1))] || null;
+}
+
+function collageRepackSize(sheet, held) {
   if (!sheet || sheet.layout !== 'size') return;
-  const items = priorItems || cellRects(sheet).map(r => r.leaf.item).filter(Boolean);
   const pack = PhotoSheet.sizePack(sheet);
   if (!pack) { sheet.layout = 'grid'; sheet.root = PhotoSheet.gridTree(1, 1); sheet.sizeCell = null; }
   else sheet.root = PhotoSheet.gridTree(pack.cols, pack.rows);
-  const leaves = PhotoSheet.treeLeaves(sheet.root);
-  leaves.forEach((leaf, i) => { leaf.item = items[i] || null; });
-  collage.sel = leaves[Math.min(selectedIndex, Math.max(0, leaves.length - 1))] || null;
+  collageFill(PhotoSheet.treeLeaves(sheet.root), held);
   collageSetCellFormats(sheet);
 }
 
+// Change a sheet's paper, orientation, layout, size or spacing (`change` edits it, and may return false to
+// cancel): the photos and the selection stay, and cells are repacked or given their new formats.
+function collageReflow(sheet, change) {
+  if (!sheet) return;
+  const held = collageHeld(sheet);
+  if (change() === false) return;
+  if (sheet.layout === 'size') collageRepackSize(sheet, held); else collageSetCellFormats(sheet);
+  collageChanged();
+}
+
 function collageReplaceRoot(sheet, root, layout) {
-  const oldRects = cellRects(sheet), items = oldRects.map(r => r.leaf.item).filter(Boolean);
-  const selectedIndex = Math.max(0, oldRects.findIndex(r => r.leaf === collage.sel));
+  const held = collageHeld(sheet);
   sheet.root = root; sheet.layout = layout;
-  const leaves = PhotoSheet.treeLeaves(root);
-  leaves.forEach((leaf, i) => { leaf.item = items[i] || null; });
-  collage.sel = leaves[Math.min(selectedIndex, Math.max(0, leaves.length - 1))] || null;
+  collageFill(PhotoSheet.treeLeaves(root), held);
   collageSetCellFormats(sheet);
-  refreshCollage(); queueSave('collage');
+  collageChanged();
 }
 
 function collageTemplateRoots(count, sheet) {
@@ -163,7 +191,7 @@ function renderCollagePool() {
         const target = collage.sel && !collage.sel.item ? collage.sel : collageFirstEmpty() || collage.sel;
         if (target) collagePlace(photo, target);
       }
-      refreshCollage(); queueSave('collage');
+      collageChanged();
     });
     li.addEventListener('dragstart', e => {
       e.dataTransfer.setData('text/x-ellashop-photo', String(index));
@@ -192,13 +220,13 @@ function collageCellElement(leaf) {
       const source = PhotoSheet.treeLeaves(collageSheet()?.root)[Number(from)];
       if (source && source !== leaf) {
         [source.item, leaf.item] = [leaf.item, source.item]; collageSetCellFormats(collageSheet());
-        collageSelect(leaf); refreshCollage(); queueSave('collage');
+        collageSelect(leaf); collageChanged();
       }
       return;
     }
     if (pool !== '') {
       const photo = collage.photos[Number(pool)];
-      if (photo) { collagePlace(photo, leaf); refreshCollage(); queueSave('collage'); }
+      if (photo) { collagePlace(photo, leaf); collageChanged(); }
       return;
     }
     const files = [...(e.dataTransfer.files || [])].filter(file => file.type.startsWith('image/'));
@@ -219,51 +247,30 @@ function collagePopulateCell(cell, leaf, sheet) {
   if (cell._item !== item) {
     cell.replaceChildren();
     const eye = document.createElement('button'); eye.className = 'eye'; eye.title = t('collage_open_single_view'); eye.textContent = '👁';
-    eye.addEventListener('click', e => { e.stopPropagation(); collageSelect(leaf); collage.view = 'single'; refreshCollage(); queueSave('collage'); });
+    eye.addEventListener('click', e => { e.stopPropagation(); collageSelect(leaf); collage.view = 'single'; collageChanged(); });
     const handle = document.createElement('button'); handle.className = 'collage-handle'; handle.title = t('collage_drag_swap'); handle.textContent = '⠿'; handle.draggable = true;
     handle.addEventListener('dragstart', e => {
       e.stopPropagation(); e.dataTransfer.setData('text/x-ellashop-leaf', String(PhotoSheet.treeLeaves(sheet.root).indexOf(leaf)));
       e.dataTransfer.effectAllowed = 'move';
     });
     const canvas = document.createElement('canvas');
-    let last = null;
-    canvas.addEventListener('pointerdown', e => {
-      collageSelect(leaf); last = [e.clientX, e.clientY]; canvas.setPointerCapture(e.pointerId);
+    PhotoUI.photoCanvas(canvas, item, {
+      onSelect: () => collageSelect(leaf),
+      onMove: () => collagePaintCell(cell, leaf, item, sheet),
+      onDone: () => queueSave('collage'),
+      onWheel: () => { collagePaintCell(cell, leaf, item, sheet); syncCollageControls(); queueSave('collage'); },
     });
-    canvas.addEventListener('pointermove', e => {
-      if (!last) return;
-      PhotoEditor.pan(item, canvas, (it, W, H) => ({ x: 0, y: 0, w: W, h: H }), e.clientX - last[0], e.clientY - last[1]);
-      last = [e.clientX, e.clientY]; item.auto = ''; item.smartPending = false;
-      collagePaintCell(cell, leaf, item, sheet);
-    });
-    canvas.addEventListener('pointerup', () => { if (last) queueSave('collage'); last = null; });
-    canvas.addEventListener('pointercancel', () => { last = null; });
-    canvas.addEventListener('wheel', e => {
-      if (!PhotoEditor.wheelZoom(item, e.deltaY)) return;
-      e.preventDefault();
-      collagePaintCell(cell, leaf, item, sheet); syncCollageControls(); queueSave('collage');
-    }, { passive: false });
     cell.append(eye, handle, canvas); cell._item = item;
   }
   collagePaintCell(cell, leaf, item, sheet);
 }
 
-// Cache key for a painted cell: every field that changes the rendered pixels.
-function collageGridKey(it, mm) {
-  return ['collage', it.img.src, mm.w, mm.h, it.rot, it.tilt, it.zoom, it.cx, it.cy,
-    it.mode, it.bg, it.blur, it.strength, it.wrap, it.marks, JSON.stringify(it.overlays || []), assetVersion].join('|');
-}
 function collagePaintCell(cell, leaf, item, sheet, rect = cell._rect) {
   const canvas = cell.querySelector('canvas'); if (!canvas || !rect) return;
   const r = cell.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
   const W = Math.max(1, Math.round(r.width * 2 * dpr)), H = Math.max(1, Math.round(r.height * 2 * dpr));
-  if (canvas.width !== W) canvas.width = W;
-  if (canvas.height !== H) canvas.height = H;
   canvas.style.filter = PhotoRender.densityFilter(sheet.density);
-  const mm = { w: rect.w, h: rect.h }, key = `${collageGridKey(item, mm)}|${sheet.density}|${W}|${H}`;
-  if (canvas._renderKey === key) return;
-  PhotoRender.renderItem(canvas.getContext('2d'), item, W, H);
-  canvas._renderKey = key;
+  PhotoUI.paintCached(canvas, item, { w: rect.w, h: rect.h }, W, H, PhotoRender.renderItem, `collage|${sheet.density}`);
 }
 
 function collageRenderDividers(sheet, paper, rect) {
@@ -348,11 +355,7 @@ function renderCollageSheetView() {
     : t('collage_drag_photos_hint');
   viewBar.classList.toggle('has-hint', !single && !emptyPool);
   viewBar.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === collage.view));
-  viewBar.querySelectorAll('[data-step]').forEach(b => { b.hidden = !single; });
-  const current = filled.indexOf(collage.sel), count = filled.length;
-  const countEl = viewBar.querySelector('.view-count'); countEl.hidden = !single; countEl.textContent = `${Math.max(0, current + 1)} / ${count}`;
-  viewBar.querySelector('[data-step="-1"]').disabled = !single || current <= 0;
-  viewBar.querySelector('[data-step="1"]').disabled = !single || current < 0 || current >= count - 1;
+  PhotoUI.stepBar(viewBar, filled, collage.sel, single);
   $('#collage-add-sheet').hidden = single;
   box.hidden = single; canvas.hidden = !single;
   if (single) {
@@ -376,24 +379,21 @@ function renderCollageSheetView() {
 }
 
 function renderCollageTabs() {
-  const tabs = $('#collage-tabs'); tabs.replaceChildren();
-  collage.sheets.forEach((sheet, i) => {
-    const tab = document.createElement('div'); tab.className = `collage-tab${i === collage.active ? ' active' : ''}`;
-    const pick = document.createElement('button'); pick.className = 'collage-pick'; pick.type = 'button';
-    const name = document.createElement('span'); name.className = 'collage-tab-name'; name.textContent = t('collage_sheet', i + 1);
-    pick.append(name); pick.addEventListener('click', () => { collage.active = i; collage.sel = PhotoSheet.treeLeaves(sheet.root)[0] || null; collage.view = 'sheet'; refreshCollage(); queueSave('collage'); });
-    const close = document.createElement('button'); close.className = 'collage-close'; close.type = 'button'; close.title = t('collage_close_sheet'); close.textContent = '✕';
-    close.addEventListener('click', e => {
-      e.stopPropagation();
+  PhotoUI.tabs($('#collage-tabs'), collage.sheets, {
+    cls: { tab: 'collage-tab', pick: 'collage-pick', name: 'collage-tab-name', close: 'collage-close' },
+    label: (sheet, i) => t('collage_sheet', i + 1),
+    active: sheet => sheet === collageSheet(),
+    onPick: (sheet, i) => { collage.active = i; collage.sel = PhotoSheet.treeLeaves(sheet.root)[0] || null; collage.view = 'sheet'; collageChanged(); },
+    onClose: (sheet, i) => {
       const count = collageFilledLeaves(sheet).length;
       if (count && !confirm(t('collage_close_filled_sheet', i + 1, count))) return;
       collage.sheets.splice(i, 1);
       if (!collage.sheets.length) collage.sheets.push(collageDefaultSheet());
       collage.active = Math.max(0, Math.min(collage.active - (i < collage.active ? 1 : 0), collage.sheets.length - 1));
       collage.sel = PhotoSheet.treeLeaves(collageSheet().root)[0] || null; collage.view = 'sheet';
-      refreshCollage(); queueSave('collage');
-    });
-    tab.append(pick, close); tabs.append(tab);
+      collageChanged();
+    },
+    closeTitle: t('collage_close_sheet'),
   });
 }
 
@@ -420,7 +420,7 @@ $('#collage-paper').addEventListener('click', e => {
 
 const syncCollageDensity = densityControl($('#collage-density'), {
   item: () => collageSheet(), items: () => collage.sheets,
-  refresh: () => { refreshCollage(); queueSave('collage'); },
+  refresh: collageChanged,
 });
 
 function syncCollageControls() {
@@ -447,11 +447,10 @@ function syncCollageControls() {
   $('#collage-density').classList.toggle('changed', !!sheet.density);
   syncCollageDensity();
   if (sheet.sizeCell) { $('#collage-cell-w').value = sheet.sizeCell.w / 10; $('#collage-cell-h').value = sheet.sizeCell.h / 10; }
-  const mode = item?.mode || 'fill'; setSeg($('#collage-mode'), mode);
-  $('#collage-zoom').value = item?.zoom || 1; $('#collage-zoom').disabled = !item || mode === 'fit' || mode === 'blur';
-  $('#collage-mode').querySelectorAll('button').forEach(button => { button.disabled = !item; });
-  ['#collage-rot-l', '#collage-rot-r', '#collage-zoom', '#collage-reset', '#collage-empty']
-    .forEach(selector => { $(selector).disabled = !item; });
+  PhotoUI.syncAdjust('collage', item);
+  if (!item) { setSeg($('#collage-mode'), 'fill'); $('#collage-zoom').value = 1; }
+  ['#collage-mode button', '#collage-rot-l', '#collage-rot-r', '#collage-reset', '#collage-empty']
+    .forEach(selector => $$(selector).forEach(el => { el.disabled = !item; }));
   $('#collage-merge').disabled = !leaf || leaves.length <= 1;
   $('#collage-split-row').disabled = !leaf; $('#collage-split-col').disabled = !leaf;
   renderCollageSizes(); renderCollageShapes();
@@ -479,14 +478,14 @@ function refreshCollage() {
 function selectCollageView(view) {
   if (view === 'single' && !collage.sel?.item) collage.sel = collageFilledLeaves()[0] || null;
   collage.view = view === 'single' && collage.sel?.item ? 'single' : 'sheet';
-  refreshCollage(); queueSave('collage');
+  collageChanged();
 }
 
 collage.preview = new PhotoEditor.Stage($('#collage-canvas'), $('#collage-stage'), {
   getItem: () => collage.sel?.item,
   sizeMM: item => item.fmt,
   onChange: done => {
-    if (done) { refreshCollage(); queueSave('collage'); }
+    if (done) collageChanged();
   },
 });
 PhotoUI.wireGuides('collage', collage.preview);
@@ -495,10 +494,10 @@ PhotoUI.keys.register('collage', {
   active: () => $('#collage').classList.contains('active'),
   item: () => collage.sel?.item, stage: collage.preview,
   panTarget: () => collageSelectedCanvas(),
-  changed: () => { refreshCollage(); queueSave('collage'); },
+  changed: collageChanged,
   escape: () => {
     if (collage.view !== 'single') return false;
-    collage.view = 'sheet'; refreshCollage(); queueSave('collage'); return true;
+    collage.view = 'sheet'; collageChanged(); return true;
   },
   guides: () => collage.view === 'single',
 });
@@ -507,15 +506,15 @@ $('#collage-view-bar').addEventListener('click', e => {
   const button = e.target.closest('button'); if (!button) return;
   if (button.dataset.view) selectCollageView(button.dataset.view);
   else if (button.dataset.step) {
-    const filled = collageFilledLeaves(), index = filled.indexOf(collage.sel), next = index + Number(button.dataset.step);
-    if (filled[next]) { collage.sel = filled[next]; refreshCollage(); }
+    const next = PhotoUI.neighbour(collageFilledLeaves(), collage.sel, Number(button.dataset.step));
+    if (next) { collage.sel = next; refreshCollage(); }
   }
 });
 
 $('#collage-add-sheet').addEventListener('click', () => {
   collage.sheets.push(collageDefaultSheet(collageSheet())); collage.active = collage.sheets.length - 1;
   collage.sel = PhotoSheet.treeLeaves(collageSheet().root)[0] || null; collage.view = 'sheet';
-  refreshCollage(); queueSave('collage');
+  collageChanged();
 });
 
 wireDrop($('#collage-drop'), $('#collage-file'), files => addCollage(files.map(file => ({ blob: file, name: file.name }))));
@@ -536,43 +535,33 @@ async function addCollage(sources, firstCell = null) {
       firstCell = null;
     } catch (e) { setStatus($('#collage-status'), `${source.name}: ${e.message}`, true); }
   }
-  refreshCollage(); queueSave('collage');
+  collageChanged();
 }
 
 function setCollagePaper(fmt) {
-  const sheet = collageSheet(); if (!sheet) return;
-  const selected = cellRects(sheet), items = selected.map(r => r.leaf.item).filter(Boolean), selectedIndex = Math.max(0, selected.findIndex(r => r.leaf === collage.sel));
-  sheet.fmt = fmt;
-  if (sheet.layout === 'size') collageRepackSize(sheet, items, selectedIndex);
-  else collageSetCellFormats(sheet);
-  refreshCollage(); queueSave('collage');
+  const sheet = collageSheet();
+  collageReflow(sheet, () => { sheet.fmt = fmt; });
 }
 
 wireSeg($('#collage-orient'), orient => {
-  const sheet = collageSheet(); if (!sheet) return;
-  const oldRects = cellRects(sheet), items = oldRects.map(r => r.leaf.item).filter(Boolean), selectedIndex = Math.max(0, oldRects.findIndex(r => r.leaf === collage.sel));
-  sheet.orient = orient;
-  if (sheet.layout === 'size') collageRepackSize(sheet, items, selectedIndex); else collageSetCellFormats(sheet);
-  refreshCollage(); queueSave('collage');
+  const sheet = collageSheet();
+  collageReflow(sheet, () => { sheet.orient = orient; });
 });
 
-const collageLayoutControl = $('#collage-layout');
-collageLayoutControl.addEventListener('click', e => {
+// The layout panel is hidden in single view, so no user or key can reach it; this one capture guard keeps
+// scripted clicks on its controls inert there too (tests/ui/6_collage.json asserts that).
+$('#collage-layout-section').addEventListener('click', e => {
   if (collage.view === 'single') { e.preventDefault(); e.stopImmediatePropagation(); }
 }, true);
-wireSeg(collageLayoutControl, layout => {
-  if (collage.view === 'single') return;
+wireSeg($('#collage-layout'), layout => {
   const sheet = collageSheet(); if (!sheet) return;
-  if (layout === 'size') {
-    const size = sheet.sizeCell || { w: 50, h: 75 }, old = cellRects(sheet), items = old.map(r => r.leaf.item).filter(Boolean);
-    const index = Math.max(0, old.findIndex(r => r.leaf === collage.sel));
-    sheet.sizeCell = { ...size }; sheet.layout = 'size'; collageRepackSize(sheet, items, index);
-  } else if (layout === 'grid') {
+  if (layout === 'grid') {
     const dims = PhotoSheet.countGrid(PhotoSheet.treeLeaves(sheet.root).length || 4, sheet);
-    collageReplaceRoot(sheet, PhotoSheet.gridTree(dims.cols, dims.rows), 'grid'); return;
-  }
-  else sheet.layout = layout;
-  collageSetCellFormats(sheet); refreshCollage(); queueSave('collage');
+    collageReplaceRoot(sheet, PhotoSheet.gridTree(dims.cols, dims.rows), 'grid');
+  } else collageReflow(sheet, () => {
+    sheet.layout = layout;
+    if (layout === 'size') sheet.sizeCell = { ...(sheet.sizeCell || { w: 50, h: 75 }) };
+  });
 });
 
 $('#collage-counts').addEventListener('click', e => {
@@ -598,9 +587,7 @@ function setCollageSizeCell(size) {
   const sheet = collageSheet(); if (!sheet) return;
   const pack = PhotoSheet.sizePack(sheet, size);
   if (!pack) { setStatus($('#collage-status'), t('collage_cell_does_not_fit'), true); return; }
-  const old = cellRects(sheet), items = old.map(r => r.leaf.item).filter(Boolean), index = Math.max(0, old.findIndex(r => r.leaf === collage.sel));
-  sheet.sizeCell = { w: size.w, h: size.h }; sheet.layout = 'size'; collageRepackSize(sheet, items, index);
-  refreshCollage(); queueSave('collage');
+  collageReflow(sheet, () => { sheet.sizeCell = { w: size.w, h: size.h }; sheet.layout = 'size'; });
 }
 
 $('#collage-apply-cell-size').addEventListener('click', () => {
@@ -620,17 +607,16 @@ $('#collage-shapes-minus').addEventListener('click', () => { $('#collage-shapes-
 $('#collage-shapes-plus').addEventListener('click', () => { $('#collage-shapes-count').value = Math.min(20, Number($('#collage-shapes-count').value) + 1); renderCollageShapes(); });
 $('#collage-shapes-count').addEventListener('change', renderCollageShapes);
 
-$('#collage-split-row').addEventListener('click', () => { if (collage.view === 'single') return; collageSplitSelected('row'); });
-$('#collage-split-col').addEventListener('click', () => { if (collage.view === 'single') return; collageSplitSelected('col'); });
-$('#collage-merge').addEventListener('click', () => { if (collage.view === 'single') return; collageMergeSelected(); });
-$('#collage-start-over').addEventListener('click', () => { if (collage.view === 'single') return; collageReplaceRoot(collageSheet(), PhotoSheet.leaf(), 'custom'); });
+$('#collage-split-row').addEventListener('click', () => collageSplitSelected('row'));
+$('#collage-split-col').addEventListener('click', () => collageSplitSelected('col'));
+$('#collage-merge').addEventListener('click', collageMergeSelected);
+$('#collage-start-over').addEventListener('click', () => collageReplaceRoot(collageSheet(), PhotoSheet.leaf(), 'custom'));
 $('#collage-equalize').addEventListener('click', () => {
-  if (collage.view === 'single') return;
   const sheet = collageSheet(); if (!sheet) return;
   const parent = collage.sel ? PhotoSheet.findParent(sheet.root, collage.sel) : null;
   if (parent) parent.sizes = PhotoSheet.equal(parent.children.length);
   else PhotoSheet.equalizeTree(sheet.root);
-  sheet.layout = 'custom'; collageSetCellFormats(sheet); refreshCollage(); queueSave('collage');
+  sheet.layout = 'custom'; collageSetCellFormats(sheet); collageChanged();
 });
 $('#collage-magnet').addEventListener('change', e => {
   collageMagnet = e.currentTarget.checked; collageMagnetGuide = null;
@@ -653,7 +639,7 @@ function collageSplitSelected(dir) {
   sheet.root = insert(oldRoot);
   if (sheet.root === target) sheet.root = split();
   sheet.layout = 'custom'; collage.sel = sheet.root === target ? sheet.root.children[0] : PhotoSheet.treeLeaves(sheet.root).find(leaf => leaf === target) || PhotoSheet.treeLeaves(sheet.root)[0];
-  collageSetCellFormats(sheet); refreshCollage(); queueSave('collage');
+  collageSetCellFormats(sheet); collageChanged();
 }
 
 function collageMergeSelected() {
@@ -673,7 +659,7 @@ function collageMergeSelected() {
   };
   sheet.root = remove(sheet.root) || PhotoSheet.leaf(); sheet.layout = 'custom';
   collage.sel = PhotoSheet.treeLeaves(sheet.root)[0] || null;
-  collageSetCellFormats(sheet); refreshCollage(); queueSave('collage');
+  collageSetCellFormats(sheet); collageChanged();
 }
 
 function collageMetricChange(key, input) {
@@ -681,42 +667,33 @@ function collageMetricChange(key, input) {
   if (!input.validity.valid || input.value === '' || !Number.isFinite(next) || next < 0 || next > 20 || Math.round(next * 2) !== next * 2) {
     input.value = old; setStatus($('#collage-status'), t('collage_gap_margin_range_error'), true); return;
   }
-  const prior = cellRects(sheet), items = prior.map(r => r.leaf.item).filter(Boolean), selectedIndex = Math.max(0, prior.findIndex(r => r.leaf === collage.sel));
-  sheet[key] = next;
-  const paper = PhotoSheet.sheetMM(sheet);
-  const innerW = Math.max(0, paper.w - 2 * sheet.margin), innerH = Math.max(0, paper.h - 2 * sheet.margin);
-  const fits = sheet.layout === 'size' ? !!PhotoSheet.sizePack(sheet) : PhotoSheet.treeFits(sheet.root, innerW, innerH, sheet.gap);
-  if (sheet.margin * 2 >= Math.min(paper.w, paper.h) || !fits) {
-    sheet[key] = old; input.value = old; setStatus($('#collage-status'), t('collage_spacing_no_room'), true); return;
-  }
-  if (sheet.layout === 'size') collageRepackSize(sheet, items, selectedIndex); else collageSetCellFormats(sheet);
-  refreshCollage(); queueSave('collage');
+  collageReflow(sheet, () => {
+    sheet[key] = next;
+    const paper = PhotoSheet.sheetMM(sheet);
+    const innerW = Math.max(0, paper.w - 2 * sheet.margin), innerH = Math.max(0, paper.h - 2 * sheet.margin);
+    const fits = sheet.layout === 'size' ? !!PhotoSheet.sizePack(sheet) : PhotoSheet.treeFits(sheet.root, innerW, innerH, sheet.gap);
+    if (sheet.margin * 2 >= Math.min(paper.w, paper.h) || !fits) {
+      sheet[key] = old; input.value = old; setStatus($('#collage-status'), t('collage_spacing_no_room'), true); return false;
+    }
+  });
 }
 
 $('#collage-gap').addEventListener('change', e => collageMetricChange('gap', e.currentTarget));
 $('#collage-margin').addEventListener('change', e => collageMetricChange('margin', e.currentTarget));
-wireSeg($('#collage-gap-color'), color => { const sheet = collageSheet(); sheet.gapColor = color; refreshCollage(); queueSave('collage'); });
-$('#collage-cutlines').addEventListener('change', e => { const sheet = collageSheet(); sheet.cutLines = e.currentTarget.checked; refreshCollage(); queueSave('collage'); });
+wireSeg($('#collage-gap-color'), color => { const sheet = collageSheet(); sheet.gapColor = color; collageChanged(); });
+$('#collage-cutlines').addEventListener('change', e => { const sheet = collageSheet(); sheet.cutLines = e.currentTarget.checked; collageChanged(); });
 
 wireSeg($('#collage-mode'), mode => {
   const item = collage.sel?.item; if (!item) return;
-  item.mode = mode; refreshCollage(); queueSave('collage');
+  PhotoEditor.setMode(item, mode); collageChanged();
 });
-$('#collage-rot-l').addEventListener('click', () => { const it = collage.sel?.item; if (it) { it.rot = (it.rot + 270) % 360; refreshCollage(); queueSave('collage'); } });
-$('#collage-rot-r').addEventListener('click', () => { const it = collage.sel?.item; if (it) { it.rot = (it.rot + 90) % 360; refreshCollage(); queueSave('collage'); } });
-$('#collage-zoom').addEventListener('input', e => {
-  const item = collage.sel?.item; if (!item) return;
-  item.zoom = PhotoEditor.clampZoom(item, Number(e.currentTarget.value));
-  if (collage.view === 'single') collage.preview.draw(); else renderCollageSheetView();
-  queueSave('collage');
-});
-$('#collage-reset').addEventListener('click', () => {
-  const item = collage.sel?.item; if (!item) return;
-  Object.assign(item, { zoom: 1, cx: .5, cy: .5, tilt: 0, rot: 0, mode: 'fill' });
-  refreshCollage(); queueSave('collage');
+// Rotate, zoom and reset of the selected cell's photo are the shared ones (Reset leaves the 90° turn and the fill mode alone).
+PhotoUI.wireAdjust('collage', {
+  item: () => collage.sel?.item, changed: collageChanged,
+  redraw: () => { if (collage.view === 'single') collage.preview.draw(); else renderCollageSheetView(); queueSave('collage'); },
 });
 $('#collage-empty').addEventListener('click', () => {
-  if (collage.sel) { collage.sel.item = null; collage.view = 'sheet'; refreshCollage(); queueSave('collage'); }
+  if (collage.sel) { collage.sel.item = null; collage.view = 'sheet'; collageChanged(); }
 });
 
 function confirmCollageEmpty(sheet, action = 'save') {
@@ -792,7 +769,7 @@ function collageState() {
   };
 }
 
-async function collageTreeFromState(saved, owner, imageFor) {
+async function collageTreeFromState(saved, imageFor) {
   if (!saved || saved.leaf) {
     const leaf = PhotoSheet.leaf();
     if (saved?.item?.file) {
@@ -803,34 +780,37 @@ async function collageTreeFromState(saved, owner, imageFor) {
   }
   const safe = PhotoSheet.normalizeTree(saved);
   const children = [];
-  for (const child of saved.children || []) children.push(await collageTreeFromState(child, owner, imageFor));
+  for (const child of saved.children || []) children.push(await collageTreeFromState(child, imageFor));
   safe.children = children;
   return safe;
 }
 
-async function restoreCollageWorkspace(state) {
-  collage.photos = [];
+// One saved sheet back to a live one; validates every field. `imageFor(file)` loads a photo's image.
+async function collageSheetFromState(saved, imageFor) {
+  return {
+    id: collageSavedId(saved.id), fmt: formatById(COLLAGE_PAPERS, saved.fmt),
+    orient: saved.orient === 'landscape' ? 'landscape' : 'portrait', gap: Number(saved.gap) || 0,
+    margin: Number(saved.margin) || 0, gapColor: saved.gapColor === '#000000' ? '#000000' : '#ffffff',
+    cutLines: saved.cutLines !== false, density: Math.max(-5, Math.min(5, Number(saved.density) || 0)),
+    layout: ['grid', 'size', 'template', 'custom'].includes(saved.layout) ? saved.layout : 'grid',
+    sizeCell: saved.sizeCell && Number(saved.sizeCell.w) > 0 && Number(saved.sizeCell.h) > 0
+      ? { w: Number(saved.sizeCell.w), h: Number(saved.sizeCell.h) } : { w: 50, h: 75 },
+    root: await collageTreeFromState(saved.root, imageFor),
+  };
+}
+
+// Rebuild the photo pool and sheets from saved state; a photo or sheet that fails to load is reported and skipped.
+async function collageRestore(state, imageFor) {
+  const photos = [], sheets = [];
   for (const saved of state.photos || []) {
-    try { collage.photos.push({ file: saved.file, name: saved.name || saved.file, img: await loadImage(workspaceUrl('collage', saved.file)) }); }
+    try { photos.push({ file: saved.file, name: saved.name || saved.file, img: await imageFor(saved.file) }); }
     catch (e) { showWorkspaceError('collage', new Error(`${saved.name || saved.file}: ${e.message}`)); }
   }
-  collage.sheets = [];
   for (const saved of state.sheets || []) {
-    try {
-      const sheet = {
-        id: collageSavedId(saved.id), fmt: formatById(COLLAGE_PAPERS, saved.fmt),
-        orient: saved.orient === 'landscape' ? 'landscape' : 'portrait', gap: Number(saved.gap) || 0,
-        margin: Number(saved.margin) || 0, gapColor: saved.gapColor === '#000000' ? '#000000' : '#ffffff',
-        cutLines: saved.cutLines !== false, density: Math.max(-5, Math.min(5, Number(saved.density) || 0)),
-        layout: ['grid', 'size', 'template', 'custom'].includes(saved.layout) ? saved.layout : 'grid',
-        sizeCell: saved.sizeCell && Number(saved.sizeCell.w) > 0 && Number(saved.sizeCell.h) > 0
-          ? { w: Number(saved.sizeCell.w), h: Number(saved.sizeCell.h) } : { w: 50, h: 75 },
-        root: PhotoSheet.normalizeTree(saved.root),
-      };
-      sheet.root = await collageTreeFromState(saved.root, 'collage', file => restoreItem({ file }, 'collage', COLLAGE_PAPERS).then(item => item.img));
-      collage.sheets.push(sheet);
-    } catch (e) { showWorkspaceError('collage', e); }
+    try { sheets.push(await collageSheetFromState(saved, imageFor)); }
+    catch (e) { showWorkspaceError('collage', e); }
   }
+  collage.photos = photos; collage.sheets = sheets;
   if (!collage.sheets.length) collage.sheets.push(collageDefaultSheet());
   collage.active = Math.max(0, Math.min(Number(state.active) || 0, collage.sheets.length - 1));
   collage.view = state.view === 'single' ? 'single' : 'sheet';
@@ -840,33 +820,8 @@ async function restoreCollageWorkspace(state) {
   refreshCollage();
 }
 
-async function restoreCollageSnapshot(state) {
-  const photos = [];
-  for (const saved of state.photos || []) {
-    try { photos.push({ file: saved.file, name: saved.name || saved.file, img: await historyImage('collage', saved.file) }); }
-    catch (e) { showWorkspaceError('collage', new Error(`${saved.name || saved.file}: ${e.message}`)); }
-  }
-  collage.photos = photos; collage.sheets = [];
-  const imageFor = file => historyImage('collage', file);
-  for (const saved of state.sheets || []) {
-    const sheet = {
-      id: collageSavedId(saved.id), fmt: formatById(COLLAGE_PAPERS, saved.fmt),
-      orient: saved.orient === 'landscape' ? 'landscape' : 'portrait', gap: Number(saved.gap) || 0,
-      margin: Number(saved.margin) || 0, gapColor: saved.gapColor === '#000000' ? '#000000' : '#ffffff',
-      cutLines: saved.cutLines !== false, density: Math.max(-5, Math.min(5, Number(saved.density) || 0)),
-      layout: ['grid', 'size', 'template', 'custom'].includes(saved.layout) ? saved.layout : 'grid',
-      sizeCell: saved.sizeCell ? { ...saved.sizeCell } : { w: 50, h: 75 },
-      root: await collageTreeFromState(saved.root, 'collage', imageFor),
-    };
-    collage.sheets.push(sheet);
-  }
-  if (!collage.sheets.length) collage.sheets.push(collageDefaultSheet());
-  collage.active = Math.max(0, Math.min(Number(state.active) || 0, collage.sheets.length - 1));
-  collage.view = state.view === 'single' ? 'single' : 'sheet';
-  collage.sel = PhotoSheet.treeLeaves(collageSheet().root)[0] || null;
-  if (collage.view === 'single' && !collage.sel?.item) collage.sel = collageFilledLeaves()[0] || collage.sel;
-  collage.sheets.forEach(collageSetCellFormats); refreshCollage();
-}
+const restoreCollageWorkspace = state => collageRestore(state, file => loadImage(workspaceUrl('collage', file)));
+const restoreCollageSnapshot = state => collageRestore(state, file => historyImage('collage', file));
 
 function clearCollage() {
   collage.photos = []; collage.sheets = [collageDefaultSheet()]; collage.active = 0; collage.sel = PhotoSheet.treeLeaves(collageSheet().root)[0]; collage.view = 'sheet';

@@ -72,30 +72,22 @@ pp.drawSheet = () => {
 };
 
 function ppTabs() {
-  const bar = $('#pp-tabs');
-  bar.replaceChildren();
-  pp.jobs.forEach(job => {
-    const tab = document.createElement('div');
-    tab.className = 'pp-tab' + (job === pp.active ? ' active' : '');
-    const pick = document.createElement('button');
-    pick.className = 'pp-pick';
-    const name = document.createElement('span');
-    name.className = 'pp-name'; name.textContent = job.name;
-    const status = document.createElement('span');
-    status.className = 'pp-state';
-    status.textContent = { new: '', queued: t('passport_queued'), removing: '…', done: '✓', error: '!' }[job.status];
-    status.title = job.error || t(({ new: 'passport_new', queued: 'passport_queued', removing: 'passport_removing', done: 'passport_done', error: 'passport_error' })[job.status]);
-    pick.append(name, status);
-    pick.addEventListener('click', () => { pp.active = job; ppSyncItem(); });
-    const close = document.createElement('button');
-    close.className = 'pp-close'; close.textContent = '✕'; close.title = t('passport_close_photo');
-    close.addEventListener('click', () => {
+  PhotoUI.tabs($('#pp-tabs'), pp.jobs, {
+    cls: { tab: 'pp-tab', pick: 'pp-pick', name: 'pp-name', state: 'pp-state', close: 'pp-close' },
+    label: job => job.name,
+    state: job => ({
+      text: { new: '', queued: t('passport_queued'), removing: '…', done: '✓', error: '!' }[job.status],
+      title: job.error || t(({ new: 'passport_new', queued: 'passport_queued', removing: 'passport_removing', done: 'passport_done', error: 'passport_error' })[job.status]),
+    }),
+    active: job => job === pp.active,
+    onPick: job => { pp.active = job; ppSyncItem(); },
+    onClose: job => {
       pp.jobs = pp.jobs.filter(x => x !== job);
       pp.queue = pp.queue.filter(x => x.job !== job);
       if (pp.active === job) pp.active = pp.jobs[0] || null;
       ppSyncItem();
-    });
-    tab.append(pick, close); bar.append(tab);
+    },
+    closeTitle: t('passport_close_photo'),
   });
 }
 

@@ -16,6 +16,9 @@
 //   PhotoUI.keys                          ← shortcuts.js overlay, zoom, pan/tilt, view and O key handlers
 //   PhotoUI.wireSave                      ← prints.js #save-one/#save-all, canvas.js, passport.js, collage.js
 //   PhotoUI.renderQueue / photoGrid       ← prints.js renderQueue / photoGrid
+//   PhotoUI.photoCanvas / paintCached     ← photoGrid card pan and cached paint; collage.js cell pan, wheel zoom and paint
+//   PhotoUI.stepBar / neighbour           ← photoGrid Prev/Next/count; collage.js single view uses them too
+//   PhotoUI.tabs                          ← collage.js renderCollageTabs and passport.js ppTabs
 //   wireDrop, wireSeg, setSeg             ← reused from ui.js as they are
 
 const PhotoUI = (() => {
@@ -72,13 +75,14 @@ const PhotoUI = (() => {
       </div>`);
   }
 
-  function fillModeSeg(p) {
+  // heading / labels override the title and the three button texts (Collage: "Selected cell", short labels).
+  function fillModeSeg(p, { heading = 'page_fill', labels = ['page_crop_to_fill', 'page_fit_white_border', 'page_fit_blurred_border'] } = {}) {
     return html(`
-      <h3 data-i18n="page_fill"></h3>
+      <h3 data-i18n="${heading}"></h3>
       <div class="seg" id="${p}-mode">
-        <button data-v="fill" class="on" data-i18n="page_crop_to_fill"></button>
-        <button data-v="fit" data-i18n="page_fit_white_border"></button>
-        <button data-v="blur" data-i18n="page_fit_blurred_border"></button>
+        <button data-v="fill" class="on" data-i18n="${labels[0]}"></button>
+        <button data-v="fit" data-i18n="${labels[1]}"></button>
+        <button data-v="blur" data-i18n="${labels[2]}"></button>
       </div>`);
   }
 
@@ -96,10 +100,11 @@ const PhotoUI = (() => {
       </div>`);
   }
 
-  function adjustRow(p) {
+  // heading: false leaves the "Adjust" title out (Collage titles the whole group "Selected cell").
+  function adjustRow(p, { heading = true } = {}) {
     return html(`
-      <h3 data-i18n="page_adjust"></h3>
-      <div class="row">
+      ${heading ? `<h3 data-i18n="page_adjust"></h3>
+      ` : ''}<div class="row">
         <button id="${p}-rot-l" data-i18n-title="page_rotate_left">⟲</button>
         <button id="${p}-rot-r" data-i18n-title="page_rotate_right">⟳</button>
         <input type="range" id="${p}-zoom" min="1" max="6" step="0.01" value="1" data-i18n-title="page_zoom">
@@ -224,21 +229,96 @@ const PhotoUI = (() => {
     });
   }
 
+  // The photo `delta` places after `sel` in `list` (null past either end); drives Prev/Next.
+  function neighbour(list, sel, delta) { return list[list.indexOf(sel) + delta] || null; }
+
+  // Prev / Next buttons and "n / total" counter of a view bar: shown in single view only.
+  function stepBar(bar, list, sel, single) {
+    const i = list.indexOf(sel), n = list.length;
+    bar.querySelectorAll('[data-step]').forEach(b => {
+      b.hidden = !single;
+      b.disabled = b.dataset.step === '-1' ? sel === list[0] : sel === list[n - 1];
+    });
+    const counter = bar.querySelector('.view-count');
+    counter.hidden = !single; counter.textContent = `${Math.max(0, i + 1)} / ${n}`;
+  }
+
+  // Draw `item` on `canvas` at W x H pixels, only when something that affects its pixels changed.
+  // `extraKey` separates callers (page name, sheet density). Returns true when it painted.
+  function paintCached(canvas, item, mm, W, H, render, extraKey = '') {
+    const key = [extraKey, item.img.src, mm.w, mm.h, W, H, item.rot, item.tilt, item.zoom, item.cx, item.cy,
+      item.mode, item.bg, item.blur, item.strength, item.wrap, item.marks, JSON.stringify(item.overlays || []), assetVersion].join('|');
+    if (canvas._renderKey === key) return false;
+    if (canvas.width !== W) canvas.width = W;
+    if (canvas.height !== H) canvas.height = H;
+    render(canvas.getContext('2d'), item, W, H);
+    canvas._renderKey = key;
+    return true;
+  }
+
+  // Dragging on a photo canvas pans its crop (and the wheel zooms, when onWheel is given).
+  //   frontRect  where the crop sits on the canvas (default: all of it)
+  //   onSelect   pointer went down on it;  onMove  after each pan step;  onDone  after a drag that moved
+  //   onWheel    after a wheel zoom; the page's own scrolling is blocked only when the mode can zoom
+  function photoCanvas(canvas, item, { frontRect = (it, W, H) => ({ x: 0, y: 0, w: W, h: H }), onSelect, onMove, onDone, onWheel }) {
+    let last = null, moved = false;
+    canvas.addEventListener('pointerdown', e => {
+      onSelect?.();
+      last = [e.clientX, e.clientY]; moved = false; canvas.setPointerCapture(e.pointerId);
+    });
+    canvas.addEventListener('pointermove', e => {
+      if (!last) return;
+      PhotoEditor.pan(item, canvas, frontRect, e.clientX - last[0], e.clientY - last[1]);
+      last = [e.clientX, e.clientY]; moved = true;
+      item.auto = ''; item.smartPending = false;
+      onMove?.();
+    });
+    canvas.addEventListener('pointerup', () => { last = null; if (moved) onDone?.(); });
+    canvas.addEventListener('pointercancel', () => { last = null; });
+    if (onWheel) canvas.addEventListener('wheel', e => {
+      if (!PhotoEditor.wheelZoom(item, e.deltaY)) return;
+      e.preventDefault(); onWheel();
+    }, { passive: false });
+  }
+
+  // Tab strip (Collage sheets, Passport photos): a pick button and a close button per tab.
+  //   cls          the page's class names { tab, pick, name, close, state } (state only with `state`)
+  //   label(x, i)  tab text;  state?(x) -> { text, title } status badge;  active(x)
+  //   onPick(x, i), onClose(x, i)
+  function tabs(container, list, { cls, label, state, active, onPick, onClose, closeTitle }) {
+    container.replaceChildren();
+    list.forEach((x, i) => {
+      const tab = document.createElement('div');
+      tab.className = cls.tab + (active(x) ? ' active' : '');
+      const pick = document.createElement('button');
+      pick.className = cls.pick; pick.type = 'button';
+      const name = document.createElement('span');
+      name.className = cls.name; name.textContent = label(x, i);
+      pick.append(name);
+      if (state) {
+        const badge = document.createElement('span'), s = state(x);
+        badge.className = cls.state; badge.textContent = s.text; badge.title = s.title;
+        pick.append(badge);
+      }
+      pick.addEventListener('click', () => onPick(x, i));
+      const close = document.createElement('button');
+      close.className = cls.close; close.type = 'button'; close.title = closeTitle; close.textContent = '✕';
+      close.addEventListener('click', e => { e.stopPropagation(); onClose(x, i); });
+      tab.append(pick, close); container.append(tab);
+    });
+  }
+
   // Grid and single views kept in step; cards can be dragged to move the crop.
   // `state` has items, sel, view and preview (a PhotoEditor.Stage). `kind` keys the card cache.
   function photoGrid(state, stageEl, grid, bar, hint, label, sizeMM, render, refresh, kind) {
     const cards = new WeakMap();
     stageEl.classList.add('photo-stage');
-    // Cache key: a card is repainted only when something that affects its pixels changed.
-    const cardKey = (it, mm) => [kind, it.img.src, mm.w, mm.h, it.rot, it.tilt, it.zoom, it.cx, it.cy,
-      it.mode, it.bg, it.blur, it.strength, it.wrap, it.marks, JSON.stringify(it.overlays || []), assetVersion].join('|');
     // Switch between 'grid' and 'single' view (does nothing with no photos).
     function choose(view) { if (state.items.length) { state.view = view; state.preview.overlayEditor?.select(null); update(); queueSave(); } }
     // Select the previous (-1) or next (+1) photo in single view.
     function step(delta) {
-      const i = state.items.indexOf(state.sel), next = i + delta;
-      if (next < 0 || next >= state.items.length) return;
-      state.sel = state.items[next]; refresh();
+      const next = neighbour(state.items, state.sel, delta);
+      if (next) { state.sel = next; refresh(); }
     }
     bar.addEventListener('click', e => {
       const b = e.target.closest('button'); if (!b) return;
@@ -246,13 +326,9 @@ const PhotoUI = (() => {
       else if (b.dataset.step) step(+b.dataset.step);
     });
     function paint(card, it) {
-      const mm = sizeMM(it), key = cardKey(it, mm);
-      if (card.renderKey === key) return;
       // Thumbnails are drawn about 300 CSS px on the long side.
-      const c = card.querySelector('canvas'), scale = 300 * devicePixelRatio / Math.max(mm.w, mm.h);
-      c.width = Math.max(1, Math.round(mm.w * scale)); c.height = Math.max(1, Math.round(mm.h * scale));
-      render(c.getContext('2d'), it, c.width, c.height);
-      card.renderKey = key;
+      const mm = sizeMM(it), scale = 300 * devicePixelRatio / Math.max(mm.w, mm.h);
+      paintCached(card.querySelector('canvas'), it, mm, Math.max(1, Math.round(mm.w * scale)), Math.max(1, Math.round(mm.h * scale)), render, kind);
     }
     function makeCard(it) {
       const card = document.createElement('div');
@@ -261,20 +337,12 @@ const PhotoUI = (() => {
       card.addEventListener('click', () => { if (state.sel !== it) { state.sel = it; refresh(); } });
       card.querySelector('.eye').addEventListener('click', e => { e.stopPropagation(); state.sel = it; state.view = 'single'; refresh(); });
       // Dragging a thumbnail pans the crop; refresh() runs once on release, only if it moved.
-      const c = card.querySelector('canvas');
-      let last = null, moved = false;
-      c.addEventListener('pointerdown', e => {
-        if (state.sel !== it) { state.sel = it; refresh(); }
-        last = [e.clientX, e.clientY]; moved = false; c.setPointerCapture(e.pointerId);
+      photoCanvas(card.querySelector('canvas'), it, {
+        frontRect: state.preview.frontRect,
+        onSelect: () => { if (state.sel !== it) { state.sel = it; refresh(); } },
+        onMove: () => paint(card, it),
+        onDone: refresh,
       });
-      c.addEventListener('pointermove', e => {
-        if (!last) return;
-        PhotoEditor.pan(it, c, state.preview.frontRect, e.clientX - last[0], e.clientY - last[1]);
-        last = [e.clientX, e.clientY]; moved = true;
-        it.auto = ''; it.smartPending = false;
-        paint(card, it);
-      });
-      c.addEventListener('pointerup', () => { last = null; if (moved) refresh(); });
       cards.set(it, card);
       return card;
     }
@@ -290,12 +358,7 @@ const PhotoUI = (() => {
       state.preview.canvas.hidden = !single;
       hint.hidden = !!count && !single;
       bar.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === view));
-      bar.querySelectorAll('[data-step]').forEach(b => {
-        b.hidden = !single;
-        b.disabled = b.dataset.step === '-1' ? state.sel === state.items[0] : state.sel === state.items[count - 1];
-      });
-      const counter = bar.querySelector('.view-count');
-      counter.hidden = !single; counter.textContent = `${state.items.indexOf(state.sel) + 1} / ${count}`;
+      stepBar(bar, state.items, state.sel, single);
       if (grid.hidden || !stageEl.closest('.view.active')) return;
       grid.replaceChildren();
       for (const it of state.items) {
@@ -406,6 +469,6 @@ const PhotoUI = (() => {
 
   return {
     mount, dropZone, stage, orientSeg, fillModeSeg, blurControls, adjustRow, guideChecks, saveActions,
-    wireAdjust, syncAdjust, wireGuides, wireSave, renderQueue, photoGrid, keys,
+    wireAdjust, syncAdjust, wireGuides, wireSave, renderQueue, photoGrid, photoCanvas, paintCached, stepBar, neighbour, tabs, keys,
   };
 })();
