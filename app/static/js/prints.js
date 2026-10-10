@@ -14,7 +14,7 @@ import { PhotoRender } from './photo-render.js';
 import { baseName, densityControl, densityLabel, loadImage } from './assets.js';
 import { t } from './i18n.js';
 import { wireDrop, wireSeg } from './ui.js';
-import { pickIncoming } from './tabs.js';
+import { pickIncoming } from './ui.js';
 import { Workspaces } from './workspaces.js';
 
 export const prints = {
@@ -108,7 +108,7 @@ function printLabel(it) {
 }
 
 const printsGrid = PhotoUI.photoGrid(prints, $('#prints-stage'), $('#prints-grid'), $('#prints-view-bar'),
-  $('#prints-hint'), printLabel, PhotoEditor.outMM, PhotoRender.renderItem, refreshPrints, 'prints');
+  $('#prints-hint'), printLabel, PhotoEditor.outMM, PhotoRender.renderItem, refreshPrints, 'prints', () => queueSave());
 
 PhotoUI.keys.register('prints', {
   active: () => $('#prints').classList.contains('active'),

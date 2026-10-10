@@ -14,7 +14,7 @@ import { PASSPORT, customSizeControl, formatById } from './config.js';
 import { PhotoSheet } from './photo-sheet.js';
 import { t } from './i18n.js';
 import { PhotoEditor } from './photo-editor.js';
-import { pickIncoming, tiltLabel } from './tabs.js';
+import { pickIncoming, tiltLabel } from './ui.js';
 import { queueSave } from './orders.js';
 import { PhotoUI } from './photo-ui.js';
 import { PhotoRender } from './photo-render.js';

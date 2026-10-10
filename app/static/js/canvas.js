@@ -13,7 +13,7 @@ import { PhotoRender } from './photo-render.js';
 import { queueSave } from './orders.js';
 import { itemState, storedSource, uploadPhoto, workspaces } from './app-state.js';
 import { wireDrop, wireSeg } from './ui.js';
-import { pickIncoming } from './tabs.js';
+import { pickIncoming } from './ui.js';
 import { Workspaces } from './workspaces.js';
 
 {
@@ -138,7 +138,7 @@ function refreshCanvas() {
 }
 
 const canvasGrid = PhotoUI.photoGrid(canvasPrints, $('#canvas-stage'), $('#canvas-grid'), $('#canvas-view-bar'),
-  $('#canvas-hint'), canvasLabel, canvasMM, renderCanvas, refreshCanvas, 'canvas');
+  $('#canvas-hint'), canvasLabel, canvasMM, renderCanvas, refreshCanvas, 'canvas', () => queueSave());
 
 PhotoUI.keys.register('canvas', {
   active: () => $('#canvas-view').classList.contains('active'),

@@ -143,3 +143,37 @@ export function drawComposition(ctx, r, type, turn) {
   ctx.restore();
 }
 
+// Text for the tilt readout next to the adjust controls.
+export const tiltLabel = item => t('common_tilt', item ? item.tilt.toFixed(1) : '0.0');
+
+// Names of the files in photos/incoming, or null (after telling the user) when it is empty.
+async function fetchIncoming() {
+  const names = await (await fetch('/api/incoming')).json();
+  if (!names.length) { alert(t('common_incoming_empty')); return null; }
+  return names;
+}
+
+// Small picker dialog for photos/incoming; resolves with the chosen file names ([] if cancelled).
+export async function pickIncoming(multiple) {
+  const names = await fetchIncoming(); if (!names) return [];
+  return new Promise(resolve => {
+    const dlg = document.createElement('dialog');
+    dlg.style.cssText = 'border:none;border-radius:12px;padding:16px;max-width:720px;width:90vw';
+    dlg.innerHTML = `<h3 style="margin-top:0">photos/incoming</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;max-height:60vh;overflow:auto">
+      ${names.map(n => `<label style="cursor:pointer;font-size:12px;text-align:center">
+        <img src="/incoming/${encodeURIComponent(n)}" loading="lazy" style="width:100%;height:90px;object-fit:cover;border-radius:6px;display:block">
+        <input type="${multiple ? 'checkbox' : 'radio'}" name="inc" value="${n.replace(/"/g, '&quot;')}"> ${n.replace(/</g, '&lt;')}</label>`).join('')}
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+        <button value="cancel">${t('common_cancel')}</button><button value="ok" class="primary">${t('common_open')}</button></div>`;
+    document.body.appendChild(dlg);
+    dlg.addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      const picked = b.value === 'ok' ? [...dlg.querySelectorAll('input:checked')].map(i => i.value) : [];
+      dlg.close(); dlg.remove(); resolve(picked);
+    });
+    dlg.showModal();
+  });
+}
+

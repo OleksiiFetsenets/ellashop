@@ -24,10 +24,9 @@ import { applyStrings, t } from './i18n.js';
 import { $, setStatus } from './dom.js';
 import { PhotoEditor } from './photo-editor.js';
 import { setSeg } from './ui.js';
-import { tiltLabel } from './tabs.js';
+import { tiltLabel } from './ui.js';
 import { PhotoRender } from './photo-render.js';
 import { assetVersion } from './assets.js';
-import { queueSave } from './orders.js';
 
 export const PhotoUI = (() => {
   // Parse an HTML string into a DocumentFragment.
@@ -318,11 +317,11 @@ export const PhotoUI = (() => {
 
   // Grid and single views kept in step; cards can be dragged to move the crop.
   // `state` has items, sel, view and preview (a PhotoEditor.Stage). `kind` keys the card cache.
-  function photoGrid(state, stageEl, grid, bar, hint, label, sizeMM, render, refresh, kind) {
+  function photoGrid(state, stageEl, grid, bar, hint, label, sizeMM, render, refresh, kind, save) {
     const cards = new WeakMap();
     stageEl.classList.add('photo-stage');
     // Switch between 'grid' and 'single' view (does nothing with no photos).
-    function choose(view) { if (state.items.length) { state.view = view; state.preview.overlayEditor?.select(null); update(); queueSave(); } }
+    function choose(view) { if (state.items.length) { state.view = view; state.preview.overlayEditor?.select(null); update(); save?.(); } }
     // Select the previous (-1) or next (+1) photo in single view.
     function step(delta) {
       const next = neighbour(state.items, state.sel, delta);
