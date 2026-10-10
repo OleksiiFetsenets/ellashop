@@ -13,6 +13,7 @@
 //   PhotoEditor.smartPlace                       ← prints.js autoPlace
 //   PhotoEditor.detectFaces                      ← prints.js runFaceQueue (request + scaling only)
 //   PhotoEditor.drawFaces                        ← prints.js faceOverlay (checkbox lookup removed)
+//   PhotoEditor.passportRule                     ← passport.js Stage overlay (guides), ppAutoAlign (align), cutoutCrown (crownFromCutout)
 //   PhotoEditor.newItem                          ← tabs.js newItem
 //   PhotoEditor.Stage                            ← ui.js Preview
 //   PhotoEditor.attachOverlays                   ← editor.js textAndStickers (as used by prints.js)
@@ -160,6 +161,78 @@ const PhotoEditor = (() => {
     // The server may downscale before detecting; scale the boxes back to the full photo.
     const kx = item.img.naturalWidth / data.width, ky = item.img.naturalHeight / data.height;
     return data.faces.map(f => ({ ...f, x: f.x * kx, y: f.y * ky, w: f.w * kx, h: f.h * ky }));
+  }
+
+  // ------------------------------------------------------------ passport rule
+
+  // The rules of one passport preset (crown and chin bands in mm from the top of the photo): the guide
+  // overlay for the Stage, face alignment, and the exact crown measured from a cut-out.
+  // `face` is {x, y, w, h, eyes: [[x, y], [x, y]]} in source pixels.
+  function passportRule(preset) {
+    const p = preset;
+    return {
+      // Head bands and a centre line over the preview (Stage overlay).
+      guides(ctx, item, pxPerMM) {
+        const W = ctx.canvas.width;
+        const band = ([a, b], label) => {
+          ctx.fillStyle = 'rgba(47,111,223,.16)';
+          ctx.fillRect(0, a * pxPerMM, W, (b - a) * pxPerMM);
+          ctx.strokeStyle = 'rgba(47,111,223,.9)'; ctx.setLineDash([]);
+          ctx.beginPath(); ctx.moveTo(0, (a + b) / 2 * pxPerMM); ctx.lineTo(W, (a + b) / 2 * pxPerMM); ctx.stroke();
+          ctx.fillStyle = 'rgba(47,111,223,1)';
+          ctx.fillText(label, 6 * devicePixelRatio, b * pxPerMM - 4 * devicePixelRatio);
+        };
+        ctx.save();
+        ctx.lineWidth = devicePixelRatio;
+        ctx.font = `${11 * devicePixelRatio}px -apple-system, sans-serif`;
+        band(p.crown, t(p.measure === 'hairline' ? 'passport_hairline' : 'passport_top_of_head'));
+        band(p.chin, t('passport_chin'));
+        ctx.setLineDash([6 * devicePixelRatio, 6 * devicePixelRatio]);
+        ctx.strokeStyle = 'rgba(47,111,223,.7)';
+        ctx.beginPath(); ctx.moveTo(W / 2, 0); ctx.lineTo(W / 2, ctx.canvas.height); ctx.stroke();
+        ctx.restore();
+      },
+
+      // Zoom and centre so the head spans the guide bands: top of head in the crown band, chin in the
+      // chin band, face centred. The face box runs brow→just below the chin; hair adds ~40% above. Tilt is left to the
+      // operator: YuNet's eye points are off by up to ±4°, too coarse to straighten a head.
+      // `crownY` is the exact top of the head from crownFromCutout (source px), or null to estimate it.
+      align(item, f, crownY) {
+        const d = srcDims(item), mid = ([a, b]) => (a + b) / 2;
+        const [[rx], [lx]] = f.eyes;
+        // Face box: top ≈ upper forehead, bottom ≈ chin + 0.1h. Crown (hair top) ≈ 0.4h above the box,
+        // hairline ≈ 0.1h above it; real chin ≈ 0.9h below the box top.
+        // Crown: measured from the cut-out when the background is removed, else estimated (~0.4 face heights above the box).
+        const topSrc = p.measure === 'hairline' ? f.y - .1 * f.h : (crownY ?? f.y - .4 * f.h), crownSrc = topSrc, headSrc = f.y + .9 * f.h - topSrc;
+        const crownMM = mid(p.crown), headMM = mid(p.chin) - crownMM;
+        const s0 = Math.max(p.w / d.w, p.h / d.h);
+        item.mode = 'fill';
+        item.zoom = clampZoom(item, headMM / (headSrc * s0));
+        const s = s0 * item.zoom;
+        item.cx = (rx + lx) / 2 / d.w;
+        item.cy = (crownSrc - crownMM / s + p.h / (2 * s)) / d.h;
+        placement(item, p.w, p.h);
+        item.auto = 'face';
+      },
+
+      // Exact top of the head from the background-removed cut-out: the first row above the face where
+      // the person's silhouette (alpha) starts, scanned across the middle of the face's width.
+      // Null when there is no face; cached on `cache` ({crownKey, crownY}) per image.
+      crownFromCutout(img, f, cache) {
+        if (!f || !img?.naturalWidth) return null;
+        if (cache.crownKey === img.src) return cache.crownY;
+        const scale = Math.min(1, 600 / img.naturalWidth), w = Math.round(img.naturalWidth * scale), h = Math.round(img.naturalHeight * scale);
+        const c = document.createElement('canvas'); c.width = w; c.height = h;
+        const ctx = c.getContext('2d', { willReadFrequently: true }); ctx.drawImage(img, 0, 0, w, h);
+        const alpha = ctx.getImageData(0, 0, w, h).data;
+        const x0 = Math.max(0, Math.round((f.x + f.w * .2) * scale)), x1 = Math.min(w - 1, Math.round((f.x + f.w * .8) * scale));
+        let crown = null;
+        for (let y = 0, yMax = Math.round(f.y * scale); y < yMax && crown === null; y++)
+          for (let x = x0; x <= x1; x++) if (alpha[(y * w + x) * 4 + 3] > 128) { crown = y / scale; break; }
+        cache.crownKey = img.src; cache.crownY = crown;
+        return crown;
+      },
+    };
   }
 
   // Green boxes around detected faces (preview only).
@@ -341,7 +414,7 @@ const PhotoEditor = (() => {
     srcDims, outMM, placement, rotatedFace, newItem,
     clampTilt, setTilt, rotate,
     clampZoom, canZoom, setZoom, wheelZoom, setMode, reset,
-    pan, smartPlace, detectFaces, drawFaces,
+    pan, smartPlace, detectFaces, drawFaces, passportRule,
     Stage, attachOverlays, History,
   };
 })();

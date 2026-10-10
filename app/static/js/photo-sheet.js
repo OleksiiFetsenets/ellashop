@@ -9,6 +9,8 @@
 //   PhotoSheet.rowsTemplate / bigTemplate / templateRects / sharedSegments / treeDividers
 //   PhotoSheet.applyDivider / snapDivider / findParent / equalizeTree / treeFits
 //                                  ← collage.js collageSheetMM, collageLeaf, ... (same names with the collage prefix)
+//   PhotoSheet.passportLayout / passportOffsets / fromPassport
+//                                  ← passport.js sheetLayout / passportOffsets (the grid the old passport renderSheet drew)
 
 const PhotoSheet = (() => {
   const sheetMM = sheet => {
@@ -70,19 +72,24 @@ const PhotoSheet = (() => {
     return out;
   }
 
+  // How many cells of `size` fit, best of the cell and its turned copy, centred on the paper.
+  // Passport sheets add two options: `sheet.anchor` {right, down} (mm from the top-left) pins the grid
+  // there instead of centring it and keeps the cell unturned; `sheet.maxCells` caps the count.
   function sizePack(sheet, size = sheet.sizeCell) {
     if (!sheet || !size?.w || !size?.h) return null;
     const paper = sheetMM(sheet), m = Math.max(0, Number(sheet.margin) || 0), g = Math.max(0, Number(sheet.gap) || 0);
     const innerW = paper.w - 2 * m, innerH = paper.h - 2 * m;
     if (innerW <= 0 || innerH <= 0) return null;
-    const candidates = [[size.w, size.h], [size.h, size.w]].map(([w, h]) => {
+    const cap = sheet.maxCells || Infinity, anchor = sheet.anchor;
+    const candidates = (anchor ? [[size.w, size.h]] : [[size.w, size.h], [size.h, size.w]]).map(([w, h]) => {
       const cols = Math.max(0, Math.floor((innerW + g + 1e-9) / (w + g)));
       const rows = Math.max(0, Math.floor((innerH + g + 1e-9) / (h + g)));
-      return { w, h, cols, rows, count: cols * rows };
+      return { w, h, cols, rows, count: Math.min(cols * rows, cap) };
     });
     candidates.sort((a, b) => b.count - a.count || (a.cols * a.w - b.cols * b.w));
     const best = candidates[0];
     if (!best.count) return null;
+    if (anchor) return { ...best, x: anchor.right, y: anchor.down };
     const usedW = best.cols * best.w + (best.cols - 1) * g;
     const usedH = best.rows * best.h + (best.rows - 1) * g;
     return { ...best, x: m + (innerW - usedW) / 2, y: m + (innerH - usedH) / 2, usedW, usedH };
@@ -102,6 +109,44 @@ const PhotoSheet = (() => {
       return rects;
     }
     return nodeRects(sheet.root, m, m, Math.max(0, paper.w - 2 * m), Math.max(0, paper.h - 2 * m), gap);
+  }
+
+  // ------------------------------------------------------------ passport sheets
+
+  const PASSPORT_MAX = 8;
+
+  // Paper for a passport size: the size packed unturned on SHEET paper in whichever orientation holds
+  // more photos (at most 8; on a tie the one with fewer cells in total). Returns the paper W×H in mm,
+  // its orientation, cols, rows and the number of photos that fill the grid.
+  function passportLayout(size) {
+    let best = null;
+    for (const orient of ['portrait', 'landscape']) {
+      const paper = sheetMM({ fmt: SHEET, orient });
+      const cols = Math.floor(paper.w / size.w + 1e-9), rows = Math.floor(paper.h / size.h + 1e-9);
+      const cells = cols * rows, count = Math.min(cells, PASSPORT_MAX);
+      if (!best || count > best.count || (count === best.count && cells < best.cols * best.rows)) best = { orient, W: paper.w, H: paper.h, cols, rows, count };
+    }
+    return best;
+  }
+
+  // Where the photos start by default: standards that print from the sheet edge, else 5 mm each way,
+  // never more than the paper has spare.
+  function passportOffsets(size) {
+    const standard = { visa: [0, 0], 'ca-passport': [0, 5], 'cn-visa': [9, 4] }[size.id] || [5, 5];
+    const L = passportLayout(size);
+    return { right: Math.min(standard[0], Math.max(0, L.W - L.cols * size.w)),
+      down: Math.min(standard[1], Math.max(0, L.H - L.rows * size.h)) };
+  }
+
+  // A sheet for cellRects / PhotoRender.renderSheet: one linked photo repeated in the grid, full-length
+  // cut lines at every cell edge, white paper. `item` (optional) goes in every cell.
+  function fromPassport(size, { right, down }, item = null) {
+    const L = passportLayout(size);
+    return {
+      fmt: SHEET, orient: L.orient, layout: 'size', sizeCell: size, gap: 0, margin: 0,
+      anchor: { right, down }, maxCells: PASSPORT_MAX, cutLines: 'full', link: true, gapColor: '#ffffff',
+      root: { dir: 'row', sizes: equal(L.count), children: Array.from({ length: L.count }, () => leaf(item)) },
+    };
   }
 
   function setCellFormats(sheet) {
@@ -273,6 +318,7 @@ const PhotoSheet = (() => {
   return {
     sheetMM, leaf, equal, gridTree, emptyTree, treeLeaves,
     normalizeTree, nodeRects, sizePack, cellRects, setCellFormats, countGrid,
+    passportLayout, passportOffsets, fromPassport,
     rowsTemplate, bigTemplate, templateRects, sharedSegments, treeDividers, applyDivider,
     snapDivider, findParent, equalizeTree, treeFits,
   };

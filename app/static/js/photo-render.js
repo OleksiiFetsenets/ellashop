@@ -15,7 +15,8 @@
 //   PhotoRender.jpegBlob / saveFile             ← render.js jpegBlob / saveFile
 //   PhotoRender.exportItem                      ← prints.js savePrint, canvas.js saveCanvas (shared shape)
 //   PhotoRender.exportCanvas                    ← passport.js savePassport
-//   PhotoRender.renderSheet / exportSheet       ← collage.js renderCollage / saveCollageSheet
+//   PhotoRender.renderSheet / exportSheet       ← collage.js renderCollage / saveCollageSheet, passport.js renderSheet /
+//                                                 savePassport (linked cells, 'full' cut lines)
 //   PhotoRender.exportAll                       ← prints.js #save-all, canvas.js / passport.js save-all loops
 
 const PhotoRender = (() => {
@@ -326,17 +327,34 @@ const PhotoRender = (() => {
   // Draw a sheet of cells (Collage) at `dpi`: paper colour, white empty cells, each photo rendered at
   // print quality, then 2 px cut lines along shared cell edges (only when the gap is 0).
   // `cellRects` are the PhotoSheet.cellRects(sheet) boxes in mm; cutLines defaults to the sheet's setting.
+  // A `link`ed sheet (Passport) repeats one photo: each item is rendered once and drawn into every cell.
+  // cutLines 'full' (Passport) draws the lines across the whole paper at every edge of the size-packed grid.
   function renderSheet(sheet, { dpi = DPI, cutLines = sheet.cutLines, cellRects = PhotoSheet.cellRects(sheet) } = {}) {
     const paper = PhotoSheet.sheetMM(sheet), PW = mm2px(paper.w, dpi), PH = mm2px(paper.h, dpi);
     const canvas = document.createElement('canvas'); canvas.width = PW; canvas.height = PH;
     const ctx = canvas.getContext('2d'); ctx.fillStyle = sheet.gapColor; ctx.fillRect(0, 0, PW, PH);
+    const linked = new Map();
     for (const rect of cellRects) {
       const x = mm2px(rect.x, dpi), y = mm2px(rect.y, dpi), w = mm2px(rect.w, dpi), h = mm2px(rect.h, dpi);
       if (!rect.leaf.item) { ctx.fillStyle = '#ffffff'; ctx.fillRect(x, y, w, h); continue; }
       const item = rect.leaf.item;
-      ctx.drawImage(renderHQ(w, h, shrinks(item, w, h), (c, cw, ch) => renderItem(c, item, cw, ch)), x, y, w, h);
+      const draw = () => renderHQ(w, h, shrinks(item, w, h), (c, cw, ch) => renderItem(c, item, cw, ch));
+      if (!sheet.link) { ctx.drawImage(draw(), x, y, w, h); continue; }
+      if (!linked.has(item)) linked.set(item, draw());
+      ctx.drawImage(linked.get(item), x, y, w, h);
     }
-    if (cutLines && Number(sheet.gap) === 0) {
+    if (cutLines === 'full') {
+      const pack = PhotoSheet.sizePack(sheet), CUT = 2; // cut line width in px (≈0.17 mm at 300 DPI)
+      ctx.fillStyle = '#000';
+      for (let c = 0; c <= pack.cols; c++) {
+        const x = mm2px(pack.x + c * pack.w, dpi);
+        if (x >= 0 && x <= PW) ctx.fillRect(x - CUT / 2, 0, CUT, PH);
+      }
+      for (let r = 0; r <= pack.rows; r++) {
+        const y = mm2px(pack.y + r * pack.h, dpi);
+        if (y >= 0 && y <= PH) ctx.fillRect(0, y - CUT / 2, PW, CUT);
+      }
+    } else if (cutLines && Number(sheet.gap) === 0) {
       ctx.fillStyle = '#000';
       for (const line of PhotoSheet.sharedSegments(cellRects)) {
         if (line.dir === 'row') ctx.fillRect(mm2px(line.x, dpi) - 1, mm2px(line.y, dpi), 2, mm2px(line.h, dpi));

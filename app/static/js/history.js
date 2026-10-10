@@ -1,6 +1,7 @@
 'use strict';
 // Records per-tab edit snapshots for undo and redo.
 // Loads after render.js and before orders.js, which schedules changes.
+// Derived from: the Passport default offsets now come from PhotoSheet.passportOffsets (was passport.js passportOffsets).
 // ---------------------------------------------------------------- undo / redo
 // Per-tab history of settled states (the same JSON autosave writes). A step is recorded 350 ms after
 // the last change, so a drag, a slider move or a burst of typing is one step. Undo/redo rebuild the
@@ -72,8 +73,8 @@ async function applySnapshot(tab, json) {
       for (const saved of state.jobs || []) {
         jobs.push({ id: nextJobId++, file: saved.file, cutFile: saved.cutFile, name: saved.name, error: '',
           size: formatById(PASSPORT, saved.size), status: saved.status, face: saved.face,
-          right: saved.right ?? passportOffsets(formatById(PASSPORT, saved.size)).right,
-          down: saved.down ?? passportOffsets(formatById(PASSPORT, saved.size)).down,
+          right: saved.right ?? PhotoSheet.passportOffsets(formatById(PASSPORT, saved.size)).right,
+          down: saved.down ?? PhotoSheet.passportOffsets(formatById(PASSPORT, saved.size)).down,
           item: await build(saved.item || {}, PASSPORT, saved.cutFile || saved.file) });
       }
       pp.jobs = jobs; pp.active = jobs[state.active] || jobs[0] || null;

@@ -1,6 +1,7 @@
 'use strict';
 // Persists Prints orders and the independent Canvas, Passport, and Collage workspaces.
 // Loads after history.js; later tab scripts call its save and restore helpers.
+// Derived from: the Passport default offsets now come from PhotoSheet.passportOffsets (was passport.js passportOffsets).
 // Capture the edit before scheduling the matching order or workspace write.
 // `tab` defaults to the visible tab (Prints for any tab not listed).
 function queueSave(tab = ({ 'canvas-view': 'canvas', passport: 'passport', collage: 'collage' })[document.querySelector('.tab.active')?.dataset.tab] || 'prints') {
@@ -176,7 +177,7 @@ async function restoreWorkspace(tab) {
           const item = await restoreItem(saved.item || {}, tab, PASSPORT, saved.cutFile || saved.file);
           if (item) pp.jobs.push({ id: nextJobId++, file: saved.file, cutFile: saved.cutFile,
             name: saved.name, size,
-            right: saved.right ?? passportOffsets(size).right, down: saved.down ?? passportOffsets(size).down,
+            right: saved.right ?? PhotoSheet.passportOffsets(size).right, down: saved.down ?? PhotoSheet.passportOffsets(size).down,
             status: saved.status === 'done' ? 'done' : 'new', face: saved.face,
             item, error: '' });
         } catch (e) { showWorkspaceError(tab, new Error(`${saved.name}: ${e.message}`)); }
