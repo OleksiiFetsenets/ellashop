@@ -28,7 +28,8 @@ PYEOF
 }
 make_photos
 ELLASHOP_DATA="$DATA" "$PY" -c "
-import sys; sys.path.insert(0, 'app'); import server
+import sys, pathlib; sys.path.insert(0, 'app'); import server
+server.SETTINGS = pathlib.Path('$DATA') / 'settings.json'  # never the developer's own app/settings.json
 server.prepare(); server.make_server($PORT).serve_forever()" > "$DATA/server.log" 2>&1 &
 SERVER=$!
 trap 'kill $SERVER 2>/dev/null; wait $SERVER 2>/dev/null' EXIT

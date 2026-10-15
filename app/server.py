@@ -30,6 +30,8 @@ os.environ.setdefault("OPENCV_LOG_LEVEL", "ERROR")
 PORT = int(os.environ.get("ELLASHOP_PORT", "8765"))
 APP = Path(__file__).parent
 STATIC = APP / "static"
+# Machine settings (language, auto-clean, background model); the browser tests point this at their own data folder.
+SETTINGS = APP / "settings.json"
 ROOT = APP.parent
 DATA = Path(os.environ.get("ELLASHOP_DATA") or ROOT / "photos")
 INCOMING = DATA / "incoming"
@@ -274,7 +276,7 @@ def auto_clean_value(key, value):
 
 # Retention settings from app/settings.json, defaults for missing keys; 0 turns a rule off.
 def auto_clean_settings():
-    path = APP / "settings.json"
+    path = SETTINGS
     if path.is_symlink():
         raise ValueError(tr('server_invalid_settings_path'))
     if not path.exists():
@@ -287,7 +289,7 @@ def auto_clean_settings():
 
 
 def read_settings():
-    path = APP / "settings.json"
+    path = SETTINGS
     if path.is_symlink():
         raise ValueError(tr('server_invalid_settings_path'))
     return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
@@ -357,14 +359,14 @@ def write_settings(**changes):
     except (ValueError, json.JSONDecodeError):
         data = {}
     data.update(changes)
-    write_state(APP, "settings.json", data)
+    write_state(SETTINGS.parent, SETTINGS.name, data)
 
 
 def save_auto_clean_settings(settings):
     if not isinstance(settings, dict) or set(settings) != set(AUTO_CLEAN_DEFAULTS):
         raise ValueError(tr('server_expected_settings', ', '.join(AUTO_CLEAN_DEFAULTS)))
     settings = {key: auto_clean_value(key, settings[key]) for key in AUTO_CLEAN_DEFAULTS}
-    if (APP / "settings.json").is_symlink():
+    if SETTINGS.is_symlink():
         raise ValueError(tr('server_invalid_settings_path'))
     write_settings(auto_clean=settings)
     return settings
@@ -732,6 +734,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     # The UI loads as ES modules, which browsers refuse unless served as JavaScript; Windows
     # registry MIME entries can say text/plain, so .js is fixed here instead of guessed.
     extensions_map = {**http.server.SimpleHTTPRequestHandler.extensions_map, ".js": "text/javascript"}
+    # Keep-alive: a page load is ~70 requests. With HTTP/1.0 every one closes its connection and leaves a
+    # TIME_WAIT socket; after a few reloads macOS reuses a port that still matches one and the browser's
+    # request hangs. Every response sends Content-Length and do_POST reads the whole body, so connections
+    # can be reused; idle ones close after `timeout` seconds.
+    protocol_version = "HTTP/1.1"
+    timeout = 60
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(STATIC), **kwargs)
@@ -754,7 +762,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.wfile.write(body)
 
     def read_body(self):
-        return self.rfile.read(int(self.headers.get("Content-Length", 0)))
+        return self.body
 
     def read_json(self):
         data = json.loads(self.read_body())
@@ -861,6 +869,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     # Handle uploads, edits, exports, cleanup, and update requests from the UI.
     # Routes are tried in order: exact paths first, then pattern routes; unmatched requests end with 404.
     def do_POST(self):
+        # Read the whole body first, so a reply sent without it never leaves bytes on a kept-alive connection.
+        self.body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
         url = urllib.parse.urlparse(self.path)
         query = urllib.parse.parse_qs(url.query)
 

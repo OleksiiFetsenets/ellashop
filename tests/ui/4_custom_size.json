@@ -8,6 +8,14 @@
   "ms": 1500
  },
  {
+  "op": "eval",
+  "expr": "document.querySelector('dialog[open] button[value=fresh]')?.click(); true"
+ },
+ {
+  "op": "sleep",
+  "ms": 1000
+ },
+ {
   "op": "click",
   "sel": "[data-incoming=prints]"
  },
