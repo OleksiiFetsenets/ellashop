@@ -279,15 +279,14 @@ export const PhotoUI = (() => {
       if (!last) return;
       PhotoEditor.pan(item, canvas, frontRect, e.clientX - last[0], e.clientY - last[1]);
       last = [e.clientX, e.clientY]; moved = true;
-      item.auto = ''; item.smartPending = false;
+      PhotoEditor.manual(item);
       onMove?.();
     });
     canvas.addEventListener('pointerup', () => { last = null; if (moved) onDone?.(); });
     canvas.addEventListener('pointercancel', () => { last = null; });
     canvas.addEventListener('wheel', e => {
-      if (!PhotoEditor.wheelZoom(item, e.deltaY)) return;
+      if (!PhotoEditor.wheelZoom(item, e)) return;
       e.preventDefault();
-      item.auto = ''; item.smartPending = false;
       onMove?.();
       clearTimeout(wheelTimer); wheelTimer = setTimeout(() => onDone?.(), 250);
     }, { passive: false });
@@ -390,7 +389,7 @@ export const PhotoUI = (() => {
 
   // One key handler for every photo page. A page registers once; the handler acts for the page whose
   // active() is true. Keys: arrows pan 0.5 mm (Alt: 0.1 mm), Shift+←/→ tilt 0.5° (Alt: 0.1°), +/− zoom 10%
-  // (Alt: 2%), O turns the composition guide, Escape / [ / ] / PageUp / PageDown switch view and photo.
+  // (Shift or Alt: 2%; Shift+wheel also zooms 5× slower), O turns the composition guide, Escape / [ / ] / PageUp / PageDown switch view and photo.
   // With a text overlay selected in single view, arrows, +/−, Delete and Escape act on the overlay instead.
   //   register(name, {
   //     active()      the page's tab is showing
@@ -442,9 +441,8 @@ export const PhotoUI = (() => {
         const item = page.item();
         if (!item) return;
         if (zoom) {
-          if (!PhotoEditor.canZoom(item)) return;
+          if (!PhotoEditor.keyZoom(item, zoom, e.shiftKey || e.altKey)) return;
           e.preventDefault();
-          item.zoom = PhotoEditor.clampZoom(item, item.zoom * (e.altKey ? 1.02 : 1.1) ** zoom);
         } else {
           const step = e.altKey ? .1 : .5;
           if (e.shiftKey) {
@@ -458,7 +456,7 @@ export const PhotoUI = (() => {
           }
           e.preventDefault();
         }
-        item.auto = ''; item.smartPending = false;
+        PhotoEditor.manual(item);
         page.changed();
         return;
       }

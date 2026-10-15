@@ -275,8 +275,8 @@ for (const [key, label, axis] of [['right', 'passport_right', 'passport_across']
     job[key] = next; pp.drawSheet(); queueSave('passport'); setStatus($('#pp-status'), '');
   });
 }
-$('#pp-zoom').addEventListener('input', e => { const job = pp.active; if (job) { job.item.zoom = +e.target.value; job.item.auto = ''; pp.preview.draw(); pp.drawSheet(); queueSave(); } });
-$('#pp-reset').addEventListener('click', () => { const job = pp.active; if (job) { Object.assign(job.item, { zoom: 1, cx: .5, cy: .5, tilt: 0, auto: '' }); ppSyncItem(); } });
+$('#pp-zoom').addEventListener('input', e => { const job = pp.active; if (job) { PhotoEditor.setZoom(job.item, +e.target.value); pp.preview.draw(); pp.drawSheet(); queueSave(); } });
+$('#pp-reset').addEventListener('click', () => { const job = pp.active; if (job) { PhotoEditor.reset(job.item); ppSyncItem(); } });
 $('#pp-align-all').addEventListener('click', () => {
   const done = pp.jobs.filter(job => ppAutoAlign(job)).length, missing = pp.jobs.length - done;
   ppSyncItem();

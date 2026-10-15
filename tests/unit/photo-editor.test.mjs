@@ -89,6 +89,16 @@ test('canZoom: only fill mode zooms', () => {
   assert.equal(E.canZoom(item(1, 1, { mode: 'blur' })), false);
 });
 
+test('wheelZoom and keyZoom: Shift gives the fine step', () => {
+  // Wheel: exp(100 × .0015) normal, exp(100 × .0003) with Shift; Shift+wheel may arrive as deltaX only.
+  const w = item(1, 1, { zoom: 2 }); E.wheelZoom(w, { deltaY: -100 }); close(w.zoom, 2 * Math.exp(.15));
+  const ws = item(1, 1, { zoom: 2 }); E.wheelZoom(ws, { deltaY: 0, deltaX: -100, shiftKey: true }); close(ws.zoom, 2 * Math.exp(.03));
+  // Keys: ×1.1 normal, ×1.02 fine; zoom out divides.
+  const k = item(1, 1, { zoom: 2 }); E.keyZoom(k, 1, false); close(k.zoom, 2.2);
+  const kf = item(1, 1, { zoom: 2 }); E.keyZoom(kf, -1, true); close(kf.zoom, 2 / 1.02);
+  assert.equal(E.keyZoom(item(1, 1, { mode: 'fit' }), 1, false), false);
+});
+
 // 2000×2000 photo into a 150×100 frame: s = max(.075, .05) = .075 -> visible window 2000 × 1333.33 source px.
 const frame = () => ({ w: 150, h: 100 });
 test('smartPlace with one face: head box + headroom', () => {

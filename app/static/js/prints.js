@@ -78,7 +78,7 @@ function runFaceQueue() {
 prints.preview = new PhotoEditor.Stage($('#prints-canvas'), $('#prints-stage'), {
   getItem: () => prints.item,
   // Any manual move/zoom ends automatic placement for this photo.
-  onChange: () => { if (prints.item) { prints.item.auto = ''; prints.item.smartPending = false; } syncPrintControls(); queueSave('prints'); },
+  onChange: () => { if (prints.item) PhotoEditor.manual(prints.item); syncPrintControls(); queueSave('prints'); },
   overlay: faceOverlay,
   render: PhotoRender.renderItem,
 });

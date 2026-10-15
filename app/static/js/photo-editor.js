@@ -6,7 +6,7 @@
 //   PhotoEditor.srcDims / outMM / placement      ← render.js srcDims / outMM / placement
 //   PhotoEditor.rotatedFace                      ← prints.js rotatedFace
 //   PhotoEditor.rotate / clampTilt / setTilt     ← prints.js #rot-l/#rot-r handlers, tabs.js clampTilt
-//   PhotoEditor.clampZoom / setZoom / wheelZoom  ← tabs.js clampZoom, prints.js #zoom, ui.js Preview wheel
+//   PhotoEditor.clampZoom / setZoom / wheelZoom / keyZoom  ← tabs.js clampZoom, prints.js #zoom, ui.js Preview wheel
 //   PhotoEditor.pan                              ← ui.js panOnCanvas
 //   PhotoEditor.setMode / reset                  ← prints.js #mode and #reset handlers
 //   PhotoEditor.smartPlace                       ← prints.js autoPlace
@@ -104,11 +104,21 @@ export const PhotoEditor = (() => {
   const canZoom = item => item.mode !== 'fit' && item.mode !== 'blur';
 
   function setZoom(item, zoom) { item.zoom = clampZoom(item, zoom); manual(item); }
-  // Mouse wheel step; returns false when the current mode has no zoom.
-  function wheelZoom(item, deltaY) {
+  // Mouse wheel step from a wheel event; Shift zooms 5× slower. Returns false when the current mode has no zoom.
+  function wheelZoom(item, e) {
     if (!canZoom(item)) return false;
-    // Exponential so equal wheel travel gives an equal zoom ratio; 0.0015 per wheel delta unit.
-    item.zoom = clampZoom(item, item.zoom * Math.exp(-deltaY * 0.0015));
+    // Shift+wheel arrives as horizontal scroll on some systems (macOS), so take deltaX when deltaY is 0.
+    const delta = e.shiftKey ? e.deltaY || e.deltaX : e.deltaY;
+    // Exponential so equal wheel travel gives an equal zoom ratio; 0.0015 (Shift: 0.0003) per wheel delta unit.
+    item.zoom = clampZoom(item, item.zoom * Math.exp(-delta * (e.shiftKey ? 0.0003 : 0.0015)));
+    manual(item);
+    return true;
+  }
+  // +/− key step: dir 1 in, -1 out; 10%, or 2% when `fine` (Shift or Alt held). Returns false when the mode has no zoom.
+  function keyZoom(item, dir, fine) {
+    if (!canZoom(item)) return false;
+    item.zoom = clampZoom(item, item.zoom * (fine ? 1.02 : 1.1) ** dir);
+    manual(item);
     return true;
   }
 
@@ -308,9 +318,8 @@ export const PhotoEditor = (() => {
       });
       canvas.addEventListener('dblclick', e => this.overlayEditor?.doubleClick(e, this));
       canvas.addEventListener('wheel', e => {
-        const item = this.getItem(); if (!item || !canZoom(item)) return;
+        const item = this.getItem(); if (!item || !wheelZoom(item, e)) return;
         e.preventDefault();
-        wheelZoom(item, e.deltaY);
         this.redraw(); this.onChange(true);
       }, { passive: false });
       new ResizeObserver(() => this.draw()).observe(stage);
@@ -422,8 +431,8 @@ export const PhotoEditor = (() => {
 
   return {
     srcDims, outMM, overlayFrame, placement, rotatedFace, newItem,
-    clampTilt, setTilt, rotate,
-    clampZoom, canZoom, setZoom, wheelZoom, setMode, reset,
+    manual, clampTilt, setTilt, rotate,
+    clampZoom, canZoom, setZoom, wheelZoom, keyZoom, setMode, reset,
     pan, smartPlace, detectFaces, drawFaces, passportRule,
     Stage, attachOverlays, History,
   };
