@@ -143,9 +143,6 @@ export function drawComposition(ctx, r, type, turn) {
   ctx.restore();
 }
 
-// Text for the tilt readout next to the adjust controls.
-export const tiltLabel = item => t('common_tilt', item ? item.tilt.toFixed(1) : '0.0');
-
 // Names of the files in photos/incoming, or null (after telling the user) when it is empty.
 async function fetchIncoming() {
   const names = await (await fetch('/api/incoming')).json();

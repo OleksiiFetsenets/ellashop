@@ -148,7 +148,9 @@ details input { width: 100%; margin: 6px 0; padding: 6px; border: 1px solid var(
 .sheet { width: 100%; background: #fff; box-shadow: 0 1px 6px rgba(0,0,0,.15); display: block; }
 code { font-size: 11px; }
 
-.tilt-label { min-width: 64px; font-size: 12px; color: var(--muted); white-space: nowrap; }
+.slider-label { min-width: 84px; font-size: 12px; color: var(--muted); white-space: nowrap; }
+.adjust-reset { margin-inline-start: auto; }
+.tilt-value { width: 58px; padding: 4px; border: 1px solid var(--line); border-radius: 6px; font: inherit; }
 #canvas-wrap { width: 84px; padding: 6px; border: 1px solid var(--line); border-radius: 6px; font: inherit; }
 #canvas-strength, #prints-strength { width: 100%; }
 #prints-mode { flex-wrap: wrap; }

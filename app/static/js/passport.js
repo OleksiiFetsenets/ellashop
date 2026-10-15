@@ -14,7 +14,7 @@ import { PASSPORT, customSizeControl, formatById } from './config.js';
 import { PhotoSheet } from './photo-sheet.js';
 import { t } from './i18n.js';
 import { PhotoEditor } from './photo-editor.js';
-import { pickIncoming, tiltLabel } from './ui.js';
+import { pickIncoming } from './ui.js';
 import { queueSave } from './orders.js';
 import { PhotoUI } from './photo-ui.js';
 import { PhotoRender } from './photo-render.js';
@@ -34,12 +34,14 @@ $('#pp-size').innerHTML = PASSPORT.map(p => {
 
 const syncPpCustom = customSizeControl('#pp-size', PASSPORT, [2, 10, 2, 15], () => pp.active?.size, setPassportSize, '#pp-status');
 
+// Zoom (0.3–15, passport photos zoom freely), tilt and reset: the shared adjust block, without the 90° turns.
+PhotoUI.mount($('#pp-adjust'), PhotoUI.adjustRow('pp', { heading: false, rotate: false, zoom: [.3, 15] }));
+
 pp.preview = new PhotoEditor.Stage($('#pp-canvas'), $('#pp-stage'), {
   getItem: () => pp.active?.item,
   onChange: done => {
     if (pp.active) pp.active.item.auto = '';
-    $('#pp-zoom').value = pp.active?.item.zoom || 1;
-    $('#pp-tilt').textContent = tiltLabel(pp.active?.item);
+    PhotoUI.syncAdjust('pp', pp.active?.item);
     if (done) pp.drawSheet();
     queueSave('passport');
   },
@@ -115,8 +117,7 @@ function ppSyncItem() {
   setSeg($('#pp-size'), job?.size.id);
   syncPpCustom(job?.size);
   $$('#pp-bg button').forEach(b => b.classList.toggle('on', b.dataset.v === (item?.bg || '#ffffff')));
-  $('#pp-zoom').value = item?.zoom || 1;
-  $('#pp-tilt').textContent = tiltLabel(item);
+  PhotoUI.syncAdjust('pp', item);
   $('#pp-hint').textContent = item
     ? t('passport_hint_selected')
     : t('passport_hint_empty');
@@ -275,8 +276,7 @@ for (const [key, label, axis] of [['right', 'passport_right', 'passport_across']
     job[key] = next; pp.drawSheet(); queueSave('passport'); setStatus($('#pp-status'), '');
   });
 }
-$('#pp-zoom').addEventListener('input', e => { const job = pp.active; if (job) { PhotoEditor.setZoom(job.item, +e.target.value); pp.preview.draw(); pp.drawSheet(); queueSave(); } });
-$('#pp-reset').addEventListener('click', () => { const job = pp.active; if (job) { PhotoEditor.reset(job.item); ppSyncItem(); } });
+PhotoUI.wireAdjust('pp', { item: () => pp.active?.item, changed: ppSyncItem, redraw: () => { pp.preview.draw(); pp.drawSheet(); queueSave(); } });
 $('#pp-align-all').addEventListener('click', () => {
   const done = pp.jobs.filter(job => ppAutoAlign(job)).length, missing = pp.jobs.length - done;
   ppSyncItem();

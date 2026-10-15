@@ -24,7 +24,6 @@ import { applyStrings, t } from './i18n.js';
 import { $, setStatus } from './dom.js';
 import { PhotoEditor } from './photo-editor.js';
 import { setSeg } from './ui.js';
-import { tiltLabel } from './ui.js';
 import { PhotoRender } from './photo-render.js';
 import { assetVersion } from './assets.js';
 
@@ -107,17 +106,23 @@ export const PhotoUI = (() => {
       </div>`);
   }
 
+  // Rotate buttons and Reset, then a full-width Zoom slider and a Tilt slider (−20…20°) with a number box to type the angle.
   // heading: false leaves the "Adjust" title out (Collage titles the whole group "Selected cell").
-  function adjustRow(p, { heading = true } = {}) {
+  // rotate: false leaves the 90° buttons out (Passport); zoom gives the slider range (Passport zooms 0.3–15,
+  // the PhotoEditor.clampZoom range for free items).
+  function adjustRow(p, { heading = true, rotate = true, zoom = [1, 6] } = {}) {
     return html(`
       ${heading ? `<h3 data-i18n="page_adjust"></h3>
       ` : ''}<div class="row">
-        <button id="${p}-rot-l" data-i18n-title="page_rotate_left">⟲</button>
-        <button id="${p}-rot-r" data-i18n-title="page_rotate_right">⟳</button>
-        <input type="range" id="${p}-zoom" min="1" max="6" step="0.01" value="1" data-i18n-title="page_zoom">
-        <span class="tilt-label" id="${p}-tilt" data-i18n="page_tilt_0_0"></span>
-        <button id="${p}-reset" data-i18n-title="page_reset_crop" data-i18n="page_reset"></button>
-      </div>`);
+        ${rotate ? `<button id="${p}-rot-l" data-i18n-title="page_rotate_left">⟲</button>
+        <button id="${p}-rot-r" data-i18n-title="page_rotate_right">⟳</button>` : ''}
+        <button id="${p}-reset" class="adjust-reset" data-i18n-title="page_reset_crop" data-i18n="page_reset"></button>
+      </div>
+      <label class="row slider-row"><span class="slider-label" data-i18n="page_zoom"></span>
+        <input type="range" id="${p}-zoom" min="${zoom[0]}" max="${zoom[1]}" step="0.01" value="1" data-i18n-aria-label="page_zoom"></label>
+      <div class="row slider-row"><label class="slider-label" for="${p}-tilt-range" data-i18n="page_tilt"></label>
+        <input type="range" id="${p}-tilt-range" min="-20" max="20" step="0.1" value="0" data-i18n-aria-label="page_tilt">
+        <input type="number" id="${p}-tilt" class="tilt-value" min="-20" max="20" step="0.1" value="0" data-i18n-aria-label="page_tilt"> °</div>`);
   }
 
   // Measurements checkbox and composition guide picker with its ↻ button.
@@ -146,14 +151,23 @@ export const PhotoUI = (() => {
 
   // ------------------------------------------------------------ wiring
 
-  // Rotate, zoom slider and reset for the selected item. `changed` runs after every edit.
+  // Rotate, reset, zoom and tilt sliders for the selected item. `changed` runs after every button edit,
+  // `redraw` after each slider step.
   function wireAdjust(p, { item, changed, redraw }) {
     // Wrap an edit: run it on the selected item (if any), then let the page refresh.
     const act = fn => () => { const it = item(); if (it) { fn(it); changed(); } };
-    $(`#${p}-rot-l`).addEventListener('click', act(it => PhotoEditor.rotate(it, -90)));
-    $(`#${p}-rot-r`).addEventListener('click', act(it => PhotoEditor.rotate(it, 90)));
+    $(`#${p}-rot-l`)?.addEventListener('click', act(it => PhotoEditor.rotate(it, -90)));
+    $(`#${p}-rot-r`)?.addEventListener('click', act(it => PhotoEditor.rotate(it, 90)));
     $(`#${p}-reset`).addEventListener('click', act(it => PhotoEditor.reset(it)));
     $(`#${p}-zoom`).addEventListener('input', e => { const it = item(); if (it) { PhotoEditor.setZoom(it, +e.target.value); redraw(); } });
+    // Slider and number box both set the tilt (clamped to ±20°) and show it in the other one.
+    const tilt = (e, other) => {
+      const it = item(), value = parseFloat(e.target.value); if (!it || !Number.isFinite(value)) return;
+      PhotoEditor.setTilt(it, value); PhotoEditor.manual(it);
+      $(other).value = it.tilt; redraw();
+    };
+    $(`#${p}-tilt-range`).addEventListener('input', e => tilt(e, `#${p}-tilt`));
+    $(`#${p}-tilt`).addEventListener('change', e => { tilt(e, `#${p}-tilt-range`); e.target.value = item()?.tilt ?? 0; });
   }
 
   // Show the selected item's values in the shared controls (whichever of them the page has).
@@ -165,11 +179,13 @@ export const PhotoUI = (() => {
       if (el('blur')) setSeg(el('blur'), it.blur);
       if (el('strength')) el('strength').value = it.strength;
       el('zoom').value = it.zoom;
+      el('tilt-range').value = it.tilt;
+      if (document.activeElement !== el('tilt')) el('tilt').value = +it.tilt.toFixed(1);
     }
     if (el('blur-controls') && el('mode')) el('blur-controls').hidden = !it || it.mode !== 'blur';
     // Zoom has no meaning in fit/blur modes, so the slider is disabled there.
     el('zoom').disabled = !it || !PhotoEditor.canZoom(it);
-    el('tilt').textContent = tiltLabel(it);
+    el('tilt-range').disabled = el('tilt').disabled = !it;
   }
 
   // Measurements and composition guides, remembered per page; ↻ (or O) turns the guide.
