@@ -152,3 +152,16 @@ test('countGrid picks the divisor pair closest to the paper ratio', () => {
   const landscape = S.countGrid(6, { ...paper, orient: 'landscape' });
   assert.deepEqual([landscape.cols, landscape.rows], [3, 2]);
 });
+
+test('cellPath: corner shapes and the radius budget', () => {
+  assert.equal(S.cellPath({ corners: 'square', radius: 5 }, 100, 50), null);
+  assert.equal(S.cellPath({ corners: 'round', radius: 0 }, 100, 50), null);
+  // Round: smoothing 0, so the edge ends one radius before the corner and the arc is the whole corner.
+  const round = S.cellPath({ corners: 'round', radius: 5 }, 100, 50);
+  assert.ok(round.startsWith('M 95 0 c 0 0 0 0 0 0 a 5 5 0 0 1 5 5'), round);
+  // Squircle: the bend starts (1 + 0.6) × 5 = 8 before the corner; radius in mm × scale 2 doubles it.
+  assert.ok(S.cellPath({ corners: 'squircle', radius: 5 }, 100, 50).startsWith('M 92 0 '));
+  assert.ok(S.cellPath({ corners: 'squircle', radius: 5 }, 200, 100, 2).startsWith('M 184 0 '));
+  // Radius 100 on a 100 × 50 cell: capped to half the short side (25), smoothing drops to 0 to fit.
+  assert.ok(S.cellPath({ corners: 'smooth', radius: 100 }, 100, 50).startsWith('M 75 0 c 0 0 0 0 0 0 a 25 25'));
+});

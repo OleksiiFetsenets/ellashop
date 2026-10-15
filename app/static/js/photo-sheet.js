@@ -8,6 +8,7 @@
 //   PhotoSheet.rowsTemplate / bigTemplate / templateRects / sharedSegments / treeDividers
 //   PhotoSheet.applyDivider / snapDivider / findParent / equalizeTree / treeFits
 //                                  ← collage.js collageSheetMM, collageLeaf, ... (same names with the collage prefix)
+//   PhotoSheet.CORNERS / cellPath    new: rounded cell corners (Collage sheet view and export)
 //   PhotoSheet.passportLayout / passportOffsets / fromPassport
 //                                  ← passport.js sheetLayout / passportOffsets (the grid the old passport renderSheet drew)
 
@@ -316,7 +317,43 @@ export const PhotoSheet = (() => {
       : treeFits(child, w, available * node.sizes[i], gap));
   }
 
+  // ------------------------------------------------------------ cell corners
+
+  // Corner shapes = corner smoothing: 0 is a plain circular arc, 0.6 is Apple's continuous (squircle) corner,
+  // 1 the smoothest. 'square' has no rounding.
+  const CORNERS = { square: null, round: 0, squircle: .6, smooth: 1 };
+
+  // Outline of one w × h cell with the sheet's corners, as an SVG path from (0, 0); `scale` turns the
+  // sheet's corner radius (mm) into the units of w and h. Null when the corners are square.
+  // Figma's corner smoothing (figma-squircle): each corner is a short circular arc between two cubic curves
+  // that spread the bend over up to (1 + smoothing) × radius of the edge. Large radii shrink the
+  // smoothing first, then the radius, so the corners never overlap (budget = half the shorter side).
+  function cellPath(sheet, w, h, scale = 1) {
+    const smoothing0 = CORNERS[sheet?.corners] ?? null, budget = Math.min(w, h) / 2;
+    const R = Math.min(Math.max(0, Number(sheet?.radius) || 0) * scale, budget);
+    if (smoothing0 === null || !(R > 0)) return null;
+    const smoothing = Math.min(smoothing0, budget / R - 1), p = Math.min((1 + smoothing) * R, budget);
+    const rad = deg => deg * Math.PI / 180, arcMeasure = 90 * (1 - smoothing);
+    const L = Math.sin(rad(arcMeasure / 2)) * R * Math.SQRT2;            // chord of the circular arc
+    const c = R * Math.tan(rad((90 - arcMeasure) / 4)) * Math.cos(rad(45 * smoothing));
+    const d = c * Math.tan(rad(45 * smoothing)), b = (p - L - c - d) / 3, a = 2 * b;
+    const f = n => +n.toFixed(4), arc = (x, y) => `a ${f(R)} ${f(R)} 0 0 1 ${f(x)} ${f(y)}`;
+    const [A, B, C, D, E] = [a, a + b, a + b + c, b + c, d].map(f);   // E = d
+    return [
+      `M ${f(w - p)} 0`,
+      `c ${A} 0 ${B} 0 ${C} ${E}`, arc(L, L), `c ${E} ${f(c)} ${E} ${D} ${E} ${C}`,
+      `L ${f(w)} ${f(h - p)}`,
+      `c 0 ${A} 0 ${B} ${-E} ${C}`, arc(-L, L), `c ${f(-c)} ${E} ${-D} ${E} ${-C} ${E}`,
+      `L ${f(p)} ${f(h)}`,
+      `c ${-A} 0 ${-B} 0 ${-C} ${-E}`, arc(-L, -L), `c ${-E} ${f(-c)} ${-E} ${-D} ${-E} ${-C}`,
+      `L 0 ${f(p)}`,
+      `c 0 ${-A} 0 ${-B} ${E} ${-C}`, arc(L, -L), `c ${f(c)} ${-E} ${D} ${-E} ${C} ${-E}`,
+      'Z',
+    ].join(' ');
+  }
+
   return {
+    CORNERS, cellPath,
     sheetMM, leaf, equal, gridTree, emptyTree, treeLeaves,
     normalizeTree, nodeRects, sizePack, cellRects, setCellFormats, countGrid,
     passportLayout, passportOffsets, fromPassport,

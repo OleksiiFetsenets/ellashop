@@ -39,12 +39,12 @@ export function collageSavedId(id) {
 export function collageDefaultSheet(copy = null) {
   const sheet = copy ? {
     fmt: copy.fmt, orient: copy.orient, gap: copy.gap, margin: copy.margin,
-    gapColor: copy.gapColor, cutLines: copy.cutLines, density: copy.density,
+    gapColor: copy.gapColor, cutLines: copy.cutLines, density: copy.density, corners: copy.corners, radius: copy.radius,
     layout: copy.layout, sizeCell: copy.sizeCell ? { ...copy.sizeCell } : null,
     root: PhotoSheet.emptyTree(copy.root),
   } : {
     fmt: FORMATS[0], orient: 'portrait', gap: 0, margin: 0, gapColor: '#ffffff',
-    cutLines: true, density: 0, layout: 'grid', sizeCell: { w: 50, h: 75 }, root: PhotoSheet.gridTree(2, 2),
+    cutLines: true, density: 0, corners: 'square', radius: 3, layout: 'grid', sizeCell: { w: 50, h: 75 }, root: PhotoSheet.gridTree(2, 2),
   };
   sheet.id = `sheet-${nextCollageSheetId++}`;
   return sheet;

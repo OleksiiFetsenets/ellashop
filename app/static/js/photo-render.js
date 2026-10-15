@@ -332,7 +332,8 @@ export const PhotoRender = (() => {
   }
 
   // Draw a sheet of cells (Collage) at `dpi`: paper colour, white empty cells, each photo rendered at
-  // print quality, then 2 px cut lines along shared cell edges (only when the gap is 0).
+  // print quality and clipped to the sheet's cell corners (PhotoSheet.cellPath), then 2 px cut lines along
+  // shared cell edges (only when the gap is 0).
   // `cellRects` are the PhotoSheet.cellRects(sheet) boxes in mm; cutLines defaults to the sheet's setting.
   // A `link`ed sheet (Passport) repeats one photo: each item is rendered once and drawn into every cell.
   // cutLines 'full' (Passport) draws the lines across the whole paper at every edge of the size-packed grid.
@@ -343,12 +344,15 @@ export const PhotoRender = (() => {
     const linked = new Map();
     for (const rect of cellRects) {
       const x = mm2px(rect.x, dpi), y = mm2px(rect.y, dpi), w = mm2px(rect.w, dpi), h = mm2px(rect.h, dpi);
-      if (!rect.leaf.item) { ctx.fillStyle = '#ffffff'; ctx.fillRect(x, y, w, h); continue; }
+      const corners = PhotoSheet.cellPath(sheet, w, h, dpi / 25.4);
+      ctx.save();
+      if (corners) { ctx.translate(x, y); ctx.clip(new Path2D(corners)); ctx.translate(-x, -y); }
       const item = rect.leaf.item;
       const draw = () => renderHQ(w, h, shrinks(item, w, h), (c, cw, ch) => renderItem(c, item, cw, ch));
-      if (!sheet.link) { ctx.drawImage(draw(), x, y, w, h); continue; }
-      if (!linked.has(item)) linked.set(item, draw());
-      ctx.drawImage(linked.get(item), x, y, w, h);
+      if (!item) { ctx.fillStyle = '#ffffff'; ctx.fillRect(x, y, w, h); }
+      else if (!sheet.link) ctx.drawImage(draw(), x, y, w, h);
+      else { if (!linked.has(item)) linked.set(item, draw()); ctx.drawImage(linked.get(item), x, y, w, h); }
+      ctx.restore();
     }
     if (cutLines === 'full') {
       const pack = PhotoSheet.sizePack(sheet), CUT = 2; // cut line width in px (≈0.17 mm at 300 DPI)

@@ -231,8 +231,9 @@ export function renderCollageSheetView() {
   box.replaceChildren();
   for (const rect of rects) {
     const cell = collageCellElement(rect.leaf); cell._rect = rect;
+    const corners = PhotoSheet.cellPath(sheet, rect.w * scale, rect.h * scale, scale);
     Object.assign(cell.style, { left: `${rect.x / paper.w * 100}%`, top: `${rect.y / paper.h * 100}%`,
-      width: `${rect.w / paper.w * 100}%`, height: `${rect.h / paper.h * 100}%` });
+      width: `${rect.w / paper.w * 100}%`, height: `${rect.h / paper.h * 100}%`, clipPath: corners ? `path('${corners}')` : '' });
     box.append(cell); collagePopulateCell(cell, rect.leaf, sheet);
   }
   box.append(...collageRenderCutLines(sheet, rects, paper), ...collageRenderDividers(sheet, paper), ...collageRenderMagnetGuide(sheet, paper));

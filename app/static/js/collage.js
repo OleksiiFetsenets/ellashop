@@ -168,7 +168,7 @@ function collageState() {
     photos: collage.photos.map(({ file, name }) => ({ file, name })),
     sheets: collage.sheets.map(sheet => ({
       id: sheet.id, fmt: sheet.fmt.id, orient: sheet.orient, gap: sheet.gap, margin: sheet.margin,
-      gapColor: sheet.gapColor, cutLines: sheet.cutLines, density: sheet.density,
+      gapColor: sheet.gapColor, cutLines: sheet.cutLines, density: sheet.density, corners: sheet.corners, radius: sheet.radius,
       layout: sheet.layout, sizeCell: sheet.sizeCell ? { ...sheet.sizeCell } : null, root: tree(sheet.root),
     })),
     active: collage.active, view: collage.view,
@@ -198,6 +198,8 @@ async function collageSheetFromState(saved, imageFor) {
     orient: saved.orient === 'landscape' ? 'landscape' : 'portrait', gap: Number(saved.gap) || 0,
     margin: Number(saved.margin) || 0, gapColor: saved.gapColor === '#000000' ? '#000000' : '#ffffff',
     cutLines: saved.cutLines !== false, density: Math.max(-5, Math.min(5, Number(saved.density) || 0)),
+    corners: saved.corners in PhotoSheet.CORNERS ? saved.corners : 'square',
+    radius: Math.max(0, Math.min(30, Number(saved.radius) || 0)) || 3,
     layout: ['grid', 'size', 'template', 'custom'].includes(saved.layout) ? saved.layout : 'grid',
     sizeCell: saved.sizeCell && Number(saved.sizeCell.w) > 0 && Number(saved.sizeCell.h) > 0
       ? { w: Number(saved.sizeCell.w), h: Number(saved.sizeCell.h) } : { w: 50, h: 75 },

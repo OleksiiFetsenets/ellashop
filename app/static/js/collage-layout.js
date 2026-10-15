@@ -73,6 +73,8 @@ export function syncCollageControls() {
   $('#collage-gap').value = sheet.gap; $('#collage-margin').value = sheet.margin;
   $('#collage-magnet').checked = collageMagnet.on;
   setSeg($('#collage-gap-color'), sheet.gapColor); $('#collage-cutlines').checked = !!sheet.cutLines;
+  setSeg($('#collage-corners'), sheet.corners); $('#collage-radius').value = sheet.radius;
+  $('#collage-radius').disabled = sheet.corners === 'square';
   $('#collage-density').classList.toggle('changed', !!sheet.density);
   syncCollageDensity();
   if (sheet.sizeCell) { $('#collage-cell-w').value = sheet.sizeCell.w / 10; $('#collage-cell-h').value = sheet.sizeCell.h / 10; }
@@ -240,4 +242,10 @@ function collageMetricChange(key, input) {
 $('#collage-gap').addEventListener('change', e => collageMetricChange('gap', e.currentTarget));
 $('#collage-margin').addEventListener('change', e => collageMetricChange('margin', e.currentTarget));
 wireSeg($('#collage-gap-color'), color => { const sheet = collageSheet(); sheet.gapColor = color; collageChanged(); });
+wireSeg($('#collage-corners'), corners => { collageSheet().corners = corners; collageChanged(); });
+$('#collage-radius').addEventListener('change', e => {
+  const input = e.currentTarget, next = Number(input.value);
+  if (!input.validity.valid || input.value === '' || !(next > 0) || next > 30) { input.value = collageSheet().radius; return; }
+  collageSheet().radius = next; collageChanged();
+});
 $('#collage-cutlines').addEventListener('change', e => { const sheet = collageSheet(); sheet.cutLines = e.currentTarget.checked; collageChanged(); });
